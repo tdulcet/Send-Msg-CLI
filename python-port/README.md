@@ -14,8 +14,10 @@ necessary:
 
 # Road Map
 
-1) Make basic PyPi installation to get the idea of how it will work
+~1) Make basic PyPi installation to get the idea of how it will work~
+ ~- follow these instructions: https://packaging.python.org/tutorials/packaging-projects/~
 2 or 3) Setup text and email notification
+ - follow these instructions: https://packaging.python.org/tutorials/packaging-projects/
 4) add advanced functionality.
  - create a list of phone provider gateways to output to user.
  - add other more advanced script features.
