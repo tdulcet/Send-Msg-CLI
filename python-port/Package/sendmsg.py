@@ -12,14 +12,21 @@
 
 # Run: Python3 sendmsg.py <OPTION(S)>... -s <subject>
 
-set -e
+import sys
+import subprocess
+from os import environ
+
+#set -e # NOTE: I don't know of a Python port for this...
 
 # Set the variables below
 
 # Send e-mails
 # Comment this out to temporally disable
-SEND=1
+environ["SEND"]=1
 
+
+# NOTE I don't knowhow to have an environment be () in Python3
+'''
 # To e-mail addresses
 # Send SMSs by using your mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients)
 TOEMAILS=(
@@ -35,6 +42,7 @@ CCEMAILS=(
 BCCEMAILS=(
 
 )
+'''
 
 # Optional From e-mail address
 # FROMEMAIL="Example <example@example.com>"
@@ -43,9 +51,9 @@ BCCEMAILS=(
 # Supported protocols: "smtp" and "smtps".
 # Requires From e-mail address above
 
-SMTP="smtps://mail.example.com"
-USERNAME="danc2"
-PASSWORD="School21!"
+environ["SMTP"]="smtps://mail.example.com"
+environ["USERNAME"="danc2"
+environ["PASSWORD"]="School21!"
 
 # E-mail Priority
 # Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"
@@ -61,7 +69,7 @@ PASSWORD="School21!"
 
 # CERT="cert.p12"
 
-CLIENTCERT="cert.pem"
+#CLIENTCERT="cert.pem" # NOTE: I commented this out
 
 # Optional Digitally sign the e-mails with PGP/MIME
 # Requires SMTP server above
@@ -73,7 +81,7 @@ CLIENTCERT="cert.pem"
 # PASSPHRASE="passphrase"
 
 # Days to warn before certificate expiration
-WARNDAYS=3
+#WARNDAYS=3 # NOTE: I commented this out
 
 # Compress attachment(s) with zip
 # Uncomment this to enable
@@ -158,22 +166,23 @@ def usage():
     "$ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -k \"passphrase\" -t \"Example <example@example.com>\""+
 ")"
 
-if [[ "$#" -eq 0 ]]; then
-	usage "$0"
-	exit 1
-fi
+if len(sys.argv) == 0:
+	print(usage())
+	sys.exit(1)
 
-NOW=$(date -u)
+p = subprocess.Popen(['date', '-u'], stdout=subprocess.PIPE, shell=True)
+date = a.stdout.readlines()[0].strip().decode("utf-8")
+environ["SUBJECT"]=''
+environ["MESSAGE"]=''
+environ["ATTACHMENTS"]=()
 
-SUBJECT=''
-MESSAGE=''
-ATTACHMENTS=()
-
-# Check if on Linux
-if ! echo "$OSTYPE" | grep -iq "linux"; then
-	echo "Error: This script must be run on Linux." >&2
-	exit 1
-fi
+# Check if Linux OS
+    # some help: https://stackoverflow.com/questions/5971312/how-to-set-environment-variables-in-python
+CMD = 'echo $%s' % "OSTYPE"
+p = subprocess.Popen(CMD, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
+if "linux" in p.stdout.readlines()[0].strip().decode("utf-8")):
+	sys.stderr.write("Error: This script must be run on Linux.")
+	sys.exit(1)
 
 while getopts "a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V" c; do
 	case ${c} in
@@ -240,11 +249,11 @@ while getopts "a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V" c; do
 	esac
 done
 shift $((OPTIND - 1))
-
-if [[ "$#" -ne 0 ]]; then
-	usage "$0"
-	exit 1
-fi
+# NOTE: I don't understand why we have this...
+# TODO -- I stopped here.
+if len(sys.argv) != 0:
+	usage()
+	sys.exit(1)
 
 if [[ -z "$SUBJECT" ]]; then
 	echo "Error: A subject is required." >&2
