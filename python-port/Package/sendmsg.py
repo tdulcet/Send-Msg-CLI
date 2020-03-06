@@ -16,8 +16,6 @@ import sys
 import subprocess
 from os import environ
 
-#set -e # NOTE: I don't know of a Python port for this...
-
 # Set the variables below
 
 # Send e-mails
@@ -69,7 +67,7 @@ environ["PASSWORD"]="School21!"
 
 # CERT="cert.p12"
 
-#CLIENTCERT="cert.pem" # NOTE: I commented this out
+environ["CLIENTCERT"]="cert.pem"
 
 # Optional Digitally sign the e-mails with PGP/MIME
 # Requires SMTP server above
@@ -81,7 +79,7 @@ environ["PASSWORD"]="School21!"
 # PASSPHRASE="passphrase"
 
 # Days to warn before certificate expiration
-#WARNDAYS=3 # NOTE: I commented this out
+environ["WARNDAYS"]=3
 
 # Compress attachment(s) with zip
 # Uncomment this to enable
@@ -177,13 +175,14 @@ environ["MESSAGE"]=''
 environ["ATTACHMENTS"]=()
 
 # Check if Linux OS
-    # some help: https://stackoverflow.com/questions/5971312/how-to-set-environment-variables-in-python
+    # some help from: https://stackoverflow.com/questions/5971312/how-to-set-environment-variables-in-python
 CMD = 'echo $%s' % "OSTYPE"
 p = subprocess.Popen(CMD, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
 if "linux" in p.stdout.readlines()[0].strip().decode("utf-8")):
 	sys.stderr.write("Error: This script must be run on Linux.")
 	sys.exit(1)
 
+# TODO -- I stopped here.
 while getopts "a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V" c; do
 	case ${c} in
 	a )
@@ -243,27 +242,34 @@ while getopts "a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V" c; do
 		VERBOSE=1
 	;;
 	\? )
-		echo -e "Try '$0 -h' for more information.\n" >&2
-		exit 1
+		sys.stderr.write("Try '$0 -h' for more information.\n")
+		sys.exit(1)
 	;;
 	esac
 done
 shift $((OPTIND - 1))
 # NOTE: I don't understand why we have this...
-# TODO -- I stopped here.
 if len(sys.argv) != 0:
 	usage()
 	sys.exit(1)
 
-if [[ -z "$SUBJECT" ]]; then
-	echo "Error: A subject is required." >&2
-	exit 1
-fi
+def get_var(VAR):
+    CMD = 'echo $%s' % VAR
+    p = subprocess.Popen(CMD, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
+    return p.stdout.readlines()[0].strip().decode("utf-8")
 
-if [[ -n "$PRIORITY" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USERNAME" || -n "$PASSWORD" ]] && ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]]; then
-	echo -e "Warning: One or more of the options you set requires that you also provide an external SMTP server. Try '$0 -h' for more information.\n"
-fi
+if len(get_var("SUBJECT")) > 0:
+	sys.stderr.write("Error: A subject is required.")
+	sys.exit(1)
 
+# checking to see if vars have been set or not.
+var_list = ["PRIORITY", "CERT", "PASSPHRASE", "SMTP", "USERNAME", "PASSWORD"]
+if (len(list(map(get_var, var_list))) > 0) && not(len(get_var("FROMEMAIL"))>0 && len(get_var("SMTP"))>0):
+	sys.stderr.write("Warning: One or more of the options you set requires that you also provide an external SMTP server. Try '$0 -h' for more information.\n")
+
+
+
+# TODO -- check with Teal on the translation of this one...
 if [[ "${#TOEMAILS[@]}" -eq 0 && "${#CCEMAILS[@]}" -eq 0 && "${#BCCEMAILS[@]}" -eq 0 ]]; then
 	echo "Error: One or more To, CC or BCC e-mail addresses are required." >&2
 	exit 1
