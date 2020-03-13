@@ -14,13 +14,12 @@
 
 import sys
 import subprocess
-from os import environ
 
 # Set the variables below
 
 # Send e-mails
 # Comment this out to temporally disable
-environ["SEND"]=1
+SEND=1
 
 
 # NOTE I don't knowhow to have an environment be () in Python3
@@ -49,9 +48,9 @@ BCCEMAILS=(
 # Supported protocols: "smtp" and "smtps".
 # Requires From e-mail address above
 
-environ["SMTP"]="smtps://mail.example.com"
-environ["USERNAME"="danc2"
-environ["PASSWORD"]="School21!"
+SMTP="smtps://mail.example.com"
+USERNAME="danc2"
+PASSWORD="School21!"
 
 # E-mail Priority
 # Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"
@@ -67,7 +66,7 @@ environ["PASSWORD"]="School21!"
 
 # CERT="cert.p12"
 
-environ["CLIENTCERT"]="cert.pem"
+CLIENTCERT="cert.pem"
 
 # Optional Digitally sign the e-mails with PGP/MIME
 # Requires SMTP server above
@@ -79,7 +78,7 @@ environ["CLIENTCERT"]="cert.pem"
 # PASSPHRASE="passphrase"
 
 # Days to warn before certificate expiration
-environ["WARNDAYS"]=3
+WARNDAYS=3
 
 # Compress attachment(s) with zip
 # Uncomment this to enable
@@ -170,9 +169,9 @@ if len(sys.argv) == 0:
 
 p = subprocess.Popen(['date', '-u'], stdout=subprocess.PIPE, shell=True)
 date = a.stdout.readlines()[0].strip().decode("utf-8")
-environ["SUBJECT"]=''
-environ["MESSAGE"]=''
-environ["ATTACHMENTS"]=()
+SUBJECT=''
+MESSAGE=''
+ATTACHMENTS=()
 
 # Check if Linux OS
     # some help from: https://stackoverflow.com/questions/5971312/how-to-set-environment-variables-in-python
