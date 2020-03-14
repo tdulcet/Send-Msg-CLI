@@ -1,7 +1,14 @@
 #!/usr/bin/python3
 
 # Daniel Connelly
- # based off of Tdulcet's sendmsg.sh script
+ '''based off of Tdulcet's sendmsg.sh script
+
+ ROADMAP:
+ 1) Create a Python port to enable my understanding of the program and experiment with a config file.
+ 2) Add a parser that takes in CMDLine arguments from a .ini config file. (Will do separately, then merge)
+ 3) Push this to the PyPi test repo.
+ 4) Push this to the real PyPi repo and advertise as an Open Source Project.
+ '''
 
 # Send e-mail, with optional message and attachments
 
