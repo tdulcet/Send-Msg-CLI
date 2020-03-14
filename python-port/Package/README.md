@@ -1,3 +1,9 @@
+# Python Port of Teal Dulcet's sendmsg.sh Script
+
+## Libraries to use (Suggestion credit: Teal Dulcet)
+[email](https://docs.python.org/3/library/email.html)
+[smptlib](https://docs.python.org/3/library/smtplib.html) -- I like this especially
+
 ## Ways to Email Oneself
 
 # With script

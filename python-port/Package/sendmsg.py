@@ -22,13 +22,9 @@ import subprocess
 SEND=1
 
 
-# NOTE I don't knowhow to have an environment be () in Python3
-'''
 # To e-mail addresses
 # Send SMSs by using your mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients)
-TOEMAILS=(
-
-)
+TOEMAILS=""
 
 # CC e-mail addresses
 CCEMAILS=(
@@ -39,7 +35,6 @@ CCEMAILS=(
 BCCEMAILS=(
 
 )
-'''
 
 # Optional From e-mail address
 # FROMEMAIL="Example <example@example.com>"
