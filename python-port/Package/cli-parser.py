@@ -2,6 +2,7 @@
 
 import sys
 import getopt
+import datetime
 
 '''The purpose of this file is to parse all flags given on the cmdline.
    Skipping to the bottom main function is where the control-flow begins.
@@ -13,17 +14,33 @@ import getopt
   rather than the entire help menu.
 2. Create "long" options for options.
   Reminder: Update help menu and getopts (if long options are available)
+3. Do we need the check that we are on linux now with this Python script version? Ask Teal.
 '''
 
 ###Variables
 
-# Send SMSs by using your mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients)
-VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":"","SMTP":"","USERNAME":"","PASSWORD":""}
+# TODO -- I want to rework the way that I indicate an email is being sent... like an "(-e,--email)" flag?
+'''
+# Send e-mails
+# Comment this out to temporally disable
+SEND=1
+'''
 
-CLIENTCERT="cert.pem"
+VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"Normal","CERT":"cert.p12","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":"1","NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[]}
+
+# TODO -- add these
+'''
+TOADDRESSES=( "${TOEMAILS[@]}" )
+TONAMES=( "${TOEMAILS[@]}" )
+CCADDRESSES=( "${CCEMAILS[@]}" )
+CCNAMES=( "${CCEMAILS[@]}" )
+BCCADDRESSES=( "${BCCEMAILS[@]}" )
+FROMADDRESS=$FROMEMAIL
+FROMNAME=$FROMEMAIL
+'''
 
 # Output usage
-# usage <programname>
+# usage <program name>
 def usage():
     print("Usage:  $1 <OPTION(S)>... -s <subject>\n"+
     "or:     $1 <OPTION>\n"+
@@ -95,9 +112,11 @@ def usage():
 def assign_variables(opt, arg):
     '''Find the correct variable to assign the opt to.
     '''
-    # TODO - make VARS (top of file) a dictionary so you can assign these values in O(1) time.
-
-    if opt in ("-a"): VARS["ATTACHMENTS"].append(arg)
+    # TODO -- finish where you left off...
+    if opt in ("-a"):
+        print("ENTERED")
+        VARS["ATTACHMENTS"].append(arg)
+        print(VARS["ATTACHMENTS"])
 
     '''
 	;;
@@ -161,17 +180,32 @@ def main(argv):
     try:
         #opts, args = getopt.getopt(argv,"hi:o:")
         opts, args = getopt.getopt(argv,"a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V")
-    except getopt.GetoptError:
+    except getopt.GetoptError: # throws when flag is not in the set in the above line
         usage()
         sys.exit(2)
 
     print(opts, args)
     print(len(opts), len(args))
+    # TODO
+    '''
+    1. get rid of function "assign_variables". We can do this because we either assign a string
+       or append to a list if we find an opt on our command line.
+       We must have the long flag version (e.g., -a => --attachments), and
+       then we can say opt = opt[1:].upper() and then we can say:
+
+        if opt in VARS:
+            if type(VARS[opt]) is list(): # we have a list
+                VARS[opt].append(arg)
+        else: # we have a string
+            VARS[opt]=arg
+
+        # The only exceptions are verbose (set to 1) and version (echo), which you can program if cases for
+        manually
+    '''
+
     for opt, arg in opts:
         assign_variables(opt, arg)
-        print(opt, arg)
-
-
+        #print(opt, arg)
 
 if __name__=="__main__":
     main(sys.argv[1:])
