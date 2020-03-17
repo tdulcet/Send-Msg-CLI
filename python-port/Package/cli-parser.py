@@ -12,8 +12,7 @@ import datetime
 '''
 1. Switch to argparse? Argparse enables the ability to output a specific help message
   rather than the entire help menu.
-2. Create "long" options for options.
-  Reminder: Update help menu and getopts (if long options are available)
+2. Reminder: Update help menu with getopts
 3. Do we need the check that we are on linux now with this Python script version? Ask Teal.
 '''
 
@@ -28,7 +27,10 @@ SEND=1
 
 VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"Normal","CERT":"cert.p12","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":"1","NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[]}
 
-# TODO -- add these
+# Note, I did not use "toaddress",but rather the already existing "temails" as its equivalent (I think)
+LOPTIONS={"-s":"--subject", "-m":"--message","-a":"--attachments", "-t":"--toemails", "-c":"--ccemails", "-b":"--bccemails", "-f":"--fromemail", "-S":"--smtp", "-u":"--username", "-p":"--password", "-P":"--priority", "-C":"--certificate", "-k":"--passphrase", "-z":"--zipfile", "-d":"--dryrun", "-V":"--verbose", "-h":"--help", "-v":"--version"}
+# TODO -- long option naming like "bcc-emails" is non-sensical as it only takes one at a time...
+# TODO -- add these somehow...or just reuse the original names
 '''
 TOADDRESSES=( "${TOEMAILS[@]}" )
 TONAMES=( "${TOEMAILS[@]}" )
@@ -109,104 +111,65 @@ def usage():
 
         "Send e-mail digitally signed with PGP/MIME"+ "$ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -k \"passphrase\" -t \"Example <example@example.com>\""+")\n")
 
-def assign_variables(opt, arg):
-    '''Find the correct variable to assign the opt to.
-    '''
-    # TODO -- finish where you left off...
-    if opt in ("-a"):
-        print("ENTERED")
-        VARS["ATTACHMENTS"].append(arg)
-        print(VARS["ATTACHMENTS"])
+def assign(opts):
+    '''assign the correct opts'''
+    for opt, arg in opts:
+        if opt in ("-a", "--attachments"):
+            VARS["ATTACHMENTS"].append(arg)
+        elif opt in ("-b", "--bccemails"):
+            VARS["BCCEMAILS"].append(arg)
+        elif opt in ("-c", "--ccemails"):
+            VARS["CCEMAILS"].append(arg)
+        elif opt in ("-d", "--dryrun"):
+            pass # TODO
+        elif opt in ("-f", "--fromemail"):
+            VARS["FROMEMAIL"] = arg
+        elif opt in ("-h", "--help"):
+            usage()
+            sys.exit(2)
+        elif opt in ("-k", "--passphrase"):
+            VARS["PASSPHRASE"]=arg
+        elif opt in ("-m", "--message"):
+            VARS["MESSAGE"]=arg
+        elif opt in ("-p", "--password"):
+            VARS["PASSWORD"]=arg
+        elif opt in ("-s", "--subject"):
+            VARS["SUBJECT"]=arg
+        elif opt in ("-t", "--toemails"):
+            VARS["TOEMAILS"].append(arg)
+        elif opt in ("-u", "--username"):
+            VARS["USERNAME"]= arg
+        elif opt in ("-v", "--version"):
+            print("Send Msg CLI 1.0\n")
+            sys.exit(0)
+        elif opt in ("-z", "--zipfile"):
+            VARS["ZIPFILE"]= arg
+        elif opt in ("-C", "--cert"):
+            VARS["CERT"]= arg
+        elif opt in ("-P", "--priority"):
+            VARS["PRIORITY"]= arg
+        elif opt in ("-S", "--smtp"):
+            VARS["PRIORITY"]= arg
+        elif opt in ("-V", "--VERBOSE"):
+            VARS["VERBOSE"]= arg
 
-    '''
-	;;
-	b )
-		BCCEMAILS+=( "$OPTARG" )
-	;;
-	c )
-		CCEMAILS+=( "$OPTARG" )
-	;;
-	d )
-		SEND=''
-	;;
-	f )
-		FROMEMAIL=$OPTARG
-	;;
-	h )
-		usage "$0"
-		exit 0
-	;;
-	k )
-		PASSPHRASE=$OPTARG
-	;;
-	m )
-		MESSAGE=$OPTARG
-	;;
-	p )
-		PASSWORD=$OPTARG
-	;;
-	s )
-		SUBJECT=$OPTARG
-	;;
-	t )
-		TOEMAILS+=( "$OPTARG" )
-	;;
-	u )
-		USERNAME=$OPTARG
-	;;
-	v )
-		echo -e "Send Msg CLI 1.0\n"
-		exit 0
-	;;
-	z )
-		ZIPFILE=$OPTARG
-	;;
-	C )
-		CERT=$OPTARG
-	;;
-	P )
-		PRIORITY=$OPTARG
-	;;
-	S )
-		SMTP=$OPTARG
-	;;
-	V )
-		VERBOSE=1
-	;;
-	\? )
-    '''
-
-def main(argv):
+def parse(argv):
+    '''Find the correct variable to assign the opt to.'''
+    # Parsing. Erroneous flags throw exception.
     try:
-        #opts, args = getopt.getopt(argv,"hi:o:")
-        opts, args = getopt.getopt(argv,"a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V")
-    except getopt.GetoptError: # throws when flag is not in the set in the above line
+        # TODO -- "passphrase" does not match with variable 'k'. Why not "key"? Ask Teal
+        opts, args = getopt.getopt(argv,"a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V",
+                ["attachments=", "bccemails=", "ccemails=", "dryrun=", "fromemail=", "help=",
+                    "passphrase=", "subject=", "toaddress=", "username=", "version=", "zipfile=",
+                    "cert=", "priority=", "smtp=", "verbose="])
+    except getopt.GetoptError:
         usage()
         sys.exit(2)
+    assign(opts)
+    #print(VARS)
 
-    print(opts, args)
-    print(len(opts), len(args))
-    # TODO
-    '''
-    1. get rid of function "assign_variables". We can do this because we either assign a string
-       or append to a list if we find an opt on our command line.
-       We must have the long flag version (e.g., -a => --attachments), and
-       then we can say opt = opt[1:].upper() and then we can say:
-
-        if opt in VARS:
-            if type(VARS[opt]) is list(): # we have a list
-                VARS[opt].append(arg)
-        else: # we have a string
-            VARS[opt]=arg
-
-        # The only exceptions are verbose (set to 1) and version (echo), which you can program if cases for
-        manually
-    '''
-
-    for opt, arg in opts:
-        assign_variables(opt, arg)
-        #print(opt, arg)
+def main(argv):
+    parse(argv)
 
 if __name__=="__main__":
     main(sys.argv[1:])
-
