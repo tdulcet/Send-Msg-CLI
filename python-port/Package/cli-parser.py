@@ -12,8 +12,6 @@ import datetime
 '''
 1. Switch to argparse? Argparse enables the ability to output a specific help message
   rather than the entire help menu.
-2. Reminder: Update help menu with getopts
-3. Do we need the check that we are on linux now with this Python script version? Ask Teal.
 '''
 
 ###Variables
@@ -28,6 +26,7 @@ SEND=1
 VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"Normal","CERT":"cert.p12","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":"1","NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[]}
 
 # Note, I did not use "toaddress",but rather the already existing "temails" as its equivalent (I think)
+# TODO -- get rid of?
 LOPTIONS={"-s":"--subject", "-m":"--message","-a":"--attachments", "-t":"--toemails", "-c":"--ccemails", "-b":"--bccemails", "-f":"--fromemail", "-S":"--smtp", "-u":"--username", "-p":"--password", "-P":"--priority", "-C":"--certificate", "-k":"--passphrase", "-z":"--zipfile", "-d":"--dryrun", "-V":"--verbose", "-h":"--help", "-v":"--version"}
 # TODO -- long option naming like "bcc-emails" is non-sensical as it only takes one at a time...
 # TODO -- add these somehow...or just reuse the original names
@@ -43,6 +42,7 @@ FROMNAME=$FROMEMAIL
 
 # Output usage
 # usage <program name>
+# TODO -- add long option flags
 def usage():
     print("Usage:  $1 <OPTION(S)>... -s <subject>\n"+
     "or:     $1 <OPTION>\n"+
@@ -139,7 +139,7 @@ def assign(opts):
             VARS["TOEMAILS"].append(arg)
         elif opt in ("-u", "--username"):
             VARS["USERNAME"]= arg
-        elif opt in ("-v", "--version"):
+        elif opt in ("-v", "--version"): # TODO -- longoption does not work
             print("Send Msg CLI 1.0\n")
             sys.exit(0)
         elif opt in ("-z", "--zipfile"):
@@ -159,17 +159,67 @@ def parse(argv):
     try:
         # TODO -- "passphrase" does not match with variable 'k'. Why not "key"? Ask Teal
         opts, args = getopt.getopt(argv,"a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V",
-                ["attachments=", "bccemails=", "ccemails=", "dryrun=", "fromemail=", "help=",
-                    "passphrase=", "subject=", "toaddress=", "username=", "version=", "zipfile=",
+                ["attachments=", "bccemails=", "ccemails=", "dryrun=", "fromemail=", "help",
+                    "passphrase=", "subject=", "toaddress=", "username=", "version", "zipfile=",
                     "cert=", "priority=", "smtp=", "verbose="])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
     assign(opts)
-    #print(VARS)
+
+def error_exit(condition, err):
+    '''print an error and exit when one occurs'''
+    if condition:
+        sys.stderr.write(err)
+        sys.exit(1)
+
+def checks():
+    '''Does a number of checks, including regex on the input'''
+    # Check if Linux OS
+      # https://stackoverflow.com/questions/5971312/how-to-set-environment-variables-in-python
+    CMD = 'echo $%s' % "OSTYPE"
+    p = subprocess.Popen(CMD, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
+    error_exit("linux" in p.stdout.readlines()[0].strip().decode("utf-8"),"Error: This script must be run on Linux.")
+
+    # Check if lines are
+    if not VARS["SUBJECT"]:
+        error_exit(True, "Error: A subject is required")
+
+    if VARS["PRIORITY"] or VARS["CERT"] or VARS["PASSPHRASE"] or VARS["SMTP"] or VARS["USERNAME"]
+        or VARS["PASSWORD"] and ((VARS["FROMEMAIL"] and VARS "SMTP"]) == False):
+            error_exit(True, "Warning: One or more of the options you set requires that you also provide an external SMTP server. Try '$0 -h' for more information.\n")
+
+    if not VARS["TOEMAILS"] and not VARS["CCEMAILS"] and not VARS["BCCEMAILS"]:
+        error_exit(True, "Error: One or more To, Cc, or BCC e-mail addresses are required.")
+
+    if VARS["ATTACHMENTS"]
+        TOTAL=0
+        table=''
+        for attachment in VARS["ATTACHMENTS"]:
+            if not attachment or not (os.exists(attachment) and os.access(attachment, os.R_OK)):
+                error_exit(True, f'Error: Cannot read {attachment} file.')
+
+    zip_file = VARS["ZIPFILE"]
+    if len(zip_file) > 0:
+        if os.exists(zip_file):
+            error_exit(True, f'Error: File {zip_file} already exists.')
+
+        # TODO -- Teal? Line 281
+        os.system("zip -q " + zip_file + VARS["ATTACHMENTS"] # TODO --Does this zip all attachments in Python3 like it does in Bash? Needs testing...
+        os.system("trap rm \"" + zip_file + "\" EXIT") # TODO -- some issue with trap "trap: file.txt: bad trap" ...try to fix it.
+
+
+
+    #for var in VARS:
+        #if type(var) == str: #
+
 
 def main(argv):
     parse(argv)
 
 if __name__=="__main__":
+    if len(sys.argv) == 0:
+        usage()
+        sys.exit(1)
+
     main(sys.argv[1:])
