@@ -230,7 +230,8 @@ def encoded_word(text):
     else
         print(subprocess.check_output("echo \"=?utf-8?B?$(echo \"Daniel\" | base64 -w 0)?=\"", shell=True).decode().strip("\n"))
 
-# get email addresses TODO: make a function
+# Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
+# TODO: make a function
 
 TOADDRESSES=VARS["TOEMAILS"]
 TONAMES=VARS["TOEMAILS"]
