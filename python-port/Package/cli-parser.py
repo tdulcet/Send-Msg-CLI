@@ -230,6 +230,8 @@ def encoded_word(text):
     else
         print(subprocess.check_output("echo \"=?utf-8?B?$(echo \"Daniel\" | base64 -w 0)?=\"", shell=True).decode().strip("\n"))
 
+# get email addresses TODO: make a function
+
 TOADDRESSES=VARS["TOEMAILS"]
 TONAMES=VARS["TOEMAILS"]
 CCADDRESSES=VARS["CCEMAILS"]
@@ -241,18 +243,16 @@ FROMNAME=VARS["FROMEMAIL"]
 RE=r'^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'
 for i in range(len(TOADDRESSES)):
     if re.match(TOADDRESSES[i], RE):
-        # TODO -- find a way to convert the idea of bash_rematch:
+        # TODO -- find a way to convert the idea of bash_rematch to Python (search re library)
             # https://www.linuxjournal.com/content/bash-regular-expressions
         TOADDRESSES[i] =
-for i in VARS["CCEMAILS"]:
 
-for i in VARS["CCEMAILS"]:
+for i in CCADDRESSES:
 
-for i in VARS["BCCEMAILS"]:
+for i in BCCADDRESSES:
 
-for i in VARS["FROMEMAIL"]:
+for i in FROMADDRESS:
 
-for i in VARS["FROMEMAIL"]:
 
 def main(argv):
     parse(argv)
