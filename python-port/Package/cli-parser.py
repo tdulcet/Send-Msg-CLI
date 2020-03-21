@@ -199,20 +199,60 @@ def checks():
             if not attachment or not (os.exists(attachment) and os.access(attachment, os.R_OK)):
                 error_exit(True, f'Error: Cannot read {attachment} file.')
 
-    zip_file = VARS["ZIPFILE"]
-    if len(zip_file) > 0:
-        if os.exists(zip_file):
-            error_exit(True, f'Error: File {zip_file} already exists.')
+        zip_file = VARS["ZIPFILE"]
+        if len(zip_file) > 0:
+            if os.exists(zip_file):
+                error_exit(True, f'Error: File {zip_file} already exists.')
 
-        # TODO -- Teal? Line 281
-        os.system("zip -q " + zip_file + VARS["ATTACHMENTS"] # TODO --Does this zip all attachments in Python3 like it does in Bash? Needs testing...
-        os.system("trap rm \"" + zip_file + "\" EXIT") # TODO -- some issue with trap "trap: file.txt: bad trap" ...try to fix it.
+            os.system("zip -q " + zip_file + "\n".join(VARS["ATTACHMENTS"])) # TODO --Does this zip all attachments in Python3 like it does in Bash? Needs testing...
+            os.system("trap rm \"" + zip_file + "\" EXIT") # TODO -- some issue with trap "trap: file.txt: bad trap" ...try to fix it.
+
+            VARS["ATTACHMENTS"].append(zip_file)
+
+        # TODO # Creating something to do with attachments
+        for attachments in VARS["ATTACHMENTS"]:
+            pass
 
 
 
-    #for var in VARS:
-        #if type(var) == str: #
+        if TOTAL >= 26214400:
+            error_exit(True, "Warning: The total size of all attachments is greater than 25 MiB. The message may     be rejected by your or the recipient's mail server. You may want to upload large files to an external stor    age service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
 
+    if not (VARS["FROMEMAIL"] and VARS["SMTP"]) and not os.system("nc -z -w5 aspmx.l.google.com 25"):
+        error_exit(True, "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by y    our network. You will need to provide an external SMTP server in order to send e-mails.\n")
+
+def encoded_word(text):
+    # ASCII
+    # TODO -- did I do this Regex right? (I had to add two backslashes
+    RE=r'^[] !"#$%&\'\'\'()*+,./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\^_`abcdefghijklmnopqrstuvwxyz{|}~-]*$' # '^[ -~]*$' # '^[[:ascii:]]*$'
+    if re.match(text, RE):
+        print(text)
+    else
+        print(subprocess.check_output("echo \"=?utf-8?B?$(echo \"Daniel\" | base64 -w 0)?=\"", shell=True).decode().strip("\n"))
+
+TOADDRESSES=VARS["TOEMAILS"]
+TONAMES=VARS["TOEMAILS"]
+CCADDRESSES=VARS["CCEMAILS"]
+CCNAMES=VARS["CCEMAILS"]
+BCCADDRESSES=VARS["BCCEMAILS"]
+FROMADDRESS=VARS["FROMEMAIL"]
+FROMNAME=VARS["FROMEMAIL"]
+
+RE=r'^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'
+for i in range(len(TOADDRESSES)):
+    if re.match(TOADDRESSES[i], RE):
+        # TODO -- find a way to convert the idea of bash_rematch:
+            # https://www.linuxjournal.com/content/bash-regular-expressions
+        TOADDRESSES[i] =
+for i in VARS["CCEMAILS"]:
+
+for i in VARS["CCEMAILS"]:
+
+for i in VARS["BCCEMAILS"]:
+
+for i in VARS["FROMEMAIL"]:
+
+for i in VARS["FROMEMAIL"]:
 
 def main(argv):
     parse(argv)
