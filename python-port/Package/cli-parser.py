@@ -111,8 +111,14 @@ def usage():
 
         "Send e-mail digitally signed with PGP/MIME"+ "$ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -k \"passphrase\" -t \"Example <example@example.com>\""+")\n")
 
+def error_exit(condition, err):
+    '''print an error and exit when one occurs'''
+    if condition:
+        sys.stderr.write(err)
+        sys.exit(1)
+
 def assign(opts):
-    '''assign the correct opts'''
+    '''assign the correct values to the correct opts'''
     for opt, arg in opts:
         if opt in ("-a", "--attachments"):
             VARS["ATTACHMENTS"].append(arg)
@@ -139,7 +145,7 @@ def assign(opts):
             VARS["TOEMAILS"].append(arg)
         elif opt in ("-u", "--username"):
             VARS["USERNAME"]= arg
-        elif opt in ("-v", "--version"): # TODO -- longoption does not work
+        elif opt in ("-v", "--version"):
             print("Send Msg CLI 1.0\n")
             sys.exit(0)
         elif opt in ("-z", "--zipfile"):
@@ -167,21 +173,15 @@ def parse(argv):
         sys.exit(2)
     assign(opts)
 
-def error_exit(condition, err):
-    '''print an error and exit when one occurs'''
-    if condition:
-        sys.stderr.write(err)
-        sys.exit(1)
-
-def checks():
-    '''Does a number of checks, including regex on the input'''
+def args_check():
+    '''Does a number of checks: whether something is present, including regex on the input'''
     # Check if Linux OS
       # https://stackoverflow.com/questions/5971312/how-to-set-environment-variables-in-python
     CMD = 'echo $%s' % "OSTYPE"
     p = subprocess.Popen(CMD, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
     error_exit("linux" in p.stdout.readlines()[0].strip().decode("utf-8"),"Error: This script must be run on Linux.")
 
-    # Check if lines are
+    # Check if user put in correct args
     if not VARS["SUBJECT"]:
         error_exit(True, "Error: A subject is required")
 
@@ -210,7 +210,7 @@ def checks():
             VARS["ATTACHMENTS"].append(zip_file)
 
         # TODO # Creating something to do with attachments
-        for attachments in VARS["ATTACHMENTS"]:
+        for attachment in VARS["ATTACHMENTS"]:
             pass
 
 
@@ -228,35 +228,146 @@ def encoded_word(text):
     if re.match(text, RE):
         print(text)
     else
-        print(subprocess.check_output("echo \"=?utf-8?B?$(echo \"Daniel\" | base64 -w 0)?=\"", shell=True).decode().strip("\n"))
+        print(subprocess.check_output("echo \"=?utf-8?B?$(echo \""+text"\" | base64 -w 0)?=\"", shell=True).decode().strip("\n"))
 
 # Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
 # TODO: make a function
 
-TOADDRESSES=VARS["TOEMAILS"]
-TONAMES=VARS["TOEMAILS"]
-CCADDRESSES=VARS["CCEMAILS"]
-CCNAMES=VARS["CCEMAILS"]
-BCCADDRESSES=VARS["BCCEMAILS"]
-FROMADDRESS=VARS["FROMEMAIL"]
-FROMNAME=VARS["FROMEMAIL"]
+def attachments():
+    global TOADDRESSES
+    global TONAMES
+    global CCADDRESSES
+    global CCNAMES
+    global BCCADDRESSES
+    global FROMADDRESS
+    global FROMNAME
 
-RE=r'^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'
-for i in range(len(TOADDRESSES)):
-    if re.match(TOADDRESSES[i], RE):
-        # TODO -- find a way to convert the idea of bash_rematch to Python (search re library)
-            # https://www.linuxjournal.com/content/bash-regular-expressions
-        TOADDRESSES[i] =
+    TOADDRESSES=VARS["TOEMAILS"]
+    TONAMES=VARS["TOEMAILS"]
+    CCADDRESSES=VARS["CCEMAILS"]
+    CCNAMES=VARS["CCEMAILS"]
+    BCCADDRESSES=VARS["BCCEMAILS"]
+    FROMADDRESS=VARS["FROMEMAIL"]
+    FROMNAME=VARS["FROMEMAIL"]
 
-for i in CCADDRESSES:
+    # TODO -- skipped over this...come back to it
+    RE=r'^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'
+    for i in range(len(TOADDRESSES)):
+        if re.match(TOADDRESSES[i], RE):
+            # TODO -- find a way to convert the idea of bash_rematch to Python (search re library)
+                # https://www.linuxjournal.com/content/bash-regular-expressions
+            TOADDRESSES[i] =
 
-for i in BCCADDRESSES:
+    for i in CCADDRESSES:
 
-for i in FROMADDRESS:
+    for i in BCCADDRESSES:
 
+    for i in FROMADDRESS:
+
+def email_checks():
+    RE1=r'^.{6,254}$'
+    RE2=r'^.{1,64}@'
+    # TODO -- fix RE3 to fit in Python3
+    RE3=r'^[[:alnum:]!#\$%&'\''\*\+/=?^_\`{|}~-]+(\.[[:alnum:]!#\$%&'\''\*\+/=?^_\`{|}~-]+)*@((xn--)?[[:alnum:]][[:alnum:]\-]{0,61}[[:alnum:]]\.)+(xn--)?[a-zA-Z]{2,63}$'
+    for email in TOADDRESSES:
+        if not (re.match(imail, RE1) and re.match(email, RE2) and re.match(email, $RE3)):
+            error_exit(True, "Error: \""+email+"\" is not a valid e-mail address.")
+
+    for email in CCADDRESSES:
+        if not (re.match(email,RE1) and re.match(email,RE2) and re.match(email,RE3)):
+            error_exit(True, "Error: \""+email+"\" is not a valid e-mail address.")
+
+    for email in BCCADDRESSES:
+        if not (re.match(email, RE1) and re.match(email, RE2) and re.match(email, RE3)):
+            error_exit(True, "Error: \""+email+"\" is not a valid e-mail address.")
+
+    if len(FROMADDRESS) > 0 and not (re.match(FROMADDRESS, RE2) and re.match(FROMADDRESS, RE2) and re.match(FROMADDRESS, RE3)):
+        error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address."
+
+#TODO -- check all os.system conversions on cmdline and in the bash script
+def cert_checks()
+    if len(VARS["CERT"]) > 0:
+        if not os.exists(VARS["CERT"]) and os.access(VARS["CERT"], os.R_OK) not os.exists(VARS["CLIENTCERT"]):
+            error_exit(True, "Error: \""+CERT+"\" certificate file does not exist.")
+
+            if not os.exists(VARS["CLIENTCERT"]):
+                print("Saving the client certificate from \""+VARS["CERT"]+"\" to \""+VARS["CLIENTCERT"]+"\"")
+                print("Please enter the password when prompted.\n")
+                os.system("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes")
+
+            # TODO -- Teal, can/should I delete this commented out code?
+            # if ! output=$(openssl verify -verify_email "$FROMADDRESS" "$CLIENTCERT" 2>/dev/null); then
+                    # echo "Error verifying the S/MIME Certificate: $output" >&2
+                    # exit 1
+            # fi
+
+        if aissuer=os.system("$(openssl x509 -in \""+VARS["CLIENTCERT"]+" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq);"):
+            issuer=os.system("$(echo \""+aissuer+"\" | awk -F'=' '/commonName=/ { print $2 }')")
+        else
+            issuer=''
+
+        date=os.system("$(openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -enddate | awk -F'=' '/notAfter=/ { print $2 }')")
+        if os.system("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0 > /dev/null;"):
+            sec=os.system("$(( $(date -d \""+date+"\" +%s) - $(date -d \""+NOW+"\" +%s) ))")
+            if os.system("$(( sec / 86400 )) -lt "+VARS["WARNDAYS"]):
+                print("Warning: The S/MIME Certificate $([[ -n \""+issuer+"\" ]] && echo \"from \""+issuer+"\" \" || echo)expires in less than "+VARS["WARNDAYS"]+" days ($(date -d \""+date+"\")).\n\"")
+        else
+            error_exit(True, "Error: The S/MIME Certificate $([[ -n \""+issuer+"\" ]] && echo \"from \""+issuer+"\" \" || echo)expired $(date -d \""+date+"\").\"")
+
+#TODO -- check all os.system conversions on cmdline and in the bash script
+def passphrase_checks():
+    if len(VARS["PASSPHRASE"]) > 0:
+        if not os.system("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo);"):
+            error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
+
+        date=os.system("$(gpg -k --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^pub/ { print $7 }')")
+        if len(date) > 0:
+            date=os.system("$(echo \"$date\" | head -n 1)")
+            sec=os.system("$(( date - $(date -d \"$NOW\" +%s) ))")
+            fingerprint=os.system("$(gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)")
+            if len(sec) > 0:
+                if os.system("$(( sec / 86400 )) -lt $WARNDAYS ]];"):
+                    print("Warning: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint $fingerprint expires in less than "+VARS["WARNDAYS"]+" days ($(date -d \"@$date\")).\n\"")
+            else
+                error_exit(True, "Error: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint $fingerprint expired $(date -d \"@$date\").")
+
+    if len(VARS["CERT"] and len("PASSPHRASE") > 0:
+        print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
+
+#TODO
+# Send e-mail, with optional message and attachments
+# Supports Unicode characters in subject, message and attachment filename
+# send <subject> [message] [attachment(s)]...
+def send():
+    local headers message amessage
+    if len(VARS["SEND"]) > 0:
+        if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
+                headers="$([[ -n "$PRIORITY" ]] && echo "X-Priority: $PRIORITY\n")From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
+                if [[ "$#" -ge 3 ]]; then
+                        message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w "%{url_effective}\\n" --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
+                else
+                        message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
+                fi
+                if [[ -n "$CERT" ]]; then
+                        echo -e "${headers}$(echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT")"
+                elif [[ -n "$PASSPHRASE" ]]; then
+                        amessage=$(echo -e "$message")
+                        echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"----MULTIPART-SIGNED-BOUNDARY\"\n\n------MULTIPART-SIGNED-BOUNDARY\n"
+                        echo -n "$amessage"
+                        echo -e "\n------MULTIPART-SIGNED-BOUNDARY\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n------MULTIPART-SIGNED-BOUNDARY--"
+                else
+                        echo -e "${headers}MIME-Version: 1.0\n$message"
+                fi | eval curl -sS"$([[ -n "$VERBOSE" ]] && echo "v" || echo)" "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
+        else
+                { echo -e "$2"; [[ "$#" -ge 3 ]] && for i in "${@:3}"; do uuencode "$i" "$(basename "$i")"; done; } | eval mail $([[ -n "$FROMADDRESS" ]] && echo "-r \"$FROMADDRESS\"" || echo) $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ "${#TOADDRESSES[@]}" -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
 
 def main(argv):
     parse(argv)
+    args_check()
+    email_checks()
+    cert_checks()
+    passphrase_checks()
+    send(VARS["SUBJECT"], VARS["MESSAGE"], VARS["ATTACHMENTS"])
 
 if __name__=="__main__":
     if len(sys.argv) == 0:
