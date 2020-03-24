@@ -22,14 +22,13 @@ import datetime
 # Comment this out to temporally disable
 SEND=1
 '''
-
+# TODO -- do I need to enable a default for ZIPFILE ? ( "attachments.zip" as it is in the bash script )
 VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"Normal","CERT":"cert.p12","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":"1","NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[]}
 
-# Note, I did not use "toaddress",but rather the already existing "temails" as its equivalent (I think)
+# Note, I did not use "toaddress",but rather the already existing "toemails" as its equivalent (I think)
 # TODO -- get rid of?
 LOPTIONS={"-s":"--subject", "-m":"--message","-a":"--attachments", "-t":"--toemails", "-c":"--ccemails", "-b":"--bccemails", "-f":"--fromemail", "-S":"--smtp", "-u":"--username", "-p":"--password", "-P":"--priority", "-C":"--certificate", "-k":"--passphrase", "-z":"--zipfile", "-d":"--dryrun", "-V":"--verbose", "-h":"--help", "-v":"--version"}
 # TODO -- long option naming like "bcc-emails" is non-sensical as it only takes one at a time...
-# TODO -- add these somehow...or just reuse the original names
 '''
 TOADDRESSES=( "${TOEMAILS[@]}" )
 TONAMES=( "${TOEMAILS[@]}" )
@@ -163,7 +162,7 @@ def parse(argv):
     '''Find the correct variable to assign the opt to.'''
     # Parsing. Erroneous flags throw exception.
     try:
-        # TODO -- "passphrase" does not match with variable 'k'. Why not "key"? Ask Teal
+        # TODO -- "passphrase" does not match with variable 'k'. Why not use "key"? Ask Teal
         opts, args = getopt.getopt(argv,"a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V",
                 ["attachments=", "bccemails=", "ccemails=", "dryrun=", "fromemail=", "help",
                     "passphrase=", "subject=", "toaddress=", "username=", "version", "zipfile=",
@@ -204,8 +203,8 @@ def args_check():
             if os.exists(zip_file):
                 error_exit(True, f'Error: File {zip_file} already exists.')
 
-            os.system("zip -q " + zip_file + "\n".join(VARS["ATTACHMENTS"])) # TODO --Does this zip all attachments in Python3 like it does in Bash? Needs testing...
-            os.system("trap rm \"" + zip_file + "\" EXIT") # TODO -- some issue with trap "trap: file.txt: bad trap" ...try to fix it.
+            os.system("zip -q " + zip_file + " " + " ".join(VARS["ATTACHMENTS"]))
+            os.system("trap 'rm " + zip_file + "\' EXIT") # if the user does not add a ".zip" to the zip ending, the trap will not work as the zip CMD adds in a .zip (talk to Teal about this... we need a check for it I think).
 
             VARS["ATTACHMENTS"].append(zip_file)
 
@@ -234,6 +233,7 @@ def encoded_word(text):
 # TODO: make a function
 
 def attachments():
+    # TODO -- this declares a global variable for the the rest of the program, but its not very readable
     global TOADDRESSES
     global TONAMES
     global CCADDRESSES
@@ -285,6 +285,8 @@ def email_checks():
         error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address."
 
 #TODO -- check all os.system conversions on cmdline and in the bash script
+#TODO -- Ask Teal -- do you want to return standard output too? If the command fails it will just return a null string which will not trigger the if condition.
+
 def cert_checks()
     if len(VARS["CERT"]) > 0:
         if not os.exists(VARS["CERT"]) and os.access(VARS["CERT"], os.R_OK) not os.exists(VARS["CLIENTCERT"]):
@@ -301,35 +303,36 @@ def cert_checks()
                     # exit 1
             # fi
 
-        if aissuer=os.system("$(openssl x509 -in \""+VARS["CLIENTCERT"]+" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq);"):
-            issuer=os.system("$(echo \""+aissuer+"\" | awk -F'=' '/commonName=/ { print $2 }')")
+            if aissuer=subprocess.check_output("$(openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq);", shell=True).decode().strip("\n"):
+            issuer=subprocess.check_output("$(echo \""+aissuer+"\" | awk -F'=' '/commonName=/ { print $2 }')", shell=True).decode().strip("\n")
         else
             issuer=''
 
-        date=os.system("$(openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -enddate | awk -F'=' '/notAfter=/ { print $2 }')")
-        if os.system("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0 > /dev/null;"):
-            sec=os.system("$(( $(date -d \""+date+"\" +%s) - $(date -d \""+NOW+"\" +%s) ))")
-            if os.system("$(( sec / 86400 )) -lt "+VARS["WARNDAYS"]):
-                print("Warning: The S/MIME Certificate $([[ -n \""+issuer+"\" ]] && echo \"from \""+issuer+"\" \" || echo)expires in less than "+VARS["WARNDAYS"]+" days ($(date -d \""+date+"\")).\n\"")
+        date=subprocess.check_output("$(openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -enddate | awk -F'=' '/notAfter=/ { print $2 }')", shell=True).decode().strip("\n")
+        if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0 > /dev/null;", shell=True).decode().strip("\n"):
+            sec=subprocess.check_output("$(( $(date -d \""+date+"\" +%s) - $(date -d \""+NOW+"\" +%s) ))", shell=True).decode().strip("\n")
+            if subprocess.check_output("$(( sec / 86400 )) -lt "+VARS["WARNDAYS"], shell=True).decode().strip("\n"):
+                # TODO -- I removed the -e flag, is this okay Teal? Using os.system was printing out the flag unfrotunately instead of doing anything with it
+                os.system("echo \"Warning: The S/MIME Certificate $([ -n \""+issuer+"\" ] && echo \"from “$issuer” \" || echo)expires in less than $WARNDAYS days ($(date -d \""+date+"\")).\n\"")
         else
             error_exit(True, "Error: The S/MIME Certificate $([[ -n \""+issuer+"\" ]] && echo \"from \""+issuer+"\" \" || echo)expired $(date -d \""+date+"\").\"")
 
-#TODO -- check all os.system conversions on cmdline and in the bash script
 def passphrase_checks():
     if len(VARS["PASSPHRASE"]) > 0:
-        if not os.system("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo);"):
+        if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo);").decode().strip("\n"):
             error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
 
-        date=os.system("$(gpg -k --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^pub/ { print $7 }')")
+        date=subprocess.check_output("$(gpg -k --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^pub/ { print $7 }')").decode().strip("\n")
         if len(date) > 0:
-            date=os.system("$(echo \"$date\" | head -n 1)")
-            sec=os.system("$(( date - $(date -d \"$NOW\" +%s) ))")
-            fingerprint=os.system("$(gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)")
+            date=subprocess.check_output("$(echo \"$date\" | head -n 1)").decode().strip("\n")
+            sec=subprocess.check_output("$(( date - $(date -d \"$NOW\" +%s) ))").decode().strip("\n")
+            fingerprint=subprocess.check_output("$(gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)").decode().strip("\n")
             if len(sec) > 0:
-                if os.system("$(( sec / 86400 )) -lt $WARNDAYS ]];"):
-                    print("Warning: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint $fingerprint expires in less than "+VARS["WARNDAYS"]+" days ($(date -d \"@$date\")).\n\"")
+                if subprocess.check_output("$(( sec / 86400 )) -lt $WARNDAYS ]];").decode().strip("\n"):
+                    subprocess.run("Warning: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expires in less than "+VARS["WARNDAYS"]+" days ($(date -d \""+"\n".join(VARS["date"])+"\")).\n", shell=True)
             else
-                error_exit(True, "Error: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint $fingerprint expired $(date -d \"@$date\").")
+                subprocess.run("Error: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expired $(date -d \""+"\n".join(VARS["date"])+"\").",shell=True)
+                sys.exit(1)
 
     if len(VARS["CERT"] and len("PASSPHRASE") > 0:
         print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
@@ -341,25 +344,26 @@ def passphrase_checks():
 def send():
     local headers message amessage
     if len(VARS["SEND"]) > 0:
-        if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
-                headers="$([[ -n "$PRIORITY" ]] && echo "X-Priority: $PRIORITY\n")From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
-                if [[ "$#" -ge 3 ]]; then
-                        message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w "%{url_effective}\\n" --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
-                else
-                        message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
-                fi
-                if [[ -n "$CERT" ]]; then
-                        echo -e "${headers}$(echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT")"
-                elif [[ -n "$PASSPHRASE" ]]; then
-                        amessage=$(echo -e "$message")
-                        echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"----MULTIPART-SIGNED-BOUNDARY\"\n\n------MULTIPART-SIGNED-BOUNDARY\n"
-                        echo -n "$amessage"
-                        echo -e "\n------MULTIPART-SIGNED-BOUNDARY\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n------MULTIPART-SIGNED-BOUNDARY--"
-                else
-                        echo -e "${headers}MIME-Version: 1.0\n$message"
-                fi | eval curl -sS"$([[ -n "$VERBOSE" ]] && echo "v" || echo)" "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
-        else
-                { echo -e "$2"; [[ "$#" -ge 3 ]] && for i in "${@:3}"; do uuencode "$i" "$(basename "$i")"; done; } | eval mail $([[ -n "$FROMADDRESS" ]] && echo "-r \"$FROMADDRESS\"" || echo) $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ "${#TOADDRESSES[@]}" -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
+        if len(FROMADDRESS) > 0 and len(VARS["SMTP"]) > 0:
+        # TODO -- stopped here
+            headers=subprocess.check_output("$([ -n \""+VARS["PRIORITY"]+"\" ] && echo \"X-Priority: "+VARS["PRIORITY"]+"\n\")From: "+VARS["FROMNAME"]+"\n$(if [ \""+TONAMES+"\" -eq 0 && \""+CCNAMES"\" -eq 0 ]; then echo \"To: undisclosed-recipients: ;\n\"; else [ -n \""+TONAMES+"\" ] && echo \"To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
+            if [[ "$#" -ge 3 ]]; then
+                    message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w "%{url_effective}\\n" --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
+            else
+                    message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
+            fi
+            if [[ -n "$CERT" ]]; then
+                    echo -e "${headers}$(echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT")"
+            elif [[ -n "$PASSPHRASE" ]]; then
+                    amessage=$(echo -e "$message")
+                    echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"----MULTIPART-SIGNED-BOUNDARY\"\n\n------MULTIPART-SIGNED-BOUNDARY\n"
+                    echo -n "$amessage"
+                    echo -e "\n------MULTIPART-SIGNED-BOUNDARY\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n------MULTIPART-SIGNED-BOUNDARY--"
+            else
+                    echo -e "${headers}MIME-Version: 1.0\n$message"
+            fi | eval curl -sS"$([[ -n "$VERBOSE" ]] && echo "v" || echo)" "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
+    else
+            { echo -e "$2"; [[ "$#" -ge 3 ]] && for i in "${@:3}"; do uuencode "$i" "$(basename "$i")"; done; } | eval mail $([[ -n "$FROMADDRESS" ]] && echo "-r \"$FROMADDRESS\"" || echo) $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ "${#TOADDRESSES[@]}" -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
 
 def main(argv):
     parse(argv)
