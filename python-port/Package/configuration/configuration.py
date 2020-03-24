@@ -77,6 +77,8 @@ class Config:
 
 #if __name__=='__main__':
 #    Config()
+os.system("set +o history") # This disables the bash history for this current session (so as to not log passwords)
+
 '''
 # TODO Add logic here for default configuration.
 
