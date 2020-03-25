@@ -184,14 +184,14 @@ def args_check():
     if not VARS["SUBJECT"]:
         error_exit(True, "Error: A subject is required")
 
-    if VARS["PRIORITY"] or VARS["CERT"] or VARS["PASSPHRASE"] or VARS["SMTP"] or VARS["USERNAME"]
-        or VARS["PASSWORD"] and ((VARS["FROMEMAIL"] and VARS "SMTP"]) == False):
+    if VARS["PRIORITY"] or VARS["CERT"] or VARS["PASSPHRASE"] or VARS["SMTP"] or VARS["USERNAME"] \
+        or VARS["PASSWORD"] and ((VARS["FROMEMAIL"] and VARS["SMTP"]) == False):
             error_exit(True, "Warning: One or more of the options you set requires that you also provide an external SMTP server. Try '$0 -h' for more information.\n")
 
     if not VARS["TOEMAILS"] and not VARS["CCEMAILS"] and not VARS["BCCEMAILS"]:
         error_exit(True, "Error: One or more To, Cc, or BCC e-mail addresses are required.")
 
-    if VARS["ATTACHMENTS"]
+    if VARS["ATTACHMENTS"]:
         TOTAL=0
         table=''
         for attachment in VARS["ATTACHMENTS"]:
@@ -226,8 +226,8 @@ def encoded_word(text):
     RE=r'^[] !"#$%&\'\'\'()*+,./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\^_`abcdefghijklmnopqrstuvwxyz{|}~-]*$' # '^[ -~]*$' # '^[[:ascii:]]*$'
     if re.match(text, RE):
         print(text)
-    else
-        print(subprocess.check_output("echo \"=?utf-8?B?$(echo \""+text"\" | base64 -w 0)?=\"", shell=True).decode().strip("\n"))
+    else:
+        print(subprocess.check_output("echo \"=?utf-8?B?$(echo \""+text+"\" | base64 -w 0)?=\"", shell=True).decode().strip("\n"))
 
 # Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
 # TODO: make a function
@@ -312,8 +312,9 @@ def cert_checks()
         if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0 > /dev/null;", shell=True).decode().strip("\n"):
             sec=subprocess.check_output("$(( $(date -d \""+date+"\" +%s) - $(date -d \""+NOW+"\" +%s) ))", shell=True).decode().strip("\n")
             if subprocess.check_output("$(( sec / 86400 )) -lt "+VARS["WARNDAYS"], shell=True).decode().strip("\n"):
-                # TODO -- I removed the -e flag, is this okay Teal? Using os.system was printing out the flag unfrotunately instead of doing anything with it
-                os.system("echo \"Warning: The S/MIME Certificate $([ -n \""+issuer+"\" ] && echo \"from “$issuer” \" || echo)expires in less than $WARNDAYS days ($(date -d \""+date+"\")).\n\"")
+                #TODO -- delete
+                #os.system("echo \"Warning: The S/MIME Certificate $([ -n \""+issuer+"\" ] && echo \"from “$issuer” \" || echo)expires in less than $WARNDAYS days ($(date -d \""+date+"\")).\n\"")
+                print("echo \"Warning: The S/MIME Certificate $([ -n \""+issuer+"\" ] && echo \"from “$issuer” \" || echo)expires in less than "+VARS["WARNDAYS"]+" days "+ subprocess.check_output("($(date -d \""+date+"\")).\n\"").decode())
         else
             error_exit(True, "Error: The S/MIME Certificate $([[ -n \""+issuer+"\" ]] && echo \"from \""+issuer+"\" \" || echo)expired $(date -d \""+date+"\").\"")
 
@@ -346,7 +347,10 @@ def send():
     if len(VARS["SEND"]) > 0:
         if len(FROMADDRESS) > 0 and len(VARS["SMTP"]) > 0:
         # TODO -- stopped here
-            headers=subprocess.check_output("$([ -n \""+VARS["PRIORITY"]+"\" ] && echo \"X-Priority: "+VARS["PRIORITY"]+"\n\")From: "+VARS["FROMNAME"]+"\n$(if [ \""+TONAMES+"\" -eq 0 && \""+CCNAMES"\" -eq 0 ]; then echo \"To: undisclosed-recipients: ;\n\"; else [ -n \""+TONAMES+"\" ] && echo \"To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
+            headers=subprocess.check_output("$([ -n \""+VARS["PRIORITY"]+"\" ] && echo \"X-Priority: "+VARS["PRIORITY"]+"\n\")From: "+VARS["FROMNAME"]+"\n$(if [ \""+TONAMES+"\" -eq 0 && \""+CCNAMES"\" -eq 0 ]; then echo \"To: undisclosed-recipients: ;\n\"; else [ -n \""+TONAMES+"\" ] && echo \"To: "+TONAMES[0]+"([ \""+TONAMES+"\" -gt 1 ] TONAMES[@]:1" )\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
+
+            ","+",".join(TONAMES[1:])
+
             if [[ "$#" -ge 3 ]]; then
                     message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w "%{url_effective}\\n" --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
             else

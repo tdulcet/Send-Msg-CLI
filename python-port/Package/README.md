@@ -2,7 +2,8 @@
 
 ## Libraries to use (Suggestion credit: Teal Dulcet)
 [email](https://docs.python.org/3/library/email.html)
-[smptlib](https://docs.python.org/3/library/smtplib.html) -- I like this especially
+[smptlib](https://docs.python.org/3/library/smtplib.html)
+[smime](https://pypi.org/project/smime/) -- get S/MIME encryption functionality. (alternatively [M2Crypto](https://tools.ietf.org/doc/python-m2crypto/howto.smime.html)).
 
 ## Ways to Email Oneself
 
