@@ -349,7 +349,7 @@ def send():
         # TODO -- stopped here
             headers=subprocess.check_output("$([ -n \""+VARS["PRIORITY"]+"\" ] && echo \"X-Priority: "+VARS["PRIORITY"]+"\n\")From: "+VARS["FROMNAME"]+"\n$(if [ \""+TONAMES+"\" -eq 0 && \""+CCNAMES"\" -eq 0 ]; then echo \"To: undisclosed-recipients: ;\n\"; else [ -n \""+TONAMES+"\" ] && echo \"To: "+TONAMES[0]+"([ \""+TONAMES+"\" -gt 1 ] TONAMES[@]:1" )\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
 
-            ","+",".join(TONAMES[1:])
+            ","+",".join(TONAMES[1:]) # TODO -- replace this with TONAMES[@]:1 (as it does the same thing as TONAMES[0] + ... TONAMES[@}:1. The output is name1, [name2, name3...]
 
             if [[ "$#" -ge 3 ]]; then
                     message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w "%{url_effective}\\n" --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"

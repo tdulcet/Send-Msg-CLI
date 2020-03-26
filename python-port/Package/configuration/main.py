@@ -2,7 +2,7 @@ import sys
 import os
 
 sys.path.append(os.environ["PWD"]) # allows "from" to be used (FIXME and the path of this module permanently to the environment so Python can search there and not have this line here
-from c_parser import Config
+from configuration import Config
 # TODO Add logic here for default configuration.
 
 if __name__=='__main__':
