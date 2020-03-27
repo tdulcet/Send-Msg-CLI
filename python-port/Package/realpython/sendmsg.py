@@ -3,6 +3,7 @@
 import sys, os, socket, re
 import getopt
 import datetime
+import subprocess
 
 sys.path.append(os.environ["PWD"]) # allows "from" to be used (FIXME and the path of this module permanently to the environment so Python can search there and not have this line here
 from send import send # how we send emails
@@ -18,7 +19,7 @@ import usage
 '''
 
 ###Variables
-VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"Normal","CERT":"","CLIENTCERT":"","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":"1","NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
+VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":"1","NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
 
 def error_exit(condition, err):
     '''print an error and exit when one occurs'''
@@ -40,7 +41,7 @@ def assign(opts):
         elif opt in ("-f", "--fromemail"):
             VARS["FROMEMAIL"] = arg
         elif opt in ("-h", "--help"):
-            usage()
+            usage.usage()
             sys.exit(0)
         elif opt in ("-k", "--passphrase"):
             VARS["PASSPHRASE"]=arg
@@ -58,7 +59,7 @@ def assign(opts):
             print("Send Msg CLI 1.0\n")
             sys.exit(0)
         elif opt in ("-z", "--zipfile"):
-            VARS["ZIPFILE"]= arg
+            VARS["ZIPFILE"]= arg+".zip"
         elif opt in ("-C", "--cert"):
             VARS["CERT"]= arg
         elif opt in ("-P", "--priority"):
@@ -82,12 +83,12 @@ def parse(argv):
         sys.exit(2)
     assign(opts)
 
-def attachment_checks():
+def attachment_work():
     if VARS["ATTACHMENTS"]:
         TOTAL=0
         table=''
         for attachment in VARS["ATTACHMENTS"]:
-            if not attachment or not (os.path.exists(attachment) and os.access(attachment, os.R_OK)):
+            if not attachment or not (os.path.exists(attachment) and os.access(attachment, os.R_OK)): # [-r ..] in bash
                 error_exit(True, f'Error: Cannot read {attachment} file.')
 
         zip_file = VARS["ZIPFILE"]
@@ -96,23 +97,21 @@ def attachment_checks():
                 error_exit(True, f'Error: File {zip_file} already exists.')
 
             os.system("zip -q " + zip_file + " " + " ".join(VARS["ATTACHMENTS"]))
-            os.system("trap 'rm " + zip_file + "\' EXIT") # if the user does not add a ".zip" to the zip ending, the trap will not work as the zip CMD adds in a .zip (talk to Teal about this... we need a check for it I think).
-
             VARS["ATTACHMENTS"].append(zip_file)
 
-        '''
-        # TODO # Creating something to do with attachments
+        # checking if attachment size are > 25 MB
         for attachment in VARS["ATTACHMENTS"]:
-            pass
+            SIZE=subprocess.check_output("du -b \""+attachment+"\" | awk '{ print $1 }'", shell=True).decode().strip("\n")
+            TOTAL +=int(SIZE)
+            # TODO -- bug here
+            table+=subprocess.check_output("\"i\t$(numfmt --to=iec-i \""+SIZE+"\")B$([[ "+SIZE+" -ge 1000 ]] && echo \"\t($(numfmt --to=si \""+SIZE+"\")B)\" || echo)\n\"",shell=True)
+        os.system("echo -e \""+table+"\" | column -t -s $'\t'")
 
-
-
+        os.system("echo -e \"\nTotal Size:\t$(numfmt --to=iec-i \""+TOTAL+"\")B$([[ "+TOTAL+" -ge 1000 ]] && echo \" ($(numfmt --to=si \""+TOTAL+"\")B)\")\n\"")
         if TOTAL >= 26214400:
-            error_exit(True, "Warning: The total size of all attachments is greater than 25 MiB. The message may     be rejected by your or the recipient's mail server. You may want to upload large files to an external stor    age service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
-        '''
+            error_exit(True, "Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
 
 # Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
-'''
 def email_checks():
     TOADDRESSES=VARS["TOEMAILS"]
     TONAMES=VARS["TOEMAILS"]
@@ -121,51 +120,40 @@ def email_checks():
     BCCADDRESSES=VARS["BCCEMAILS"]
     FROMADDRESS=VARS["FROMEMAIL"]
     FROMNAME=VARS["FROMEMAIL"]
-    RE=re.compile("'^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'")
+    RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1
+    #RE=re.compile("'^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'")
 
-    for i in range(0, len(TOADDRESSES)):
-        print(TOADDRESSES[i])
-        result = RE.match(TOADDRESSES[i]) # TODO -- regex won't match
-        #result = re.match(RE, TOADDRESSES[i])
-        print(result)
-        if result and len(result.group) >= 2:
-            TOADDRESSES[i] = result.group(1) if result.group(1) else result.group(4)
+    # Note: we do not need to split up the name and email address (email library accepts name <email> pattern). Only check if the email is valid.
+    try:
+        for i in range(0, len(TOADDRESSES)):
+            result = RE.match(TOADDRESSES[i])
+            if result:
+                TOADDRESSES[i] = result.group(2)
+            else:
+                error_exit(True, "Error: \""+TOADDRESSES[i]+"\" is not a valid e-mail address.")
 
-    for i in range(0, len(CCADDRESSES)):
-        result = re.match(CCADDRESSES[i])
-        if result and len(result.group) >= 2:
-            CCADDRESSES[i]=result.group(1) if len(result.group(1))> 0 else result.group(4)
+        for i in range(0, len(CCADDRESSES)):
+            result = RE.match(CCADDRESSES[i])
+            if result:
+                CCADDRESSES[i]=result.group(2)
+            else:
+                error_exit(True, "Error: \""+CCADDRESSES[i]+"\" is not a valid e-mail address.")
 
-    for i in range(0, len(BCCADDRESSES)):
-        result = re.match(BCCADDRESSES[i])
-        if result and len(result.group) >= 2:
-            BCCADDRESSES[i]=result.group(1) if len(result.group(1))> 0 else result.group(4)
+        for i in range(0, len(BCCADDRESSES)):
+            result = RE.match(BCCADDRESSES[i])
+            if result:
+                BCCADDRESSES[i]=result.group(2)
+            else:
+                error_exit(True, "Error: \""+BCCADDRESSES[i]+"\" is not a valid e-mail address.")
 
-    if len(FROMADDRESS)>0:
-        result = re.match(FROMADDRESS)
-        if result and len(result.group) >= 2:
-            FROMADDRESS=result.group(1) if len(result.group(1))> 0 else result.group(4)
-
-    RE1=r"'^.{6,254}$'"
-    RE2=r"'^.{1,64}@'"
-    # TODO -- fix RE3 to fit in Python3
-    #RE3=r'^.{1,64}@'
-    #RE3=r'^[[:alnum:]!#\$%&'\''\*\+/=?^_\`{|}~-]+(\.[[:alnum:]!#\$%&'\''\*\+/=?^_\`{|}~-]+)*@((xn--)?[[:alnum:]][[:alnum:]\-]{0,61}[[:alnum:]]\.)+(xn--)?[a-zA-Z]{2,63}$'
-    for email in TOADDRESSES:
-        if not (re.match(email, RE1) and re.match(email, RE2) and re.match(email, RE3)):
-            error_exit(True, "Error: \""+email+"\" is not a valid e-mail address.")
-
-    for email in CCADDRESSES:
-        if not (re.match(email,RE1) and re.match(email,RE2) and re.match(email,RE3)):
-            error_exit(True, "Error: \""+email+"\" is not a valid e-mail address.")
-
-    for email in BCCADDRESSES:
-        if not (re.match(email, RE1) and re.match(email, RE2) and re.match(email, RE3)):
-            error_exit(True, "Error: \""+email+"\" is not a valid e-mail address.")
-
-    if len(FROMADDRESS) > 0 and not (re.match(FROMADDRESS, RE2) and re.match(FROMADDRESS, RE2) and re.match(FROMADDRESS, RE3)):
-        error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address.")
-'''
+        if len(FROMADDRESS)>0:
+            result = RE.match(FROMADDRESS)
+            if result:
+                FROMADDRESS=result.group(2)
+            else:
+                error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address.")
+    except Exception as error:
+        error_exit(True, error)
 
 #TODO -- Ask Teal -- do you want to return standard output too? If the command fails it will just return a null string which will not trigger the if condition.
 def cert_checks():
@@ -194,8 +182,6 @@ def cert_checks():
         if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0 > /dev/null;", shell=True).decode().strip("\n"):
             sec=subprocess.check_output("$(( $(date -d \""+date+"\" +%s) - $(date -d \""+NOW+"\" +%s) ))", shell=True).decode().strip("\n")
             if subprocess.check_output("$(( sec / 86400 )) -lt "+VARS["WARNDAYS"], shell=True).decode().strip("\n"):
-                #TODO -- delete
-                #os.system("echo \"Warning: The S/MIME Certificate $([ -n \""+issuer+"\" ] && echo \"from “$issuer” \" || echo)expires in less than $WARNDAYS days ($(date -d \""+date+"\")).\n\"")
                 print("echo \"Warning: The S/MIME Certificate $([ -n \""+issuer+"\" ] && echo \"from “$issuer” \" || echo)expires in less than "+VARS["WARNDAYS"]+" days "+ subprocess.check_output("($(date -d \""+date+"\")).\n\"").decode())
         else:
             error_exit(True, "Error: The S/MIME Certificate $([[ -n \""+issuer+"\" ]] && echo \"from \""+issuer+"\" \" || echo)expired $(date -d \""+date+"\").\"")
@@ -225,14 +211,16 @@ def main(argv):
     parse(argv)
 
     # checks
-    #email_checks()
-    attachment_checks()
+    email_checks()
+    attachment_work()
     cert_checks()
     passphrase_checks()
 
     # sending
     if not VARS["DRYRUN"]:
         send(VARS["SUBJECT"], VARS["MESSAGE"], VARS["USERNAME"], VARS["PASSWORD"], VARS["TOEMAILS"], VARS["CCEMAILS"], VARS["BCCEMAILS"], VARS["NOW"], VARS["ATTACHMENTS"], VARS["PRIORITY"], VARS["SMTP"])
+        #if VARS["ZIPFILE"]:
+            #os.system("trap 'rm " + VARS["ZIPFILE"] + "\' EXIT") # if the user does not add a ".zip" to the zip ending, the trap will not work as the zip CMD adds in a .zip (talk to Teal about this... we need a check for it I think).
 
 if __name__=="__main__":
     if len(sys.argv) == 0:
