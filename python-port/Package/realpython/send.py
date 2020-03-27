@@ -1,4 +1,5 @@
 import email, smtplib, ssl, socket, sys
+import os.path as op
 
 from email import encoders
 from email.mime.base import MIMEBase
@@ -12,7 +13,6 @@ def send(SUBJECT=None, BODY=None, SENDER_EMAIL=None, PASSWORD=None, RECEIVER_EMA
     message["From"] = SENDER_EMAIL
     message["To"] = ", ".join(RECEIVER_EMAIL)
     message["Cc"] = ", ".join(CC)
-   # message["Bcc"] = ", ".join(BCC) # TODO --
     message["Date"] = DATE
     message["Subject"] = SUBJECT
     message["X-Priority"] = PRIORITY
@@ -37,7 +37,7 @@ def send(SUBJECT=None, BODY=None, SENDER_EMAIL=None, PASSWORD=None, RECEIVER_EMA
         with smtplib.SMTP_SSL(SMTP, PORT, context=context) as server:
         #with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
             server.login(SENDER_EMAIL, PASSWORD)
-            server.sendmail(sender_email, [receiver_email] + BCC, message.as_string()) # BCC here keeps senders annoymous as we don't explicitly declare a header
+            server.sendmail(SENDER_EMAIL, [RECEIVER_EMAIL] + BCC, message.as_string()) # BCC here keeps senders annoymous as we don't explicitly declare a header
     except smtplib.SMTPHeloError as e:
         print("Server did not reply. You may have Port 25 blocked on your host machine.")
         sys.exit(2)
@@ -48,5 +48,7 @@ def send(SUBJECT=None, BODY=None, SENDER_EMAIL=None, PASSWORD=None, RECEIVER_EMA
         print("Authentication failed")
         sys.exit(2)
     except Exception as error:
+        import traceback
+        traceback.print_exc()
         print(error)
         sys.exit(2)
