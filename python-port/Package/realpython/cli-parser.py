@@ -19,7 +19,7 @@ import usage
 '''
 
 ###Variables
-VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"Normal","CERT":"cert.p12","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":"1","NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
+VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"Normal","CERT":"cert.p12","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
 
 def error_exit(condition, err):
     '''print an error and exit when one occurs'''
@@ -67,7 +67,7 @@ def assign(opts):
         elif opt in ("-S", "--smtp"):
             VARS["PRIORITY"]= arg
         elif opt in ("-V", "--VERBOSE"):
-            VARS["VERBOSE"]= arg
+            VARS["VERBOSE"]= 1
 
 def parse(argv):
     '''Find the correct variable to assign the opt to.'''
