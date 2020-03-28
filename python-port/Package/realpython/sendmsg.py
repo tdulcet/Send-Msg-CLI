@@ -9,17 +9,14 @@ sys.path.append(os.environ["PWD"]) # allows "from" to be used (FIXME and the pat
 from send import send # how we send emails
 import usage
 
-# TODOS
-'''
-1. Delete (or implement functionality for) Verbose flag?
-'''
-
 '''The purpose of this file is to parse all flags given on the cmdline.
    Skipping to the bottom main function is where the control-flow begins.
 '''
 
-###Variables
-VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":"1","NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
+###Variables###
+
+VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
+CONFIG_FILE="~/.sendmsg"
 
 def error_exit(condition, err):
     '''print an error and exit when one occurs'''
@@ -69,6 +66,23 @@ def assign(opts):
         elif opt in ("-V", "--VERBOSE"):
             VARS["VERBOSE"]= arg
 
+# TODO
+def configuration_assignment():
+    '''If a user decides, they may work from a configuration file. If the file has something in it
+       and the user does not specify a necessary flag (e.g., -f), then the program will use this file
+       to fill in the blanks
+    '''
+    if not os.path.exists(CONFIG_FILE):
+        with open(os.path.expanduser(CONFIG_FILE), "w") as f1:
+            # make file with appropriate fields
+            pass
+
+    with open(os.path.expanduser(CONFIG_FILE), "r") as f1:
+        # read from config file
+        pass
+
+    pass
+
 def parse(argv):
     '''Find the correct variable to assign the opt to.'''
     # Parsing. Erroneous flags throw exception.
@@ -82,6 +96,7 @@ def parse(argv):
         usage()
         sys.exit(2)
     assign(opts)
+
 
 def attachment_work():
     if VARS["ATTACHMENTS"]:
@@ -97,19 +112,18 @@ def attachment_work():
                 error_exit(True, f'Error: File {zip_file} already exists.')
 
             os.system("zip -q " + zip_file + " " + " ".join(VARS["ATTACHMENTS"]))
-            VARS["ATTACHMENTS"].append(zip_file)
+            VARS["ATTACHMENTS"] = [zip_file]
 
         # checking if attachment size are > 25 MB
+        print("Attachments:")
         for attachment in VARS["ATTACHMENTS"]:
             SIZE=subprocess.check_output("du -b \""+attachment+"\" | awk '{ print $1 }'", shell=True).decode().strip("\n")
             TOTAL +=int(SIZE)
-            # TODO -- bug here
-            table+=subprocess.check_output("\"i\t$(numfmt --to=iec-i \""+SIZE+"\")B$([[ "+SIZE+" -ge 1000 ]] && echo \"\t($(numfmt --to=si \""+SIZE+"\")B)\" || echo)\n\"",shell=True)
-        os.system("echo -e \""+table+"\" | column -t -s $'\t'")
-
-        os.system("echo -e \"\nTotal Size:\t$(numfmt --to=iec-i \""+TOTAL+"\")B$([[ "+TOTAL+" -ge 1000 ]] && echo \" ($(numfmt --to=si \""+TOTAL+"\")B)\")\n\"")
+            table+=attachment+"\t$(numfmt --to=iec-i \""+SIZE+"\")B$([ "+SIZE+" -ge 1000 ] && echo \"\t($(numfmt --to=si \""+SIZE+"\")B)\" || echo)\n"
+        os.system("echo \""+table+"\" | column -t -s '\t'")
+        os.system("echo \"\nTotal Size:\t$(numfmt --to=iec-i \""+str(TOTAL)+"\")B$([ "+str(TOTAL)+" -ge 1000 ] && echo \" ($(numfmt --to=si \""+str(TOTAL)+"\")B)\")\n\"")
         if TOTAL >= 26214400:
-            error_exit(True, "Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
+            error_exit(True, "Warning: The total size of all attachments is greater than or equal to 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
 
 # Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
 def email_checks():
@@ -218,9 +232,9 @@ def main(argv):
 
     # sending
     if not VARS["DRYRUN"]:
-        send(VARS["SUBJECT"], VARS["MESSAGE"], VARS["USERNAME"], VARS["PASSWORD"], VARS["TOEMAILS"], VARS["CCEMAILS"], VARS["BCCEMAILS"], VARS["NOW"], VARS["ATTACHMENTS"], VARS["PRIORITY"], VARS["SMTP"])
-        #if VARS["ZIPFILE"]:
-            #os.system("trap 'rm " + VARS["ZIPFILE"] + "\' EXIT") # if the user does not add a ".zip" to the zip ending, the trap will not work as the zip CMD adds in a .zip (talk to Teal about this... we need a check for it I think).
+        send(VARS["SUBJECT"], VARS["MESSAGE"], VARS["USERNAME"], VARS["PASSWORD"], VARS["TOEMAILS"], VARS["CCEMAILS"], VARS["BCCEMAILS"], VARS["NOW"], VARS["ATTACHMENTS"], VARS["PRIORITY"], VARS["SMTP"], VARS["VERBOSE"])
+        if VARS["ZIPFILE"]:
+            os.system("trap 'rm " + VARS["ZIPFILE"] + "\' EXIT") # if the user does not add a ".zip" to the zip ending, the trap will not work as the zip CMD adds in a .zip (talk to Teal about this... we need a check for it I think).
 
 if __name__=="__main__":
     if len(sys.argv) == 0:

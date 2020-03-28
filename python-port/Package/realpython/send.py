@@ -6,7 +6,7 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-def send(SUBJECT=None, BODY=None, SENDER_EMAIL=None, PASSWORD=None, RECEIVER_EMAIL=None, CC=None, BCC=None, DATE=None, ATTACHMENTS=None, PRIORITY=None, SMTP=None, PORT=465):
+def send(SUBJECT=None, BODY=None, SENDER_EMAIL=None, PASSWORD=None, RECEIVER_EMAIL=None, CC=None, BCC=None, DATE=None, ATTACHMENTS=None, PRIORITY=None, SMTP=None, VERBOSE=None, PORT=465):
 
     # Create a multipart message and set headers
     message = MIMEMultipart()
@@ -36,6 +36,9 @@ def send(SUBJECT=None, BODY=None, SENDER_EMAIL=None, PASSWORD=None, RECEIVER_EMA
     try:
         with smtplib.SMTP_SSL(SMTP, PORT, context=context) as server:
         #with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            if VERBOSE:
+                print("TRUE")
+                server.set_debuglevel(2)
             server.login(SENDER_EMAIL, PASSWORD)
             server.sendmail(SENDER_EMAIL, [RECEIVER_EMAIL] + BCC, message.as_string()) # BCC here keeps senders annoymous as we don't explicitly declare a header
     except smtplib.SMTPHeloError as e:
