@@ -40,6 +40,9 @@ def assign(opts):
             sys.exit(0)
         elif opt in ("-f", "--fromemail"):
             VARS["FROMEMAIL"] = arg
+        elif opt in ("-g", "--gateways"):
+            usage.carriers()
+            sys.exit(0)
         elif opt in ("-h", "--help"):
             usage.usage()
             sys.exit(0)
@@ -91,9 +94,9 @@ def parse(argv):
     # Parsing. Erroneous flags throw exception.
     try:
         # TODO -- "passphrase" does not match with variable 'k'. Why not use "key"? Ask Teal
-        opts, args = getopt.getopt(argv,"a:b:c:def:hk:m:p:s:t:u:vz:C:P:S:V",
-                ["attachments=", "bccemails=", "ccemails=", "dryrun=", "examples","fromemail=", "help",
-                    "passphrase=", "subject=", "toaddress=", "username=", "version", "zipfile=",
+        opts, args = getopt.getopt(argv,"a:b:c:def:ghk:m:p:s:t:u:vz:C:P:S:V",
+                ["attachments=", "bccemails=", "ccemails=", "dryrun=", "examples","fromemail=", "gateways",
+                    "help", "passphrase=", "subject=", "toaddress=", "username=", "version", "zipfile=",
                     "cert=", "priority=", "smtp=", "verbose="])
     except getopt.GetoptError:
         print(error)
