@@ -16,6 +16,7 @@ def usage():
                             "It will ask you for the password the first time you run the script with this option. Requires SMTP server.\n"+
         "    -e --examples   Show example usages for this script\n"+
         "    -f --fromemail From e-mail address\n"+
+        "    -g --gateways  A non-complete listing of SMS and MMS Gateways for the US and Canada\n"+
         "    -h --help       Display this help and exit\n"+
         "    -k --passphrase PGP secret key passphrase for digitally signing the e-mails with PGP/MIME\n"+
                             "Requires SMTP server.\n"+
@@ -65,3 +66,32 @@ def examples():
 
         f'    Send e-mail digitally signed with PGP/MIME"+ "{sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -k \"passphrase\" -t \"Example <example@example.com>\"')
 
+def carriers():
+    print("*(US CARRIERS)*\n"+
+    "|Mobile carrier|     |SMS gateway domain|\t|MMS gateway domain|\n"+
+    "--------------------------------------------------------------------\n"+
+    "|Alltel|\t     |sms.alltelwireless.com|\t|mms.alltelwireless.com|\n"+
+    "|AT&T|\t\t     |txt.att.net|\t\t|mms.att.net|\n"+
+    "|Boost Mobile|\t     |sms.myboostmobile.com|	|myboostmobile.com|\n"+
+    "|Cricket Wireless|   |mms.cricketwireless.net|	|mms.cricketwireless.net|\n"+
+    "|FirstNet|\t     |txt.att.net|	\t|mms.att.net|\n"+
+    "|Google Fi|\t\t\t\t\t|msg.fi.google.com|\n"+
+    "|MetroPCS|\t     |mymetropcs.com|	\t|mymetropcs.com|\n"+
+    "|Republic Wireless|  |text.republicwireless.com|\n"+
+    "|Sprint|\t     |messaging.sprintpcs.com|\t|pm.sprint.com|\n"+
+    "|T-Mobile|\t     |tmomail.net| \t\t|tmomail.net|\n"+
+    "|U.S. Cellular|      |email.uscc.net|\t	|mms.uscc.net|\n"+
+    "|Verizon Wireless|   |vtext.com|	\t|vzwpix.com|\n"+
+    "|Virgin Mobile|      |vmobl.com|	\t|vmpix.com|\n\n"+
+    "*(CANADIAN CARRIERS)*\n"+
+    "|Mobile carrier||    |SMS gateway domain|\t|MMS gateway domain|\n"+
+    "--------------------------------------------------------------------\n"+
+    "|Bell Canada|\t     |txt.bell.ca|\n"+
+    "|Bell MTS|\t     |text.mts.net|\n"+
+    "|Fido Solutions|     |fido.ca|\n"+
+    "|Freedom Mobile|     |txt.freedommobile.ca|\n"+
+    "|Koodo Mobile|\t     |msg.telus.com|\n"+
+    "|PC Mobile|\t     |mobiletxt.ca|\n"+
+    "|Rogers Comm.|\t     |pcs.rogers.com|\n"+
+    "|SaskTel|\t     |sms.sasktel.com|\n"+
+    "|Telus|\t\t     |msg.telus.com|")
