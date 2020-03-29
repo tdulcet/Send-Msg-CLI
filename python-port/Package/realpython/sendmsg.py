@@ -35,6 +35,9 @@ def assign(opts):
             VARS["CCEMAILS"].append(arg)
         elif opt in ("-d", "--dryrun"):
             VARS["DRYRUN"] = True
+        elif opt in ("-e", "--examples"):
+            usage.examples()
+            sys.exit(0)
         elif opt in ("-f", "--fromemail"):
             VARS["FROMEMAIL"] = arg
         elif opt in ("-h", "--help"):
@@ -88,11 +91,12 @@ def parse(argv):
     # Parsing. Erroneous flags throw exception.
     try:
         # TODO -- "passphrase" does not match with variable 'k'. Why not use "key"? Ask Teal
-        opts, args = getopt.getopt(argv,"a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V",
-                ["attachments=", "bccemails=", "ccemails=", "dryrun=", "fromemail=", "help",
+        opts, args = getopt.getopt(argv,"a:b:c:def:hk:m:p:s:t:u:vz:C:P:S:V",
+                ["attachments=", "bccemails=", "ccemails=", "dryrun=", "examples","fromemail=", "help",
                     "passphrase=", "subject=", "toaddress=", "username=", "version", "zipfile=",
                     "cert=", "priority=", "smtp=", "verbose="])
     except getopt.GetoptError:
+        print(error)
         usage()
         sys.exit(2)
     assign(opts)
@@ -135,9 +139,8 @@ def email_checks():
     FROMADDRESS=VARS["FROMEMAIL"]
     FROMNAME=VARS["FROMEMAIL"]
     RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1
-    #RE=re.compile("'^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'")
 
-    # Note: we do not need to split up the name and email address (email library accepts name <email> pattern). Only check if the email is valid.
+    # Note: we do not need to split up the name and email address (email library accepts "name <email>" pattern). Only check if the email is valid.
     try:
         for i in range(0, len(TOADDRESSES)):
             result = RE.match(TOADDRESSES[i])
@@ -166,6 +169,8 @@ def email_checks():
                 FROMADDRESS=result.group(2)
             else:
                 error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address.")
+
+        print(VARS["TOEMAILS"])
     except Exception as error:
         error_exit(True, error)
 
@@ -234,7 +239,8 @@ def main(argv):
     if not VARS["DRYRUN"]:
         send(VARS["SUBJECT"], VARS["MESSAGE"], VARS["USERNAME"], VARS["PASSWORD"], VARS["TOEMAILS"], VARS["CCEMAILS"], VARS["BCCEMAILS"], VARS["NOW"], VARS["ATTACHMENTS"], VARS["PRIORITY"], VARS["SMTP"], VARS["VERBOSE"])
         if VARS["ZIPFILE"]:
-            os.system("trap 'rm " + VARS["ZIPFILE"] + "\' EXIT") # if the user does not add a ".zip" to the zip ending, the trap will not work as the zip CMD adds in a .zip (talk to Teal about this... we need a check for it I think).
+            print(VARS["ZIPFILE"])
+            os.system("trap 'rm " + VARS["ZIPFILE"] + "\' EXIT")
 
 if __name__=="__main__":
     if len(sys.argv) == 0:
