@@ -1,427 +1,244 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
-# Daniel Connelly
- '''based off of Tdulcet's sendmsg.sh script
-
- ROADMAP:
- 1) Create a Python port to enable my understanding of the program and experiment with a config file.
- 2) Add a parser that takes in CMDLine arguments from a .ini config file. (Will do separately, then merge)
- 3) Push this to the PyPi test repo.
- 4) Push this to the real PyPi repo and advertise as an Open Source Project.
- '''
-
-# Send e-mail, with optional message and attachments
-
-# Requires the curl and netcat commands
-
-# Optional S/MIME digital signatures require the openssl command
-# Optional PGP/MIME digital signatures require the gpg command
-
-# Run: Python3 sendmsg.py <OPTION(S)>... -s <subject>
-
-import sys
+import sys, os, socket, re
+import getopt
+import datetime
 import subprocess
 
-# Set the variables below
+sys.path.append(os.environ["PWD"]) # allows "from" to be used (FIXME and the path of this module permanently to the environment so Python can search there and not have this line here
+from send import send # how we send emails
+import usage, configuration
 
-# Send e-mails
-# Comment this out to temporally disable
-SEND=1
+'''The purpose of this file is to parse all flags given on the cmdline.
+   Skipping to the bottom main function is where the control-flow begins.
+'''
 
+###Variables###
 
-# To e-mail addresses
-# Send SMSs by using your mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients)
-TOEMAILS=""
+VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
+CONFIG_FILE="~/.sendmsg.ini"
 
-# CC e-mail addresses
-CCEMAILS=(
+def error_exit(condition, err):
+    '''print an error and exit when one occurs'''
+    if condition:
+        sys.stderr.write(err)
+        sys.exit(1)
 
-)
-
-# BCC e-mail addresses
-BCCEMAILS=(
-
-)
-
-# Optional From e-mail address
-# FROMEMAIL="Example <example@example.com>"
-
-# Optional SMTP server to send e-mails
-# Supported protocols: "smtp" and "smtps".
-# Requires From e-mail address above
-
-SMTP="smtps://mail.example.com"
-USERNAME="danc2"
-PASSWORD="School21!"
-
-# E-mail Priority
-# Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"
-# Requires SMTP server above
-# Uncomment this to enable
-# PRIORITY="Normal"
-
-# Optional Digitally sign the e-mails with an S/MIME Certificate
-# Requires SMTP server above
-
-# List of free S/MIME Certificates: http://kb.mozillazine.org/Getting_an_SMIME_certificate
-# Enter the certificate's filename for the CERT variable below.
-
-# CERT="cert.p12"
-
-CLIENTCERT="cert.pem"
-
-# Optional Digitally sign the e-mails with PGP/MIME
-# Requires SMTP server above
-
-# Generate a PGP key pair: gpg --gen-key
-# Use the same e-mail address as used for the FROMEMAIL variable above. Enter the passphrase for the PASSPHRASE variable below.
-# Make sure to send your PGP public key to the recipients before sending them digitally signed e-mails. You can export your PGP public key with: gpg -o key.asc -a --export <e-mail address> and attach key.asc to an e-mail.
-
-# PASSPHRASE="passphrase"
-
-# Days to warn before certificate expiration
-WARNDAYS=3
-
-# Compress attachment(s) with zip
-# Uncomment this to enable
-# ZIPFILE="attachments.zip"
-
-# Show the client-server communication
-# Requires SMTP server above
-# Uncomment this to enable
-# VERBOSE=1
-
-# Do not change anything below this
-
-# Output usage
-# usage <programname>
-def usage():
-        print("Usage:  $1 <OPTION(S)>... -s <subject>"+
-"or:     $1 <OPTION>"+
-"One or more To, CC or BCC e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients). All the options can also be set by opening the script in an editor and setting the variables at the top. See examples below."+
-
-"Options:"+
-    "-s <subject>    Subject"+
-                        "Escape sequences are expanded. Supports Unicode characters."+
-    "-m <message>    Message body"+
-                        "Escape sequences are expanded. Supports Unicode characters."+
-    "-a <attachment> Attachment filename"+
-                        "Use multiple times for multiple attachments. Supports Unicode characters in filename."+
-    "-t <To address> To e-mail address"+
-                        "Use multiple times for multiple To e-mail addresses."+
-    "-c <CC address> CC e-mail address"+
-                        "Use multiple times for multiple CC e-mail addresses."+
-    "-b <BCC address>BCC e-mail address"+
-                        "Use multiple times for multiple BCC e-mail addresses."+
-    "-f <From address>From e-mail address"+
-
-    "-S <SMTP server>SMTP server"+
-                        "Supported protocols: \"smtp\" and \"smtps\". Requires From e-mail address. Use \"smtp://localhost\" if running a mail server on this device."+
-    "-u <username>   SMTP server username"+
-    "-p <password>   SMTP server password"+
-    "-P <priority>   Priority"+
-                        "Supported priorities: \"5 (Lowest)\", \"4 (Low)\", \"Normal\", \"2 (High)\" and \"1 (Highest)\". Requires SMTP server."+
-    "-C <certificate>S/MIME Certificate filename for digitally signing the e-mails"+
-                        "It will ask you for the password the first time you run the script with this option. Requires SMTP server."+
-    "-k <passphrase> PGP secret key passphrase for digitally signing the e-mails with PGP/MIME"+
-                        "Requires SMTP server."+
-    "-z <zipfile>    Compress attachment(s) with zip"+
-    "-d              Dry run, do not send the e-mail"+
-    "-V              Verbose, show the client-server communication"+
-                        "Requires SMTP server."+
-
-    "-h              Display this help and exit"+
-    "-v              Output version information and exit"+
-
-"Examples:"+
-    "Send e-mail"+
-    "$ $1 -s \"Example\" -t \"Example <example@example.com>\""+
-
-    "Send e-mail with message"+
-    "$ $1 -s \"Example\" -m \"This is an example"'!'"\" -t \"Example <example@example.com>\""+
-
-    "Send e-mail with message and single attachment"+
-    "$ $1 -s \"Example\" -m \"This is an example"'!'"\" -a example.txt -t \"Example <example@example.com>\""+
-
-    "Send e-mail with message and multiple attachments"+
-    "$ $1 -s \"Example\" -m \"This is an example"'!'"\" -a example1.txt -a example2.txt -t \"Example <example@example.com>\""+
-
-    "Send e-mail to a CC address"+
-    "$ $1 -s \"Example\" -t \"Example 1 <example1@example.com>\" -c \"Example 2 <example2@example.com>\""+
-
-    "Send e-mail with a From address"+
-    "$ $1 -s \"Example\" -f \"Example <example@example.com>\" -t \"Example <example@example.com>\""+
-
-    "Send e-mail with an external SMTP server"+
-    "$ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -t \"Example <example@example.com>\""+
-
-    "Send high priority e-mail"+
-    "$ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -P \"1 (Highest)\" -t \"Example <example@example.com>\""+
-
-    "Send e-mail digitally signed with an S/MIME Certificate"+
-    "$ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -C \"cert.p12\" -t \"Example <example@example.com>\""+
-
-    "Send e-mail digitally signed with PGP/MIME"+
-    "$ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -k \"passphrase\" -t \"Example <example@example.com>\""+
-")"
-
-if len(sys.argv) == 0:
-	print(usage())
-	sys.exit(1)
-
-p = subprocess.Popen(['date', '-u'], stdout=subprocess.PIPE, shell=True)
-date = a.stdout.readlines()[0].strip().decode("utf-8")
-SUBJECT=''
-MESSAGE=''
-ATTACHMENTS=()
-
-# Check if Linux OS
-    # some help from: https://stackoverflow.com/questions/5971312/how-to-set-environment-variables-in-python
-CMD = 'echo $%s' % "OSTYPE"
-p = subprocess.Popen(CMD, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
-if "linux" in p.stdout.readlines()[0].strip().decode("utf-8")):
-	sys.stderr.write("Error: This script must be run on Linux.")
-	sys.exit(1)
-
-# TODO -- I stopped here.
-while getopts "a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V" c; do
-	case ${c} in
-	a )
-		ATTACHMENTS+=( "$OPTARG" )
-	;;
-	b )
-		BCCEMAILS+=( "$OPTARG" )
-	;;
-	c )
-		CCEMAILS+=( "$OPTARG" )
-	;;
-	d )
-		SEND=''
-	;;
-	f )
-		FROMEMAIL=$OPTARG
-	;;
-	h )
-		usage "$0"
-		exit 0
-	;;
-	k )
-		PASSPHRASE=$OPTARG
-	;;
-	m )
-		MESSAGE=$OPTARG
-	;;
-	p )
-		PASSWORD=$OPTARG
-	;;
-	s )
-		SUBJECT=$OPTARG
-	;;
-	t )
-		TOEMAILS+=( "$OPTARG" )
-	;;
-	u )
-		USERNAME=$OPTARG
-	;;
-	v )
-		echo -e "Send Msg CLI 1.0\n"
-		exit 0
-	;;
-	z )
-		ZIPFILE=$OPTARG
-	;;
-	C )
-		CERT=$OPTARG
-	;;
-	P )
-		PRIORITY=$OPTARG
-	;;
-	S )
-		SMTP=$OPTARG
-	;;
-	V )
-		VERBOSE=1
-	;;
-	\? )
-		sys.stderr.write("Try '$0 -h' for more information.\n")
-		sys.exit(1)
-	;;
-	esac
-done
-shift $((OPTIND - 1))
-# NOTE: I don't understand why we have this...
-if len(sys.argv) != 0:
-	usage()
-	sys.exit(1)
-
-def get_var(VAR):
-    CMD = 'echo $%s' % VAR
-    p = subprocess.Popen(CMD, stdout=subprocess.PIPE, shell=True, executable='/bin/bash')
-    return p.stdout.readlines()[0].strip().decode("utf-8")
-
-if len(get_var("SUBJECT")) > 0:
-	sys.stderr.write("Error: A subject is required.")
-	sys.exit(1)
-
-# checking to see if vars have been set or not.
-var_list = ["PRIORITY", "CERT", "PASSPHRASE", "SMTP", "USERNAME", "PASSWORD"]
-if (len(list(map(get_var, var_list))) > 0) && not(len(get_var("FROMEMAIL"))>0 && len(get_var("SMTP"))>0):
-	sys.stderr.write("Warning: One or more of the options you set requires that you also provide an external SMTP server. Try '$0 -h' for more information.\n")
+def assign(opts):
+    '''assign the correct values to the correct opts'''
+    for opt, arg in opts:
+        if opt in ("-a", "--attachments"):
+            VARS["ATTACHMENTS"].append(arg)
+        elif opt in ("-b", "--bccemails"):
+            VARS["BCCEMAILS"].append(arg)
+        elif opt in ("-c", "--ccemails"):
+            VARS["CCEMAILS"].append(arg)
+        elif opt in ("-d", "--dryrun"):
+            VARS["DRYRUN"] = True
+        elif opt in ("-e", "--examples"):
+            usage.examples()
+            sys.exit(0)
+        elif opt in ("-f", "--fromemail"):
+            VARS["FROMEMAIL"] = arg
+        elif opt in ("-g", "--gateways"):
+            usage.carriers()
+            sys.exit(0)
+        elif opt in ("-h", "--help"):
+            usage.usage()
+            sys.exit(0)
+        elif opt in ("-k", "--passphrase"):
+            VARS["PASSPHRASE"]=arg
+        elif opt in ("-m", "--message"):
+            VARS["MESSAGE"]=arg
+        elif opt in ("-p", "--password"):
+            VARS["PASSWORD"]=arg
+        elif opt in ("--config"):
+            # make config file with appropriate fields if file does not exist
+            if not os.path.exists(os.path.expanduser(CONFIG_FILE)):
+                print(f'Creating configuration file on path {CONFIG_FILE}....')
+                with open(os.path.expanduser(CONFIG_FILE), "w") as f1:
+                    f1.write("[email]\nsmtp =\nusername =\npassword =")
+            configuration.config_email()
+            sys.exit(0)
+        elif opt in ("-s", "--subject"):
+            VARS["SUBJECT"]=arg
+        elif opt in ("-t", "--toemails"):
+            VARS["TOEMAILS"].append(arg)
+        elif opt in ("-u", "--username"):
+            VARS["USERNAME"]= arg
+        elif opt in ("-v", "--version"):
+            print("Send Msg CLI 1.0\n")
+            sys.exit(0)
+        elif opt in ("-z", "--zipfile"):
+            VARS["ZIPFILE"]= arg+".zip"
+        elif opt in ("-C", "--cert"):
+            VARS["CERT"]= arg
+        elif opt in ("-P", "--priority"):
+            VARS["PRIORITY"]= arg
+        elif opt in ("-S", "--smtp"):
+            VARS["SMTP"]= arg
+        elif opt in ("-V", "--VERBOSE"):
+            VARS["VERBOSE"]= arg
 
 
+def configuration_assignment():
+    '''If a user decides, they may work from a configuration if the user does not specify a necessary
+       flag (e.g., -u). If the config file is empty, an error will be thrown.
+    '''
+    print("SMTP, Username or Password not set not typed on CMDline. Checking configfile...")
+    # make file with appropriate fields if file does not exist
+    if not VARS["SMTP"] or not VARS["USERNAME"] or not VARS["PASSWORD"]:
+        if not os.path.exists(os.path.expanduser(CONFIG_FILE)):
+            error_exit(True, "SMTP, Username or Password not set in config file and not typed on CMDline. Please include the -S, -u, or -p flags or use the following command to set the config file: `sendmsg --config`")
+        else:
+            VARS["SMTP"], VARS["USERNAME"], VARS["PASSWORD"] = configuration.send_mail()
 
-# TODO -- check with Teal on the translation of this one...
-if [[ "${#TOEMAILS[@]}" -eq 0 && "${#CCEMAILS[@]}" -eq 0 && "${#BCCEMAILS[@]}" -eq 0 ]]; then
-	echo "Error: One or more To, CC or BCC e-mail addresses are required." >&2
-	exit 1
-fi
+def parse_assign(argv):
+    '''Find the correct variable to assign the opt to.'''
+    # Parsing. Erroneous flags throw exception.
+    try:
+        opts, args = getopt.getopt(argv,"a:b:c:def:ghk:m:p:rs:t:u:vz:C:P:S:V",
+                ["attachments=", "bccemails=", "ccemails=", "dryrun=", "examples","fromemail=", "gateways",
+                    "help", "passphrase=", "message=", "password=", "config", "subject=", "toaddress=", "username=", "version", "zipfile=",
+                    "cert=", "priority=", "smtp=", "verbose="])
+    except getopt.GetoptError:
+        usage()
+        sys.exit(2)
+    assign(opts)
 
-if [[ "${#ATTACHMENTS[@]}" -gt 0 ]]; then
-	TOTAL=0
-	table=''
-	for i in "${ATTACHMENTS[@]}"; do
-		if [[ -z "$i" || ! -r "$i" ]]; then
-			echo "Error: Cannot read \"$i\" file." >&2
-			exit 1
-		fi
-	done
+def attachment_work():
+    if VARS["ATTACHMENTS"]:
+        TOTAL=0
+        table=''
+        for attachment in VARS["ATTACHMENTS"]:
+            if not attachment or not (os.path.exists(attachment) and os.access(attachment, os.R_OK)): # [-r ..] in bash
+                error_exit(True, f'Error: Cannot read {attachment} file.')
 
-	if [[ -n "$ZIPFILE" ]]; then
-		if [[ -e "$ZIPFILE" ]]; then
-			echo "Error: File \"$ZIPFILE\" already exists." >&2
-			exit 1
-		fi
+        zip_file = VARS["ZIPFILE"]
+        if len(zip_file) > 0:
+            if os.path.exists(zip_file):
+                error_exit(True, f'Error: File {zip_file} already exists.')
 
-		zip -q "$ZIPFILE" "${ATTACHMENTS[@]}"
-		trap 'rm "$ZIPFILE"' EXIT
+            os.system("zip -q " + zip_file + " " + " ".join(VARS["ATTACHMENTS"]))
+            VARS["ATTACHMENTS"] = [zip_file]
 
-		ATTACHMENTS=( "$ZIPFILE" )
-	fi
-
-	echo "Attachments:"
-	for i in "${ATTACHMENTS[@]}"; do
-		SIZE=$(du -b "$i" | awk '{ print $1 }')
-		((TOTAL+=SIZE))
-		table+="$i\t$(numfmt --to=iec-i "$SIZE")B$([[ $SIZE -ge 1000 ]] && echo "\t($(numfmt --to=si "$SIZE")B)" || echo)\n"
-	done
-	echo -e "$table" | column -t -s $'\t'
-
-	echo -e "\nTotal Size:\t$(numfmt --to=iec-i "$TOTAL")B$([[ $TOTAL -ge 1000 ]] && echo " ($(numfmt --to=si "$TOTAL")B)")\n"
-	# du -bch "${ATTACHMENTS[@]}"
-
-	if [[ $TOTAL -ge 26214400 ]]; then
-		echo -e "Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n"
-	fi
-fi
-
-# Adapted from: https://github.com/mail-in-a-box/mailinabox/blob/master/setup/network-checks.sh
-if ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]] && ! nc -z -w5 aspmx.l.google.com 25; then
-	echo -e "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to provide an external SMTP server in order to send e-mails.\n"
-fi
-
-# encoded-word <text>
-encoded-word() {
-	# ASCII
-	RE='^[] !"#$%&'\''()*+,./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\^_`abcdefghijklmnopqrstuvwxyz{|}~-]*$' # '^[ -~]*$' # '^[[:ascii:]]*$'
-	if [[ $1 =~ $RE ]]; then
-		echo "$1"
-	else
-		echo "=?utf-8?B?$(echo "$1" | base64 -w 0)?="
-	fi
-}
-
-TOADDRESSES=( "${TOEMAILS[@]}" )
-TONAMES=( "${TOEMAILS[@]}" )
-CCADDRESSES=( "${CCEMAILS[@]}" )
-CCNAMES=( "${CCEMAILS[@]}" )
-BCCADDRESSES=( "${BCCEMAILS[@]}" )
-FROMADDRESS=$FROMEMAIL
-FROMNAME=$FROMEMAIL
+        # checking if attachment size are > 25 MB
+        print("Attachments:")
+        for attachment in VARS["ATTACHMENTS"]:
+            SIZE=subprocess.check_output("du -b \""+attachment+"\" | awk '{ print $1 }'", shell=True).decode().strip("\n")
+            TOTAL +=int(SIZE)
+            table+=attachment+"\t$(numfmt --to=iec-i \""+SIZE+"\")B$([ "+SIZE+" -ge 1000 ] && echo \"\t($(numfmt --to=si \""+SIZE+"\")B)\" || echo)\n"
+        os.system("echo \""+table+"\" | column -t -s '\t'")
+        os.system("echo \"\nTotal Size:\t$(numfmt --to=iec-i \""+str(TOTAL)+"\")B$([ "+str(TOTAL)+" -ge 1000 ] && echo \" ($(numfmt --to=si \""+str(TOTAL)+"\")B)\")\n\"")
+        if TOTAL >= 26214400:
+            error_exit(True, "Warning: The total size of all attachments is greater than or equal to 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
 
 # Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
-RE='^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'
-for i in "${!TOADDRESSES[@]}"; do
-	if [[ ${TOADDRESSES[$i]} =~ $RE ]]; then
-		TOADDRESSES[$i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
-		TONAMES[$i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
-	fi
-done
+def email_checks():
+    TOADDRESSES=VARS["TOEMAILS"]
+    CCADDRESSES=VARS["CCEMAILS"]
+    BCCADDRESSES=VARS["BCCEMAILS"]
+    FROMADDRESS=VARS["FROMEMAIL"]
+    RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1
 
-for i in "${!CCADDRESSES[@]}"; do
-	if [[ ${CCADDRESSES[$i]} =~ $RE ]]; then
-		CCADDRESSES[$i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
-		CCNAMES[$i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
-	fi
-done
+    # Note: we do not need to split up the name and email address (email library accepts "name <email>" pattern). Only check if the email is valid.
+    try:
+        for i in range(0, len(TOADDRESSES)):
+            result = RE.match(TOADDRESSES[i])
+            if result:
+                TOADDRESSES[i] = result.group(2)
+            else:
+                error_exit(True, "Error: \""+TOADDRESSES[i]+"\" is not a valid e-mail address.")
 
-for i in "${!BCCADDRESSES[@]}"; do
-	if [[ ${BCCADDRESSES[$i]} =~ $RE ]]; then
-		BCCADDRESSES[$i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
-	fi
-done
+        for i in range(0, len(CCADDRESSES)):
+            result = RE.match(CCADDRESSES[i])
+            if result:
+                CCADDRESSES[i]=result.group(2)
+            else:
+                error_exit(True, "Error: \""+CCADDRESSES[i]+"\" is not a valid e-mail address.")
 
-if [[ -n "$FROMADDRESS" ]] && [[ $FROMADDRESS =~ $RE ]]; then
-	FROMADDRESS=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
-	FROMNAME=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
-fi
+        for i in range(0, len(BCCADDRESSES)):
+            result = RE.match(BCCADDRESSES[i])
+            if result:
+                BCCADDRESSES[i]=result.group(2)
+            else:
+                error_exit(True, "Error: \""+BCCADDRESSES[i]+"\" is not a valid e-mail address.")
 
-RE1='^.{6,254}$'
-RE2='^.{1,64}@'
-RE3='^[[:alnum:]!#\$%&'\''\*\+/=?^_\`{|}~-]+(\.[[:alnum:]!#\$%&'\''\*\+/=?^_\`{|}~-]+)*@((xn--)?[[:alnum:]][[:alnum:]\-]{0,61}[[:alnum:]]\.)+(xn--)?[a-zA-Z]{2,63}$'
-for email in "${TOADDRESSES[@]}"; do
-	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
-		echo "Error: \"$email\" is not a valid e-mail address." >&2
-		exit 1
-	fi
-done
+        if len(FROMADDRESS)>0:
+            result = RE.match(FROMADDRESS)
+            if result:
+                FROMADDRESS=result.group(2)
+            else:
+                error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address.")
 
-for email in "${CCADDRESSES[@]}"; do
-	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
-		echo "Error: \"$email\" is not a valid e-mail address." >&2
-		exit 1
-	fi
-done
+    except Exception as error:
+        error_exit(True, error)
 
-for email in "${BCCADDRESSES[@]}"; do
-	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
-		echo "Error: \"$email\" is not a valid e-mail address." >&2
-		exit 1
-	fi
-done
+def cert_checks():
+    if len(VARS["CERT"]) > 0:
+        if not os.path.exists(VARS["CERT"]) and os.access(VARS["CERT"], os.R_OK) and not os.path.exists(VARS["CLIENTCERT"]):
+            error_exit(True, "Error: \""+CERT+"\" certificate file does not exist.")
 
-if [[ -n "$FROMADDRESS" ]] && ! [[ $FROMADDRESS =~ $RE1 && $FROMADDRESS =~ $RE2 && $FROMADDRESS =~ $RE3 ]]; then
-	echo "Error: \"$FROMADDRESS\" is not a valid e-mail address." >&2
-	exit 1
-fi
+        if not os.path.exists(VARS["CLIENTCERT"]):
+            print("Saving the client certificate from \""+VARS["CERT"]+"\" to \""+VARS["CLIENTCERT"]+"\"")
+            print("Please enter the password when prompted.\n")
+            os.system("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes")
 
-# Send e-mail, with optional message and attachments
-# Supports Unicode characters in subject, message and attachment filename
-# send <subject> [message] [attachment(s)]...
-send() {
-	local headers message amessage
-	if [[ -n "$SEND" ]]; then
-		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
-			headers="$([[ -n "$PRIORITY" ]] && echo "X-Priority: $PRIORITY\n")From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
-			if [[ "$#" -ge 3 ]]; then
-				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w "%{url_effective}\\n" --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
-			else
-				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
-			fi
-			if [[ -n "$CERT" ]]; then
-				echo -e "${headers}$(echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT")"
-			elif [[ -n "$PASSPHRASE" ]]; then
-				amessage=$(echo -e "$message")
-				echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"----MULTIPART-SIGNED-BOUNDARY\"\n\n------MULTIPART-SIGNED-BOUNDARY\n"
-				echo -n "$amessage"
-				echo -e "\n------MULTIPART-SIGNED-BOUNDARY\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n------MULTIPART-SIGNED-BOUNDARY--"
-			else
-				echo -e "${headers}MIME-Version: 1.0\n$message"
-			fi | eval curl -sS"$([[ -n "$VERBOSE" ]] && echo "v" || echo)" "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
-		else
-			{ echo -e "$2"; [[ "$#" -ge 3 ]] && for i in "${@:3}"; do uuencode "$i" "$(basename "$i")"; done; } | eval mail $([[ -n "$FROMADDRESS" ]] && echo "-r \"$FROMADDRESS\"" || echo) $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ "${#TOADDRESSES[@]}" -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
-		fi
-	fi
-}
+        aissuer=subprocess.check_output("$(openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq);", shell=True).decode().strip("\n")
+        if aissuer:
+            issuer=subprocess.check_output("$(echo \""+aissuer+"\" | awk -F'=' '/commonName=/ { print $2 }')", shell=True).decode().strip("\n")
+        else:
+            issuer=''
 
-send "$SUBJECT" "$MESSAGE" "${ATTACHMENTS[@]}"
+        date=subprocess.check_output("$(openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -enddate | awk -F'=' '/notAfter=/ { print $2 }')", shell=True).decode().strip("\n")
+        if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0 > /dev/null;", shell=True).decode().strip("\n"):
+            sec=subprocess.check_output("$(( $(date -d \""+date+"\" +%s) - $(date -d \""+NOW+"\" +%s) ))", shell=True).decode().strip("\n")
+            if subprocess.check_output("$(( sec / 86400 )) -lt "+VARS["WARNDAYS"], shell=True).decode().strip("\n"):
+                print("echo \"Warning: The S/MIME Certificate $([ -n \""+issuer+"\" ] && echo \"from “$issuer” \" || echo)expires in less than "+VARS["WARNDAYS"]+" days "+ subprocess.check_output("($(date -d \""+date+"\")).\n\"").decode())
+        else:
+            error_exit(True, "Error: The S/MIME Certificate $([[ -n \""+issuer+"\" ]] && echo \"from \""+issuer+"\" \" || echo)expired $(date -d \""+date+"\").\"")
 
+def passphrase_checks():
+    if len(VARS["PASSPHRASE"]) > 0:
+        if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo);").decode().strip("\n"):
+            error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
+
+        date=subprocess.check_output("$(gpg -k --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^pub/ { print $7 }')").decode().strip("\n")
+        if len(date) > 0:
+            date=subprocess.check_output("$(echo \"$date\" | head -n 1)").decode().strip("\n")
+            sec=subprocess.check_output("$(( date - $(date -d \"$NOW\" +%s) ))").decode().strip("\n")
+            fingerprint=subprocess.check_output("$(gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)").decode().strip("\n")
+            if len(sec) > 0:
+                if subprocess.check_output("$(( sec / 86400 )) -lt $WARNDAYS ]];").decode().strip("\n"):
+                    subprocess.run("Warning: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expires in less than "+VARS["WARNDAYS"]+" days ($(date -d \""+"\n".join(VARS["date"])+"\")).\n", shell=True)
+            else:
+                subprocess.run("Error: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expired $(date -d \""+"\n".join(VARS["date"])+"\").",shell=True)
+                sys.exit(1)
+
+    if len(VARS["CERT"]) > 0 and len(VARS["PASSPHRASE"]) > 0:
+        print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
+
+def main(argv):
+    # parsing/assignment
+    parse_assign(argv)
+    configuration_assignment() # use default configuration if nothing was put on the CMDline
+
+    # checks
+    email_checks()
+    attachment_work()
+    cert_checks()
+    passphrase_checks()
+
+    # sending
+    if not VARS["DRYRUN"]:
+        send(VARS["SUBJECT"], VARS["MESSAGE"], VARS["USERNAME"], VARS["PASSWORD"], VARS["TOEMAILS"], VARS["CCEMAILS"], VARS["BCCEMAILS"], VARS["NOW"], VARS["ATTACHMENTS"], VARS["PRIORITY"], VARS["SMTP"], VARS["VERBOSE"])
+        if VARS["ZIPFILE"]:
+            os.system("trap 'rm " + VARS["ZIPFILE"] + "\' EXIT")
+
+if __name__=="__main__":
+    if len(sys.argv) == 0:
+        usage()
+        sys.exit(1)
+
+    main(sys.argv[1:])
+    print("Message sent")
