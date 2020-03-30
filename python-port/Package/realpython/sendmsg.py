@@ -7,7 +7,7 @@ import subprocess
 
 sys.path.append(os.environ["PWD"]) # allows "from" to be used (FIXME and the path of this module permanently to the environment so Python can search there and not have this line here
 from send import send # how we send emails
-import usage
+import usage, configuration
 
 '''The purpose of this file is to parse all flags given on the cmdline.
    Skipping to the bottom main function is where the control-flow begins.
@@ -16,7 +16,7 @@ import usage
 ###Variables###
 
 VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
-CONFIG_FILE="~/.sendmsg"
+CONFIG_FILE="~/.sendmsg.ini"
 
 def error_exit(condition, err):
     '''print an error and exit when one occurs'''
@@ -52,6 +52,14 @@ def assign(opts):
             VARS["MESSAGE"]=arg
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
+        elif opt in ("--config"):
+            # make config file with appropriate fields if file does not exist
+            if not os.path.exists(os.path.expanduser(CONFIG_FILE)):
+                print(f'Creating configuration file on path {CONFIG_FILE}....')
+                with open(os.path.expanduser(CONFIG_FILE), "w") as f1:
+                    f1.write("[email]\nsmtp =\nusername =\npassword =")
+            configuration.config_email()
+            sys.exit(0)
         elif opt in ("-s", "--subject"):
             VARS["SUBJECT"]=arg
         elif opt in ("-t", "--toemails"):
@@ -72,38 +80,31 @@ def assign(opts):
         elif opt in ("-V", "--VERBOSE"):
             VARS["VERBOSE"]= arg
 
-# TODO
+
 def configuration_assignment():
-    '''If a user decides, they may work from a configuration file. If the file has something in it
-       and the user does not specify a necessary flag (e.g., -f), then the program will use this file
-       to fill in the blanks
+    '''If a user decides, they may work from a configuration if the user does not specify a necessary
+       flag (e.g., -u). If the config file is empty, an error will be thrown.
     '''
-    if not os.path.exists(CONFIG_FILE):
-        with open(os.path.expanduser(CONFIG_FILE), "w") as f1:
-            # make file with appropriate fields
-            pass
+    print("SMTP, Username or Password not set not typed on CMDline. Checking configfile...")
+    # make file with appropriate fields if file does not exist
+    if not VARS["SMTP"] or not VARS["USERNAME"] or not VARS["PASSWORD"]:
+        if not os.path.exists(os.path.expanduser(CONFIG_FILE)):
+            error_exit(True, "SMTP, Username or Password not set in config file and not typed on CMDline. Please include the -S, -u, or -p flags or use the following command to set the config file: `sendmsg --config`")
+        else:
+            VARS["SMTP"], VARS["USERNAME"], VARS["PASSWORD"] = configuration.send_mail()
 
-    with open(os.path.expanduser(CONFIG_FILE), "r") as f1:
-        # read from config file
-        pass
-
-    pass
-
-def parse(argv):
+def parse_assign(argv):
     '''Find the correct variable to assign the opt to.'''
     # Parsing. Erroneous flags throw exception.
     try:
-        # TODO -- "passphrase" does not match with variable 'k'. Why not use "key"? Ask Teal
-        opts, args = getopt.getopt(argv,"a:b:c:def:ghk:m:p:s:t:u:vz:C:P:S:V",
+        opts, args = getopt.getopt(argv,"a:b:c:def:ghk:m:p:rs:t:u:vz:C:P:S:V",
                 ["attachments=", "bccemails=", "ccemails=", "dryrun=", "examples","fromemail=", "gateways",
-                    "help", "passphrase=", "subject=", "toaddress=", "username=", "version", "zipfile=",
+                    "help", "passphrase=", "message=", "password=", "config", "subject=", "toaddress=", "username=", "version", "zipfile=",
                     "cert=", "priority=", "smtp=", "verbose="])
     except getopt.GetoptError:
-        print(error)
         usage()
         sys.exit(2)
     assign(opts)
-
 
 def attachment_work():
     if VARS["ATTACHMENTS"]:
@@ -135,12 +136,9 @@ def attachment_work():
 # Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
 def email_checks():
     TOADDRESSES=VARS["TOEMAILS"]
-    TONAMES=VARS["TOEMAILS"]
     CCADDRESSES=VARS["CCEMAILS"]
-    CCNAMES=VARS["CCEMAILS"]
     BCCADDRESSES=VARS["BCCEMAILS"]
     FROMADDRESS=VARS["FROMEMAIL"]
-    FROMNAME=VARS["FROMEMAIL"]
     RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1
 
     # Note: we do not need to split up the name and email address (email library accepts "name <email>" pattern). Only check if the email is valid.
@@ -173,11 +171,9 @@ def email_checks():
             else:
                 error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address.")
 
-        print(VARS["TOEMAILS"])
     except Exception as error:
         error_exit(True, error)
 
-#TODO -- Ask Teal -- do you want to return standard output too? If the command fails it will just return a null string which will not trigger the if condition.
 def cert_checks():
     if len(VARS["CERT"]) > 0:
         if not os.path.exists(VARS["CERT"]) and os.access(VARS["CERT"], os.R_OK) and not os.path.exists(VARS["CLIENTCERT"]):
@@ -187,12 +183,6 @@ def cert_checks():
             print("Saving the client certificate from \""+VARS["CERT"]+"\" to \""+VARS["CLIENTCERT"]+"\"")
             print("Please enter the password when prompted.\n")
             os.system("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes")
-
-        # TODO -- Teal, can/should I delete this commented out code?
-        # if ! output=$(openssl verify -verify_email "$FROMADDRESS" "$CLIENTCERT" 2>/dev/null); then
-                # echo "Error verifying the S/MIME Certificate: $output" >&2
-                # exit 1
-        # fi
 
         aissuer=subprocess.check_output("$(openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq);", shell=True).decode().strip("\n")
         if aissuer:
@@ -229,8 +219,9 @@ def passphrase_checks():
         print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
 
 def main(argv):
-    # parsing
-    parse(argv)
+    # parsing/assignment
+    parse_assign(argv)
+    configuration_assignment() # use default configuration if nothing was put on the CMDline
 
     # checks
     email_checks()
@@ -242,7 +233,6 @@ def main(argv):
     if not VARS["DRYRUN"]:
         send(VARS["SUBJECT"], VARS["MESSAGE"], VARS["USERNAME"], VARS["PASSWORD"], VARS["TOEMAILS"], VARS["CCEMAILS"], VARS["BCCEMAILS"], VARS["NOW"], VARS["ATTACHMENTS"], VARS["PRIORITY"], VARS["SMTP"], VARS["VERBOSE"])
         if VARS["ZIPFILE"]:
-            print(VARS["ZIPFILE"])
             os.system("trap 'rm " + VARS["ZIPFILE"] + "\' EXIT")
 
 if __name__=="__main__":
@@ -251,3 +241,4 @@ if __name__=="__main__":
         sys.exit(1)
 
     main(sys.argv[1:])
+    print("Message sent")
