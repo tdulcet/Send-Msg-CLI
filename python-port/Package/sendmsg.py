@@ -106,6 +106,40 @@ def parse_assign(argv):
         sys.exit(2)
     assign(opts)
 
+# source: https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
+def convert_bytes(size):
+   for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
+       if size < 1000.0:
+       #if size < 1024.0:
+           return "%3.1f %s" % (size, x)
+       size = round(size / 1000.0)
+       #size /= 1024.0
+
+   return size
+def convert_bytes(size):
+
+   for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
+       #if size < 1000.0:
+       if size < 1024.0:
+           return "%3.1f %s" % (size, x)
+       #size = round(size / 1000.0, 1)
+       #print(size)
+       size = round(size / 1024.0, 1)
+       #size /= 1024.0
+
+   return size +"KiB"
+
+# user codeskyblue from: https://stackoverflow.com/questions/19103052/python-string-formatting-columns-in-line
+def format_attachment_output():
+    rows = [('apple', '$1.09'), ('areallylongfilename.py', '$58.01')]
+
+    lens = []
+    for col in zip(*rows):
+        lens.append(max([len(v) for v in col]))
+    format = "  ".join(["{:<" + str(l) + "}" for l in lens])
+    for row in rows:
+        print(format.format(*row))
+
 def attachment_work():
     if VARS["ATTACHMENTS"]:
         TOTAL=0
@@ -119,7 +153,7 @@ def attachment_work():
             if os.path.exists(zip_file):
                 error_exit(True, f'Error: File {zip_file} already exists.')
 
-            os.system("zip -q " + zip_file + " " + " ".join(VARS["ATTACHMENTS"]))
+            subprocess.run("zip -q " + zip_file + " " + " ".join(VARS["ATTACHMENTS"]),shell=True)
             VARS["ATTACHMENTS"] = [zip_file]
 
         # checking if attachment size are > 25 MB
@@ -127,9 +161,23 @@ def attachment_work():
         for attachment in VARS["ATTACHMENTS"]:
             SIZE=subprocess.check_output("du -b \""+attachment+"\" | awk '{ print $1 }'", shell=True).decode().strip("\n")
             TOTAL +=int(SIZE)
+            #print(f"{attachment:<10}{convert_bytes(int(SIZE)):^10}")
+            #print(attachment + "    " + (convert_bytes(int(SIZE))))
+            '''
+            Attachments:
+            send.py   2.4KiB  (2.5KB)
+            usage.py  5.9KiB  (6.1KB)
+
+            Total Size:	8.3KiB (8.5KB)
+            '''
+
             table+=attachment+"\t$(numfmt --to=iec-i \""+SIZE+"\")B$([ "+SIZE+" -ge 1000 ] && echo \"\t($(numfmt --to=si \""+SIZE+"\")B)\" || echo)\n"
-        os.system("echo \""+table+"\" | column -t -s '\t'")
-        os.system("echo \"\nTotal Size:\t$(numfmt --to=iec-i \""+str(TOTAL)+"\")B$([ "+str(TOTAL)+" -ge 1000 ] && echo \" ($(numfmt --to=si \""+str(TOTAL)+"\")B)\")\n\"")
+            #print("TABLE")
+            #print(table)
+        #print(table+"\" | column -t -s '\t'")
+        #subprocess.run("echo "+table, shell=True)
+        subprocess.run("echo \""+table+"\" | column -t -s '\t'", shell=True)
+        subprocess.run("echo \"\nTotal Size:\t$(numfmt --to=iec-i \""+str(TOTAL)+"\")B$([ "+str(TOTAL)+" -ge 1000 ] && echo \" ($(numfmt --to=si \""+str(TOTAL)+"\")B)\")\n\"", shell=True)
         if TOTAL >= 26214400:
             error_exit(True, "Warning: The total size of all attachments is greater than or equal to 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
 
@@ -182,7 +230,7 @@ def cert_checks():
         if not os.path.exists(VARS["CLIENTCERT"]):
             print("Saving the client certificate from \""+VARS["CERT"]+"\" to \""+VARS["CLIENTCERT"]+"\"")
             print("Please enter the password when prompted.\n")
-            os.system("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes")
+            subprocess.run("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True)
 
         aissuer=subprocess.check_output("$(openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq);", shell=True).decode().strip("\n")
         if aissuer:
@@ -233,7 +281,7 @@ def main(argv):
     if not VARS["DRYRUN"]:
         send(VARS["SUBJECT"], VARS["MESSAGE"], VARS["USERNAME"], VARS["PASSWORD"], VARS["TOEMAILS"], VARS["CCEMAILS"], VARS["BCCEMAILS"], VARS["NOW"], VARS["ATTACHMENTS"], VARS["PRIORITY"], VARS["SMTP"], VARS["VERBOSE"])
         if VARS["ZIPFILE"]:
-            os.system("trap 'rm " + VARS["ZIPFILE"] + "\' EXIT")
+            subprocess.run("trap 'rm " + VARS["ZIPFILE"] + "\' EXIT",shell=True)
 
 if __name__=="__main__":
     if len(sys.argv) == 0:
