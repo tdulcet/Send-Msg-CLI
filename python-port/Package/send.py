@@ -21,13 +21,13 @@ def send(SUBJECT=None, MESSAGE=None, USERNAME=None, PASSWORD=None, TOEMAILS=None
     message["X-Priority"] = PRIORITY
 
     # Add body.
-    basemsg = MIMEText(MESSAGE, "plain")
-    #message.attach(MIMEText(MESSAGE, "plain"))
+#    basemsg = MIMEText(MESSAGE, "plain")
+    message.attach(MIMEText(MESSAGE, "plain"))
 
     # TODO -- try this https://stackoverflow.com/questions/10496902/pgp-signing-multipart-e-mails-with-python
-    gpg = gnupg.GPG()
+#    gpg = gnupg.GPG()
     # basetext =...
-    signature = str(gpg.sign(
+#    signature = str(gpg.sign(
 
 
     # Add attachments - https://stackoverflow.com/questions/3362600/how-to-send-email-attachments
