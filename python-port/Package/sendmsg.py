@@ -15,7 +15,7 @@ import usage, configuration
 
 ###Variables###
 
-VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
+VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":datetime.datetime.now().strftime("%A, %B %d. %Y %I:%M%p"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
 CONFIG_FILE="~/.sendmsg.ini"
 
 def error_exit(condition, err):
@@ -106,33 +106,20 @@ def parse_assign(argv):
         sys.exit(2)
     assign(opts)
 
-# source: https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
-def convert_bytes(size):
-   for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
-       if size < 1000.0:
-       #if size < 1024.0:
+# modified from source: https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
+def convert_bytes(size, byte_type):
+   byte_array = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB'] if byte_type == "i" else ['bytes', 'KB', 'MB', 'GB', 'TB']
+   div_size = 1024.0 if byte_type == "i" else 1000.0
+
+   for x in byte_array:
+       if size < div_size:
            return "%3.1f %s" % (size, x)
-       size = round(size / 1000.0)
-       #size /= 1024.0
+       size = round(size / div_size, 1)
 
    return size
-def convert_bytes(size):
-
-   for x in ['bytes', 'KB', 'MB', 'GB', 'TB']:
-       #if size < 1000.0:
-       if size < 1024.0:
-           return "%3.1f %s" % (size, x)
-       #size = round(size / 1000.0, 1)
-       #print(size)
-       size = round(size / 1024.0, 1)
-       #size /= 1024.0
-
-   return size +"KiB"
 
 # user codeskyblue from: https://stackoverflow.com/questions/19103052/python-string-formatting-columns-in-line
-def format_attachment_output():
-    rows = [('apple', '$1.09'), ('areallylongfilename.py', '$58.01')]
-
+def format_attachment_output(rows):
     lens = []
     for col in zip(*rows):
         lens.append(max([len(v) for v in col]))
@@ -143,7 +130,7 @@ def format_attachment_output():
 def attachment_work():
     if VARS["ATTACHMENTS"]:
         TOTAL=0
-        table=''
+        rows = []
         for attachment in VARS["ATTACHMENTS"]:
             if not attachment or not (os.path.exists(attachment) and os.access(attachment, os.R_OK)): # [-r ..] in bash
                 error_exit(True, f'Error: Cannot read {attachment} file.')
@@ -153,31 +140,22 @@ def attachment_work():
             if os.path.exists(zip_file):
                 error_exit(True, f'Error: File {zip_file} already exists.')
 
-            subprocess.run("zip -q " + zip_file + " " + " ".join(VARS["ATTACHMENTS"]),shell=True)
+            import zipfile
+            with zipfile.ZipFile(zip_file, 'w') as myzip:
+                for attachment in VARS["ATTACHMENTS"]:
+                    myzip.write(attachment)
             VARS["ATTACHMENTS"] = [zip_file]
 
         # checking if attachment size are > 25 MB
         print("Attachments:")
         for attachment in VARS["ATTACHMENTS"]:
-            SIZE=subprocess.check_output("du -b \""+attachment+"\" | awk '{ print $1 }'", shell=True).decode().strip("\n")
+            SIZE=os.path.getsize(attachment)
             TOTAL +=int(SIZE)
-            #print(f"{attachment:<10}{convert_bytes(int(SIZE)):^10}")
-            #print(attachment + "    " + (convert_bytes(int(SIZE))))
-            '''
-            Attachments:
-            send.py   2.4KiB  (2.5KB)
-            usage.py  5.9KiB  (6.1KB)
+            rows.append((attachment, convert_bytes(int(SIZE), "i"), "("+convert_bytes(int(SIZE), "b")+")"))
 
-            Total Size:	8.3KiB (8.5KB)
-            '''
+        rows.append(("\nTotal Size:", convert_bytes(int(TOTAL),"i"), "("+convert_bytes(int(TOTAL),"b")+")"))
+        format_attachment_output(rows)
 
-            table+=attachment+"\t$(numfmt --to=iec-i \""+SIZE+"\")B$([ "+SIZE+" -ge 1000 ] && echo \"\t($(numfmt --to=si \""+SIZE+"\")B)\" || echo)\n"
-            #print("TABLE")
-            #print(table)
-        #print(table+"\" | column -t -s '\t'")
-        #subprocess.run("echo "+table, shell=True)
-        subprocess.run("echo \""+table+"\" | column -t -s '\t'", shell=True)
-        subprocess.run("echo \"\nTotal Size:\t$(numfmt --to=iec-i \""+str(TOTAL)+"\")B$([ "+str(TOTAL)+" -ge 1000 ] && echo \" ($(numfmt --to=si \""+str(TOTAL)+"\")B)\")\n\"", shell=True)
         if TOTAL >= 26214400:
             error_exit(True, "Warning: The total size of all attachments is greater than or equal to 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
 
@@ -223,6 +201,18 @@ def email_checks():
         error_exit(True, error)
 
 def cert_checks():
+    '''Creates the .pem certificate (defined in VARS["CLIENTCERT"]; e.g., cert.pem) with certificate \
+       located in VARS["CERT"] (read in from CMDLINE using -C, or --cert)
+    '''
+    try:
+        import smime
+    except ImportError as error:
+        print("Installing smime dependency")
+        p = subprocess.run('pip install smime', shell=True)
+        import smime
+    except Exception as error:
+        misc_check(true, "Unexpected error occured when installing smime Python dependency:\n\n" + error)
+
     if len(VARS["CERT"]) > 0:
         if not os.path.exists(VARS["CERT"]) and os.access(VARS["CERT"], os.R_OK) and not os.path.exists(VARS["CLIENTCERT"]):
             error_exit(True, "Error: \""+CERT+"\" certificate file does not exist.")
@@ -231,8 +221,11 @@ def cert_checks():
             print("Saving the client certificate from \""+VARS["CERT"]+"\" to \""+VARS["CLIENTCERT"]+"\"")
             print("Please enter the password when prompted.\n")
             subprocess.run("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True)
+        print(VARS["CERT"])
+        print(VARS["CLIENTCERT"])
 
         aissuer=subprocess.check_output("$(openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq);", shell=True).decode().strip("\n")
+        print("Aissuer " + str(aissuer))
         if aissuer:
             issuer=subprocess.check_output("$(echo \""+aissuer+"\" | awk -F'=' '/commonName=/ { print $2 }')", shell=True).decode().strip("\n")
         else:
@@ -247,6 +240,9 @@ def cert_checks():
             error_exit(True, "Error: The S/MIME Certificate $([[ -n \""+issuer+"\" ]] && echo \"from \""+issuer+"\" \" || echo)expired $(date -d \""+date+"\").\"")
 
 def passphrase_checks():
+
+#python3 -m pip install --user python-gnupg
+
     if len(VARS["PASSPHRASE"]) > 0:
         if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo);").decode().strip("\n"):
             error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
@@ -271,17 +267,23 @@ def main(argv):
     parse_assign(argv)
     configuration_assignment() # use default configuration if nothing was put on the CMDline
 
-    # checks
+    # email checks
     email_checks()
     attachment_work()
-    cert_checks()
-    passphrase_checks()
+
+    # Cert checks
+    from shutil import which
+    if which("openssl") is not None and which("gpg") is not None: # USE commands
+        cert_checks()
+        passphrase_checks()
+    else: # TODO -- use third party libraries to do .pem creation and signing of email messages
+        pass
 
     # sending
     if not VARS["DRYRUN"]:
         send(VARS["SUBJECT"], VARS["MESSAGE"], VARS["USERNAME"], VARS["PASSWORD"], VARS["TOEMAILS"], VARS["CCEMAILS"], VARS["BCCEMAILS"], VARS["NOW"], VARS["ATTACHMENTS"], VARS["PRIORITY"], VARS["SMTP"], VARS["VERBOSE"])
         if VARS["ZIPFILE"]:
-            subprocess.run("trap 'rm " + VARS["ZIPFILE"] + "\' EXIT",shell=True)
+            os.remove(VARS["ZIPFILE"])
 
 if __name__=="__main__":
     if len(sys.argv) == 0:
