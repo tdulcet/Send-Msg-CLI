@@ -228,63 +228,68 @@ def cert_checks():
             print("Saving the client certificate from \""+VARS["CERT"]+"\" to \""+VARS["CLIENTCERT"]+"\"")
             print("Please enter the password when prompted.\n")
             subprocess.run("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True)
-        print(VARS["CERT"])
-        print(VARS["CLIENTCERT"])
 
         aissuer=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", shell=True).decode().strip("\n")
-        print("Aissuer " + str(aissuer))
         if aissuer:
-            #issuer=subprocess.check_output("echo \""+aissuer+"\" | awk -F'=' '/commonName=/ { print $2 }'", shell=True).decode().strip("\n")
-            #print(aissuer.split("/"))
-
             for line in aissuer.split("commonName="):
-                print("LINE: " + line)
                 issuer=line
-            print("issuer " + issuer)
         else:
             issuer=''
 
-        date=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -enddate | awk -F'=' '/notAfter=/ { print $2 }'", shell=True).decode().strip("\n")
-        print("Date1 : " + date)
         date=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -enddate -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", shell=True).decode().strip("\n")
         if date.split("notAfter="):
-            print("YES A DATE " + date)
             for line in date.split("notAfter="):
-                print("LINE: " + line)
                 date=line
         else:
             date=""
 
-        print("Date12 : " + date)
-        #if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0 > /dev/null;", shell=True).decode().strip("\n"): # TODO -- talk to Teal. I had to remove the > /dev/null to get any output ("Certificate will not expire" specifically...). Maybe change to comapre to this output?
-        if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
-            print("HERE")
-            print(date)
-            #date = "Mar 31 22:46:20 2021 GMT"
-            print(time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
-            sec1=subprocess.check_output("date -d \""+date+"\" +%s", shell=True).decode().strip("\n")
-            print("sec1: " +str(sec1))
-            # TODO -- fix VARS["NOW"] command
-            sec2 =subprocess.check_output("date -d \""+VARS["NOW"]+"\" +%s", shell=True).decode().strip("\n")
-            print("sec2: " +str(sec2))
-            sec = int(sec1)-int(sec2)
-            print("SEC: " + str(sec))
+        #if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
+        if "Certificate will not expire" in subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
+            print("VARS NOW : " + VARS["NOW"])
+            sec = int(time.mktime(datetime.datetime.strptime(date, "%b %d %H:%M:%S %Y %Z").timetuple()) - time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
 
             if sec / 86400 < int(VARS["WARNDAYS"]):
-                print("echo \"Warning: The S/MIME Certificate $([ -n \""+issuer+"\" ] && echo \"from “$issuer” \" || echo)expires in less than "+VARS["WARNDAYS"]+" days "+ subprocess.check_output("($(date -d \""+date+"\")).\n\"").decode())
+                print(f'Warning: The S/MIME Certificate {issuer} from issuer expires in less than ' + VARS["WARNDAYS"]+ ' days {date}')
         else:
-            error_exit(True, "Error: The S/MIME Certificate $([[ -n \""+issuer+"\" ]] && echo \"from \""+issuer+"\" \" || echo)expired $(date -d \""+date+"\").\"")
+            error_exit(True, "Error: The S/MIME Certificate {issuer} from "+issuer+" expired {date}")
 
 def passphrase_checks():
 
     if len(VARS["PASSPHRASE"]) > 0:
-        if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo)", shell=True).decode().strip("\n"):
-            error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
+        #if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo)", shell=True).decode().strip("\n"):
+        #    error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
 
-        date=subprocess.check_output("$(gpg -k --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^pub/ { print $7 }')").decode().strip("\n")
+        print(FROMADDRESS)
+        print(subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n"))
+        print(subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n"))
+        date=subprocess.check_output("gpg -k --with-key-data \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
+        date=subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
+        date = date.split(":")[4]
+        print("Date: " + str(date))
+        #print("Date: " + date)
+        newdate = ""
+        print("DATE: " + date[4])
+        for line in date.split("\n"):
+            print("Line...:" + line)
+            if t == True:
+                print("LINE: " +str(line))
+                sys.exit(1)
+            if "u:" in line:
+                date = date.split(":")
+                print("Date 7: " + str(date))
+                t = True
+                sys.exit()
+
+            #if "expires" in line:
+                print("HEREEEEEEEEEEEEEEE")
+                #newdate = line[len(line)-12:-1]
+                #newdate = int(time.mktime(datetime.datetime.strptime(newdate.strip(), "%Y-%m-%d").timetuple()))
+                #break
+
+        print("newDate: " + str(newdate))
         if len(date) > 0:
-            date=subprocess.check_output("$(echo \"$date\" | head -n 1)").decode().strip("\n")
-            sec=subprocess.check_output("$(( date - $(date -d \"$NOW\" +%s) ))").decode().strip("\n")
+            date=subprocess.check_output("$(echo \"$date\" | head -n 1)", shell=True).decode().strip("\n")
+            sec=subprocess.check_output("$(( date - $(date -d \"$NOW\" +%s) ))", shell=True).decode().strip("\n")
             fingerprint=subprocess.check_output("$(gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)", shell=True).decode().strip("\n")
             if len(sec) > 0:
                 if subprocess.check_output("$(( sec / 86400 )) -lt $WARNDAYS ]];", shell=True).decode().strip("\n"):

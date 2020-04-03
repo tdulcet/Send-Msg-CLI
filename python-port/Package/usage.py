@@ -1,39 +1,44 @@
 # Output usage
 # usage <program name>
 sendmsg = "python3 sendmsg.py"
+
+from sendmsg import format_attachment_output # this prints out our help menu in an even format.
+
 def usage():
     #sendmsg = "python3 sendmsg.py"
-    print(f'Usage: {sendmsg} <OPTION(S)>... -s <subject>\n'+
-    "One or more 'To', 'CC' or 'BCC' e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients). See examples below.\n"+
+    # Bottom two print statements have to be printed separately...
+    print("Usage: {sendmsg} <OPTION(S)>... -s <subject>", "")
+    print(f"One or more 'To', 'CC' or 'BCC' e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients). See examples by using the -e or --examples option.", " ")
 
-    "Options:\n\n"+
-        "    -a --attachments Attachment filename\n"+
-                            "Use multiple times for multiple attachments. Supports Unicode characters in filename.\n"+
-        "    -b --bccemails BCC e-mail address(es)\n"+
-        "    -c --ccemails    CC e-mail address(es)\n"+
-        "    -C --certificate S/MIME Certificate filename for digitally signing the e-mails\n"+
-        "    -d --dryrun     Dry run, do not send the e-mail\n"+
-                            "It will ask you for the password the first time you run the script with this option. Requires SMTP server.\n"+
-        "    -e --examples   Show example usages for this script\n"+
-        "    -f --fromemail From e-mail address\n"+
-        "    -g --gateways  A non-complete listing of SMS and MMS Gateways for the US and Canada\n"+
-        "    -h --help       Display this help and exit\n"+
-        "    -k --passphrase PGP secret key passphrase for digitally signing the e-mails with PGP/MIME\n"+
-                            "Requires SMTP server.\n"+
-        "    -m --message      Message body\n"+
-                             "Escape sequences are expanded. Supports Unicode characters.\n"+
-        "    -p --password   SMTP server password\n"+
-        "    -P --priority   Priority\n"+
-                            "Supported priorities: \"5 (Lowest)\", \"4 (Low)\", \"3 (Normal)\", \"2 (High)\" and \"1 (Highest)\". Requires SMTP server.\n"+
-        "    -s, --subject    Subject\n"+
-                            "Escape sequences are expanded. Supports Unicode characters.\n"+
-        "    -t --toemails    To e-mail address(es)\n"+
-
-        "    -u --username   SMTP server username\n"+
-        "    -v --version    Output version information and exit\n\n"+
-        "    -V --verbose    Verbose, show the client-server communication\n"+
-                            "Requires SMTP server.\n"+
-        "    -z --zipfile    Compress attachment(s) with zip")
+    # Then we create a row and print it
+    format_attachment_output([
+    (f'Options:', f''),
+    (f'    -a --attachments', 'Attachment filename'),
+    (" ", "Use multiple times for multiple attachments. Supports Unicode characters in filename."),
+    ("    -b --bccemails", "BCC e-mail address(es)"),
+    ("    -c --ccemails",  "CC e-mail address(es)"),
+    ("    -C --certificate", "S/MIME Certificate filename for digitally signing the e-mails"),
+        (" ", "It will ask you for the password the first time you run the script with this option. Requires SMTP server."),
+    ("    -d --dryrun",     "Dry run, do not send the e-mail"),
+    ("    -e --examples",   "Show example usages for this script"),
+    ("    -f --fromemail", "From e-mail address"),
+    ("    -g --gateways",  "A non-complete listing of SMS and MMS Gateways for the US and Canada"),
+    ("    -h --help",       "Display this help and exit"),
+    ("    -k --passphrase", "PGP secret key passphrase for digitally signing the e-mails with PGP/MIME"),
+        (" ", "Requires SMTP server."),
+    ("    -m --message",      "Message body"),
+        (" ", "Escape sequences are expanded. Supports Unicode characters."),
+    ("    -p --password",   "SMTP server password"),
+    ("    -P --priority",   "Priority"),
+        (" ", "Supported priorities: '5 (Lowest)', '4 (Low)', '3 (Normal)', '2 (High)' and '1 (Highest)'. Requires SMTP server."),
+    ("    -s, --subject",    "Subject"),
+        (" ", "Escape sequences are expanded. Supports Unicode characters."),
+    ("    -t --toemails",    "To e-mail address(es)"),
+    ("    -u --username",   "SMTP server username"),
+    ("    -v --version",    "Output version information and exit"),
+    ("    -V --verbose",    "Verbose, show the client-server communication"),
+        (" ", "Requires SMTP server."),
+    ("    -z --zipfile",    "Compress attachment(s) with zip")])
 
 def examples():
     print("Sendmsg Examples:\n"+
@@ -67,7 +72,10 @@ def examples():
         f'    Send e-mail digitally signed with PGP/MIME"+ "{sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -k \"passphrase\" -t \"Example <example@example.com>\"')
 
 def carriers():
-    print("*(US CARRIERS)*\n"+
+    '''Print out common carriers a user could use to send a text message'''
+
+    print("If you do not see your carrier, use the network your provider uses. For example, the carrier Tello uses Sprint.\n\n"+
+    "*(US CARRIERS)*\n"+
     "|Mobile carrier|     |SMS gateway domain|\t|MMS gateway domain|\n"+
     "--------------------------------------------------------------------\n"+
     "|Alltel|\t     |sms.alltelwireless.com|\t|mms.alltelwireless.com|\n"+
