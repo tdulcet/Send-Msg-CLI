@@ -264,6 +264,7 @@ def passphrase_checks():
         print("Date: " + str(date))
         if len(date) > 0:
             date=subprocess.check_output("$(echo \"$date\" | head -n 1)", shell=True).decode().strip("\n")
+            # TODO -- stopped here.
             print(time.mktime(datetime.datetime.strptime(date, "%b %d %H:%M:%S %Y %Z").timetuple())+ "-" + time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
 
             sec=subprocess.check_output("$(( date - $(date -d \"$NOW\" +%s) ))", shell=True).decode().strip("\n")
