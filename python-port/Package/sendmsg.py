@@ -259,36 +259,13 @@ def passphrase_checks():
         #if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo)", shell=True).decode().strip("\n"):
         #    error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
 
-        print(FROMADDRESS)
-        print(subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n"))
-        print(subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n"))
-        date=subprocess.check_output("gpg -k --with-key-data \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
         date=subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
         date = date.split(":")[4]
         print("Date: " + str(date))
-        #print("Date: " + date)
-        newdate = ""
-        print("DATE: " + date[4])
-        for line in date.split("\n"):
-            print("Line...:" + line)
-            if t == True:
-                print("LINE: " +str(line))
-                sys.exit(1)
-            if "u:" in line:
-                date = date.split(":")
-                print("Date 7: " + str(date))
-                t = True
-                sys.exit()
-
-            #if "expires" in line:
-                print("HEREEEEEEEEEEEEEEE")
-                #newdate = line[len(line)-12:-1]
-                #newdate = int(time.mktime(datetime.datetime.strptime(newdate.strip(), "%Y-%m-%d").timetuple()))
-                #break
-
-        print("newDate: " + str(newdate))
         if len(date) > 0:
             date=subprocess.check_output("$(echo \"$date\" | head -n 1)", shell=True).decode().strip("\n")
+            print(time.mktime(datetime.datetime.strptime(date, "%b %d %H:%M:%S %Y %Z").timetuple())+ "-" + time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
+
             sec=subprocess.check_output("$(( date - $(date -d \"$NOW\" +%s) ))", shell=True).decode().strip("\n")
             fingerprint=subprocess.check_output("$(gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)", shell=True).decode().strip("\n")
             if len(sec) > 0:
