@@ -1,7 +1,7 @@
 # Send Msg CLI
 Linux Send E-mail Script
 
-Copyright © 2019 Teal Dulcet
+Copyright © 2019 Teal Dulcet (Bash) and Daniel Connelly (Python)
 
 Send [e-mail](https://en.wikipedia.org/wiki/Email) (and [text messages](https://en.wikipedia.org/wiki/SMS)), with optional message and attachments, from the command line. Supports [Unicode characters](https://en.wikipedia.org/wiki/Unicode_and_email) in subject, message and attachment filename ([MIME](https://en.wikipedia.org/wiki/MIME)). Optionally use your own e-mail address and an external [SMTP](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol) server.
 
@@ -58,7 +58,7 @@ PASSWORD="PASSWORD"
 ```
 Replace `example` with the username and `PASSWORD` with the actual password. For security, the password should be set in the script, instead of on the command line.
 
-You will also need to enable "Less secure app access": https://myaccount.google.com/lesssecureapps. It is not actually less secure, since it is using the same SSL/TLS encryption (note the `smtps://` protocol).
+You will also need to enable "Less secure app access": https://myaccount.google.com/lesssecureapps. It is not actually less secure, since it is using the same SSL/TLS encryption (note the `smtps://` protocol). Note that Google may disable this setting if it is not being used.
 </details>
 
 ## Feature comparison
@@ -336,6 +336,7 @@ Pull requests welcome! Ideas for contributions:
 * Provide an option to automatically upload large files to an external storage service, such as [Firefox Send](https://send.firefox.com) or [transfer.sh](https://transfer.sh)
 * Support inputting the message body from standard input (stdin)
 * Add tests
+* Automatically renew the S/MIME certificate, as [certbot](https://certbot.eff.org/) does for [Let's Encrypt](https://letsencrypt.org/) certificates
 * Port to Python (suggested by Daniel Connelly)
 
 Thanks to [Daniel Connelly](https://github.com/Danc2050) for helping create the Feature comparison and test the script!

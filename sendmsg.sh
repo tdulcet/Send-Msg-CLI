@@ -324,22 +324,22 @@ FROMNAME=$FROMEMAIL
 # Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
 RE='^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'
 for i in "${!TOADDRESSES[@]}"; do
-	if [[ ${TOADDRESSES[$i]} =~ $RE ]]; then
-		TOADDRESSES[$i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
-		TONAMES[$i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
+	if [[ ${TOADDRESSES[i]} =~ $RE ]]; then
+		TOADDRESSES[i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
+		TONAMES[i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 	fi
 done
 
 for i in "${!CCADDRESSES[@]}"; do
-	if [[ ${CCADDRESSES[$i]} =~ $RE ]]; then
-		CCADDRESSES[$i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
-		CCNAMES[$i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
+	if [[ ${CCADDRESSES[i]} =~ $RE ]]; then
+		CCADDRESSES[i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
+		CCNAMES[i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 	fi
 done
 
 for i in "${!BCCADDRESSES[@]}"; do
-	if [[ ${BCCADDRESSES[$i]} =~ $RE ]]; then
-		BCCADDRESSES[$i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
+	if [[ ${BCCADDRESSES[i]} =~ $RE ]]; then
+		BCCADDRESSES[i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
 	fi
 done
 
@@ -403,10 +403,10 @@ if [[ -n "$CERT" ]]; then
 	if openssl x509 -in "$CLIENTCERT" -noout -checkend 0 > /dev/null; then
 		sec=$(( $(date -d "$date" +%s) - $(date -d "$NOW" +%s) ))
 		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
-			echo -e "Warning: The S/MIME Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expires in less than $WARNDAYS days ($(date -d "$date")).\n"
+			echo -e "Warning: The S/MIME Certificate ${issuer:+from “$issuer” }expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 		fi
 	else
-		echo "Error: The S/MIME Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expired $(date -d "$date")." >&2
+		echo "Error: The S/MIME Certificate ${issuer:+from “$issuer” }expired $(date -d "$date")." >&2
 		exit 1
 	fi
 fi
@@ -444,9 +444,9 @@ send() {
 	local headers message amessage
 	if [[ -n "$SEND" ]]; then
 		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
-			headers="$([[ -n "$PRIORITY" ]] && echo "X-Priority: $PRIORITY\n")From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
+			headers="${PRIORITY:+X-Priority: $PRIORITY\n}From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
 			if [[ "$#" -ge 3 ]]; then
-				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w "%{url_effective}\\n" --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
+				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
 			else
 				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
 			fi
@@ -459,9 +459,9 @@ send() {
 				echo -e "\n------MULTIPART-SIGNED-BOUNDARY\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n------MULTIPART-SIGNED-BOUNDARY--"
 			else
 				echo -e "${headers}MIME-Version: 1.0\n$message"
-			fi | eval curl -sS"$([[ -n "$VERBOSE" ]] && echo "v" || echo)" "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
+			fi | eval curl -sS"${VERBOSE:+v}" "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
 		else
-			{ echo -e "$2"; [[ "$#" -ge 3 ]] && for i in "${@:3}"; do uuencode "$i" "$(basename "$i")"; done; } | eval mail $([[ -n "$FROMADDRESS" ]] && echo "-r \"$FROMADDRESS\"" || echo) $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ "${#TOADDRESSES[@]}" -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
+			{ echo -e "$2"; [[ "$#" -ge 3 ]] && for i in "${@:3}"; do uuencode "$i" "$(basename "$i")"; done; } | eval mail ${FROMADDRESS:+-r "$FROMADDRESS"} $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ "${#TOADDRESSES[@]}" -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
 		fi
 	fi
 }
