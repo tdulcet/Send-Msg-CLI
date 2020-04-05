@@ -211,6 +211,9 @@ def cert_checks():
     '''Creates the .pem certificate (defined in VARS["CLIENTCERT"]; e.g., cert.pem) with certificate \
        located in VARS["CERT"] (read in from CMDLINE using -C, or --cert)
     '''
+
+    # TODO for Windows
+    '''
     try:
         import smime
     except ImportError as error:
@@ -219,6 +222,9 @@ def cert_checks():
         import smime
     except Exception as error:
         misc_check(true, "Unexpected error occured when installing smime Python dependency:\n\n" + error)
+    '''
+
+
     if len(VARS["CERT"]) > 0:
         if not os.path.exists(VARS["CERT"]) and os.access(VARS["CERT"], os.R_OK) and not os.path.exists(VARS["CLIENTCERT"]):
             error_exit(True, "Error: \""+CERT+"\" certificate file does not exist.")
@@ -243,38 +249,30 @@ def cert_checks():
             date=""
 
         #if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
+        # TODO -- may output something like "will expire in x days, so may change this condition..Ask Teal?
         if "Certificate will not expire" in subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
             sec = int(time.mktime(datetime.datetime.strptime(date, "%b %d %H:%M:%S %Y %Z").timetuple()) - time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
-
             if sec / 86400 < int(VARS["WARNDAYS"]):
-                print(f'Warning: The S/MIME Certificate {issuer} from issuer expires in less than ' + VARS["WARNDAYS"]+ ' days {date}')
+                print(f'Warning: The S/MIME Certificate from {issuer} expires in less than ' + VARS["WARNDAYS"]+ ' days {date}')
         else:
-            error_exit(True, "Error: The S/MIME Certificate {issuer} from "+issuer+" expired {date}")
+            error_exit(True, "Error: The S/MIME Certificate from {issuer} expired {date}")
 
 def passphrase_checks():
 
     if len(VARS["PASSPHRASE"]) > 0:
         # TODO -- use a pipe in Python3 -- https://gist.github.com/waylan/2353749   ????
         # TODO -- implement below line
-        #if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo)", shell=True).decode().strip("\n"):
+        if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo)", shell=True).decode().strip("\n"):
         #if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0", shell=True).decode().strip("\n"):
-            #error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
-        # TODO -- I need a check for FROMADDRESS being empty...in here or in general. Can't assign from USERNAME as I think Teal said those vary somteimes.
+            error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
+        # TODO -- I need a check for FROMADDRESS being empty...in here or in general. Can't assign from USERNAME as I think Teal said those vary sometimes.
         date=subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
         date = date.split(":")[4]
         if len(date) > 0:
-            # TODO -- ask Teal why is he using '| head -n 1' when the date is just a unix number and only 1 line? Maybe it is to do with casting it to an int instead of a string? I commented out the below line as it may be unnecessary.
-            #date=subprocess.check_output("$(echo \"$date\" | head -n 1)", shell=True).decode().strip("\n")
             sec = str(int(date) - int(time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple())))
+            # TODO -- replaec AWK
             fingerprint=subprocess.check_output("gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1", shell=True).decode().strip("\n")
-            if len(sec) > 0: # TODO -- if sec was ever len(0) then it would say the "else" condition, which isn't accurate in that case.
-                # TODO -- replace this with another variant (perhaps creating a new file ("file.txt") and using this command:
-                  # openssl cms -sign -signer "$CLIENTCERT" -in "file.txt"
-                # TODO -- add check for VARS["MESSAGE"] being None
-                subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True).decode().strip("\n")
-                #VARS["PGP"]=subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True).decode().strip("\n")
-                #print(VARS["PGP"])
-
+            if len(sec) > 0:
                 if int(sec) / 86400 < int(VARS["WARNDAYS"]):
                     print("HERE")
                     print(f'Warning: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expires in less than "+VARS["WARNDAYS"]+" days {date}.\n') # TODO -- ask Teal why this was an array?
@@ -282,12 +280,8 @@ def passphrase_checks():
                 print(f'Error: The PGP key pair for \"{FROMADDRESS}\" with fingerprint {fingerprint} expired {date}') # TODO -- same as above todo
                 sys.exit(1)
 
-            VARS["PGP"] = subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0", shell=True).decode().strip("\n")
-
     if len(VARS["CERT"]) > 0 and len(VARS["PASSPHRASE"]) > 0:
         print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
-        #VARS["PASSPHRASE"] = None # setting to None for flow control in send()
-
 
 def main(argv):
     # parsing/assignment
