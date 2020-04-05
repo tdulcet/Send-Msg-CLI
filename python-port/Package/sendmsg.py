@@ -16,7 +16,7 @@ import usage, configuration
 ###Variables###
 
 #VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":datetime.datetime.now().strftime("%b %d %H:%M:%S %Y %Z"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
-VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":time.strftime("%b %d %H:%M:%S %Y %Z", time.gmtime()),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
+VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":'',"CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":time.strftime("%b %d %H:%M:%S %Y %Z", time.localtime()),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
 
 CONFIG_FILE="~/.sendmsg.ini"
 
@@ -245,7 +245,6 @@ def cert_checks():
 
         #if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
         if "Certificate will not expire" in subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
-            print("VARS NOW : " + VARS["NOW"])
             sec = int(time.mktime(datetime.datetime.strptime(date, "%b %d %H:%M:%S %Y %Z").timetuple()) - time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
 
             if sec / 86400 < int(VARS["WARNDAYS"]):
@@ -256,28 +255,33 @@ def cert_checks():
 def passphrase_checks():
 
     if len(VARS["PASSPHRASE"]) > 0:
+        # TODO -- use a pipe in Python3 -- https://gist.github.com/waylan/2353749   ????
+        # TODO -- implement below line
         #if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo)", shell=True).decode().strip("\n"):
         #    error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
-
         date=subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
         date = date.split(":")[4]
-        print("Date: " + str(date))
         if len(date) > 0:
-            date=subprocess.check_output("$(echo \"$date\" | head -n 1)", shell=True).decode().strip("\n")
-            # TODO -- stopped here.
-            print(time.mktime(datetime.datetime.strptime(date, "%b %d %H:%M:%S %Y %Z").timetuple())+ "-" + time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
+            # TODO -- ask Teal why is he using '| head -n 1' when the date is just a unix number and only 1 line? Maybe it is to do with casting it to an int instead of a string? I commented out the below line as it may be unnecessary.
+            #date=subprocess.check_output("$(echo \"$date\" | head -n 1)", shell=True).decode().strip("\n")
+            sec = str(int(date) - int(time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple())))
+            fingerprint=subprocess.check_output("gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1", shell=True).decode().strip("\n")
+            if len(sec) > 0: # TODO -- if sec was ever len(0) then it would say the "else" condition, which isn't accurate in that case.
+                # TODO -- replace this with another variant (perhaps creating a new file ("file.txt") and using this command:
+                  # openssl cms -sign -signer "$CLIENTCERT" -in "file.txt"
+                # TODO -- add check for VARS["MESSAGE"] being None
+                VARS["SMIME"]=subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True).decode().strip("\n")
 
-            sec=subprocess.check_output("$(( date - $(date -d \"$NOW\" +%s) ))", shell=True).decode().strip("\n")
-            fingerprint=subprocess.check_output("$(gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)", shell=True).decode().strip("\n")
-            if len(sec) > 0:
-                if subprocess.check_output("$(( sec / 86400 )) -lt $WARNDAYS ]];", shell=True).decode().strip("\n"):
-                    subprocess.run("Warning: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expires in less than "+VARS["WARNDAYS"]+" days ($(date -d \""+"\n".join(VARS["date"])+"\")).\n", shell=True)
+                if int(sec) / 86400 < int(VARS["WARNDAYS"]):
+                    print("HERE")
+                    print(f'Warning: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expires in less than "+VARS["WARNDAYS"]+" days {date}.\n') # TODO -- ask Teal why this was an array?
             else:
-                subprocess.run("Error: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expired $(date -d \""+"\n".join(VARS["date"])+"\").",shell=True)
+                print(f'Error: The PGP key pair for \"{FROMADDRESS}\" with fingerprint {fingerprint} expired {date}') # TODO -- same as above todo
                 sys.exit(1)
 
     if len(VARS["CERT"]) > 0 and len(VARS["PASSPHRASE"]) > 0:
         print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
+        VARS["PASSPHRASE"] = None # setting to None for flow control in send()
 
 def main(argv):
     # parsing/assignment
@@ -297,10 +301,9 @@ def main(argv):
         pass
 
     # sending
-    if not VARS["DRYRUN"]:
-        send(VARS["SUBJECT"], VARS["MESSAGE"], VARS["USERNAME"], VARS["PASSWORD"], VARS["TOEMAILS"], VARS["CCEMAILS"], VARS["BCCEMAILS"], VARS["NOW"], VARS["ATTACHMENTS"], VARS["PRIORITY"], VARS["SMTP"], VARS["VERBOSE"])
-        if VARS["ZIPFILE"]:
-            os.remove(VARS["ZIPFILE"])
+    send(VARS)
+    if VARS["ZIPFILE"]:
+        os.remove(VARS["ZIPFILE"])
 
 if __name__=="__main__":
     if len(sys.argv) == 0:
