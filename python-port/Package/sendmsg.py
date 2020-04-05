@@ -16,7 +16,7 @@ import usage, configuration
 ###Variables###
 
 #VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":datetime.datetime.now().strftime("%b %d %H:%M:%S %Y %Z"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
-VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":'',"CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":time.strftime("%b %d %H:%M:%S %Y %Z", time.localtime()),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
+VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":'',"CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":time.strftime("%b %d %H:%M:%S %Y %Z", time.localtime()),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "SMIME": '', "PGP": '', "DRYRUN": False}
 
 CONFIG_FILE="~/.sendmsg.ini"
 
@@ -87,7 +87,7 @@ def configuration_assignment():
     '''If a user decides, they may work from a configuration if the user does not specify a necessary
        flag (e.g., -u). If the config file is empty, an error will be thrown.
     '''
-    print("SMTP, Username or Password not set not typed on CMDline. Checking configfile...")
+    #print("SMTP, Username or Password not set not typed on CMDline. Checking configfile...") # TODO -- uncomment again
     # make file with appropriate fields if file does not exist
     if not VARS["SMTP"] or not VARS["USERNAME"] or not VARS["PASSWORD"]:
         if not os.path.exists(os.path.expanduser(CONFIG_FILE)):
@@ -149,14 +149,14 @@ def attachment_work():
             VARS["ATTACHMENTS"] = [zip_file]
 
         # checking if attachment size are > 25 MB
-        print("Attachments:")
+        #print("Attachments:") # TODO uncomment
         for attachment in VARS["ATTACHMENTS"]:
             SIZE=os.path.getsize(attachment)
             TOTAL +=int(SIZE)
             rows.append((attachment, convert_bytes(int(SIZE), "i"), "("+convert_bytes(int(SIZE), "b")+")"))
 
         rows.append(("\nTotal Size:", convert_bytes(int(TOTAL),"i"), "("+convert_bytes(int(TOTAL),"b")+")"))
-        format_attachment_output(rows)
+        #format_attachment_output(rows) # TODO -- unncomment again after testing pgp/mime
 
         if TOTAL >= 26214400:
             error_exit(True, "Warning: The total size of all attachments is greater than or equal to 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
@@ -219,7 +219,6 @@ def cert_checks():
         import smime
     except Exception as error:
         misc_check(true, "Unexpected error occured when installing smime Python dependency:\n\n" + error)
-
     if len(VARS["CERT"]) > 0:
         if not os.path.exists(VARS["CERT"]) and os.access(VARS["CERT"], os.R_OK) and not os.path.exists(VARS["CLIENTCERT"]):
             error_exit(True, "Error: \""+CERT+"\" certificate file does not exist.")
@@ -227,7 +226,7 @@ def cert_checks():
         if not os.path.exists(VARS["CLIENTCERT"]):
             print("Saving the client certificate from \""+VARS["CERT"]+"\" to \""+VARS["CLIENTCERT"]+"\"")
             print("Please enter the password when prompted.\n")
-            subprocess.run("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True)
+            subprocess.check_output("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True).decode().strip("\n")
 
         aissuer=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", shell=True).decode().strip("\n")
         if aissuer:
@@ -258,7 +257,9 @@ def passphrase_checks():
         # TODO -- use a pipe in Python3 -- https://gist.github.com/waylan/2353749   ????
         # TODO -- implement below line
         #if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo)", shell=True).decode().strip("\n"):
-        #    error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
+        #if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0", shell=True).decode().strip("\n"):
+            #error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
+        # TODO -- I need a check for FROMADDRESS being empty...in here or in general. Can't assign from USERNAME as I think Teal said those vary somteimes.
         date=subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
         date = date.split(":")[4]
         if len(date) > 0:
@@ -270,7 +271,9 @@ def passphrase_checks():
                 # TODO -- replace this with another variant (perhaps creating a new file ("file.txt") and using this command:
                   # openssl cms -sign -signer "$CLIENTCERT" -in "file.txt"
                 # TODO -- add check for VARS["MESSAGE"] being None
-                VARS["SMIME"]=subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True).decode().strip("\n")
+                subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True).decode().strip("\n")
+                #VARS["PGP"]=subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True).decode().strip("\n")
+                #print(VARS["PGP"])
 
                 if int(sec) / 86400 < int(VARS["WARNDAYS"]):
                     print("HERE")
@@ -279,9 +282,12 @@ def passphrase_checks():
                 print(f'Error: The PGP key pair for \"{FROMADDRESS}\" with fingerprint {fingerprint} expired {date}') # TODO -- same as above todo
                 sys.exit(1)
 
+            VARS["PGP"] = subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0", shell=True).decode().strip("\n")
+
     if len(VARS["CERT"]) > 0 and len(VARS["PASSPHRASE"]) > 0:
         print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
-        VARS["PASSPHRASE"] = None # setting to None for flow control in send()
+        #VARS["PASSPHRASE"] = None # setting to None for flow control in send()
+
 
 def main(argv):
     # parsing/assignment
@@ -311,4 +317,3 @@ if __name__=="__main__":
         sys.exit(1)
 
     main(sys.argv[1:])
-    print("Message sent")
