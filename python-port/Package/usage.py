@@ -30,7 +30,7 @@ def usage():
         (" ", "Escape sequences are expanded. Supports Unicode characters."),
     ("    -p --password",   "SMTP server password"),
     ("    -P --priority",   "Priority"),
-        (" ", "Supported priorities: '5 (Lowest)', '4 (Low)', '3 (Normal)', '2 (High)' and '1 (Highest)'. Requires SMTP server."),
+        (" ", "Supported priorities: '5 (Lowest)', '4 (Low)', 'Normal', '2 (High)' and '1 (Highest)'. Requires SMTP server."),
     ("    -s, --subject",    "Subject"),
         (" ", "Escape sequences are expanded. Supports Unicode characters."),
     ("    -t --toemails",    "To e-mail address(es)"),
