@@ -33,6 +33,29 @@ def set_main_headers(VARS, message):
     return message
     #message.__delitem__('Bcc') # remove Bcc area
 
+def attachments2(attachments):
+    message = MIMEMultipart()
+    for path in attachments:
+        with open(path, 'rb') as f1:
+            part = MIMEApplication(
+                    f1.read(),
+                    name=op.basename(path))
+        #encoders.encode_base64(part)
+        part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
+        del part["MIME-Version"]
+        message.attach(part)
+    attachments = []
+    for part in message.walk():
+        print(part.get_content_type())
+        if part.get_content_type() == "application/octet-stream":
+            attachments.append(part)
+            print(part)
+        #sys.exit()
+        #if part.is_attachment():
+        #    print(part)
+    return attachments
+    sys.exit()
+
 def attachments(message, attachments):
     for path in attachments:
         with open(path, 'rb') as f1:
@@ -43,6 +66,7 @@ def attachments(message, attachments):
         part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
         del part["MIME-Version"]
         message.attach(part)
+
 
 # thanks to: https://stackoverflow.com/questions/10496902/pgp-signing-multipart-e-mails-with-python
 def messageFromSignature(signature, content_type=None):
@@ -68,7 +92,11 @@ def copyHeaders(m1, m2):
     :type m1: email.message.Message
     :type m2: email.message.Message
     """
+    first = True
     for i in m1.items():
+        #if first:
+        #    first = False
+        #    continue
         if m2.get(i[0]):
             m2.replace_header(i[0], i[1])
         else:
@@ -290,14 +318,24 @@ def send(VARS, FROMADDRESS, PORT=465):
      # PIECE-DE-RESISTANCE -- Everything works...though its a bit sloppy
     if VARS["CERT"]:
         #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-        temp = MIMEMultipart()
-        text = MIMEText(VARS["MESSAGE"])
-        set_main_headers(VARS, temp)
-        attachments(temp, VARS["ATTACHMENTS"])
-        temp.attach(text)
+        #temp = MIMEMultipart()
+        text = MIMEText(VARS["MESSAGE"], _charset="UTF-8")
+        #set_main_headers(VARS, temp)
+        #attachments(temp, VARS["ATTACHMENTS"])
+        #temp.attach(text)
+        del text["MIME-Version"]
+        #print(str(text))
+        #print(str(temp))
 
-        cert_sig = subprocess.check_output("echo \""+temp.as_string()+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
+        #cert_sig = subprocess.check_output("echo \""+temp.as_string()+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
+        #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
+        cert_sig = subprocess.check_output("echo \""+str(text)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
         msg = email.message_from_bytes(cert_sig)
+        #msg.set_payload(attachments2(VARS["ATTACHMENTS"]))
+        #msg.attach(email.message_from_string(attachments2(VARS["ATTACHMENTS"])))
+
+        attachments(msg, VARS["ATTACHMENTS"])
+        #msg.attach(email.message_from_string(temp.as_string()))
         set_main_headers(VARS, msg)
         #print(msg.as_string())
         print(msg.keys())
