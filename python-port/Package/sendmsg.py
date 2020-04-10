@@ -87,7 +87,7 @@ def configuration_assignment():
     '''If a user decides, they may work from a configuration if the user does not specify a necessary
        flag (e.g., -u). If the config file is empty, an error will be thrown.
     '''
-    #print("SMTP, Username or Password not set not typed on CMDline. Checking configfile...") # TODO -- uncomment again
+    print("SMTP, Username or Password not set not typed on CMDline. Checking configfile...") # TODO -- uncomment again
     # make file with appropriate fields if file does not exist
     if not VARS["SMTP"] or not VARS["USERNAME"] or not VARS["PASSWORD"]:
         if not os.path.exists(os.path.expanduser(CONFIG_FILE)):
@@ -203,6 +203,8 @@ def email_checks():
                 FROMADDRESS=result.group(2)
             else:
                 error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address.")
+        else:
+            error_exit(True, "Error: Must specify FROM address.")
 
     except Exception as error:
         error_exit(True, error)
