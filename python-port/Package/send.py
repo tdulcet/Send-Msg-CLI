@@ -12,9 +12,9 @@ from email.message import EmailMessage
 from email.mime.application import MIMEApplication
 from email.message import Message
 
-#from copy import deepcopy
+from mimetypes import guess_type
 
-#gpg_passphrase = "5512" # TODO  # 1
+#from copy import deepcopy
 
 def set_main_headers(VARS, message):
     # Set headers
@@ -59,11 +59,15 @@ def attachments2(attachments):
 def attachments(message, attachments):
     for path in attachments:
         with open(path, 'rb') as f1:
+            #part = MIMEApplication(
             part = MIMEApplication(
                     f1.read(),
+                    #_subtype=guess_type(path)[0],
                     name=op.basename(path))
         #encoders.encode_base64(part)
         part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
+        #print(guess_type(path)[0])
+        part.replace_header('Content-Type', guess_type(path)[0])
         del part["MIME-Version"]
         message.attach(part)
 
@@ -314,44 +318,6 @@ def send(VARS, FROMADDRESS, PORT=465):
         #message = msg
         #sys.exit()
     '''
-    ''' # This will have the verification symbol in all cases and matches the Bash output perfectly, but does not work with Yahoo Mail!
-     # PIECE-DE-RESISTANCE -- Everything works...though its a bit sloppy
-    if VARS["CERT"]:
-        #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-        text = MIMEText(VARS["MESSAGE"], _charset="UTF-8")
-        #set_main_headers(VARS, temp)
-        del text["MIME-Version"]
-        #print(str(text))
-        #print(str(temp))
-
-        if len(VARS["ATTACHMENTS"]) > 0:
-            #del text["Content-Transfer-Encoding"]
-            #del text["Content-Type"]
-            #for i in text.walk():
-            #    text=i
-            #sys.exit()
-            temp = MIMEMultipart()
-            del temp["MIME-Version"]
-            temp.attach(text)
-            attachments(temp, VARS["ATTACHMENTS"])
-            cert_sig = subprocess.check_output("echo \""+temp.as_string()+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-            #temp.set_payload(text)
-            #temp.attach(text)
-        else:
-            cert_sig = subprocess.check_output("echo \""+str(text)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-        #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-        msg = email.message_from_bytes(cert_sig)
-        #msg.set_payload(attachments2(VARS["ATTACHMENTS"]))
-        #msg.attach(email.message_from_string(attachments2(VARS["ATTACHMENTS"])))
-
-        #attachments(msg, VARS["ATTACHMENTS"])
-        #msg.attach(email.message_from_string(temp.as_string()))
-        set_main_headers(VARS, msg)
-        #print(msg.as_string())
-        print(msg.keys())
-        message = msg
-        #sys.exit()
-        # stop here
     '''
      # PIECE-DE-RESISTANCE -- Everything works...though its a bit sloppy
     if VARS["CERT"]:
@@ -380,8 +346,65 @@ def send(VARS, FROMADDRESS, PORT=465):
         message = msg
         #sys.exit()
 
+    ''' # This will have the verification symbol in all cases and matches the Bash output perfectly, but does not work with Yahoo Mail!
+     # PIECE-DE-RESISTANCE -- Everything works...though its a bit sloppy
+    if VARS["CERT"]:
+        #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
+        if not len(VARS["MESSAGE"]) > 0:
+            print("No message to sign")
+            sys.exit(1)
+        text = MIMEText(VARS["MESSAGE"], _charset="UTF-8")
+        #set_main_headers(VARS, temp)
+        del text["MIME-Version"]
+        #print(str(text))
+        #print(str(temp))
+
+        if len(VARS["ATTACHMENTS"]) > 0:
+            #del text["Content-Transfer-Encoding"]
+            #del text["Content-Type"]
+            #for i in text.walk():
+            #    text=i
+            #sys.exit()
+            temp = MIMEMultipart(boundary='"MULTPART-MIXED-BOUNDARY"')
+            del temp["MIME-Version"]
+            temp.attach(text)
+            attachments(temp, VARS["ATTACHMENTS"])
+            cert_sig = subprocess.check_output("echo \""+str(temp)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
+            #cert_sig = subprocess.check_output("echo \""+temp.as_string()+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
+            #temp.set_payload(text)
+            #temp.attach(text)
+        else:
+            cert_sig = subprocess.check_output("echo \""+str(text)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
+        #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
+        msg = email.message_from_bytes(cert_sig)
+        #msg.set_boundary("
+        #msg.set_payload(attachments2(VARS["ATTACHMENTS"]))
+        #msg.attach(email.message_from_string(attachments2(VARS["ATTACHMENTS"])))
+
+        #attachments(msg, VARS["ATTACHMENTS"])
+        #msg.attach(email.message_from_string(temp.as_string()))
+        set_main_headers(VARS, msg)
+        #print(msg.as_string())
+        #print(msg.keys())
+        message = msg
+        '''
+        for part in message.walk():
+            print(part)
+            import time
+            time.sleep(2)
+        sys.exit()
+        '''
+
+        #for i in message.walk():
+        #    print(i.get_content_maintype())
+        #sys.exit()
+        # stop here
+
     # PGP
     elif VARS["PASSPHRASE"]:
+        if not len(VARS["MESSAGE"]) > 0:
+            print("No message to sign")
+            sys.exit(1)
         pgp_sig = subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0", shell=True).decode().strip("\n")
         basemsg = MIMEText(VARS["MESSAGE"], _charset="utf-8")
         del basemsg["MIME-Version"]
