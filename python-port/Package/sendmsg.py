@@ -51,7 +51,9 @@ def assign(opts):
         elif opt in ("-k", "--passphrase"):
             VARS["PASSPHRASE"]=arg
         elif opt in ("-m", "--message"):
-            VARS["MESSAGE"]=arg
+            #VARS["MESSAGE"]= """{}""".format(arg)
+            VARS["MESSAGE"]=arg.replace('\\n', '\n')
+            VARS["MESSAGE"]=VARS["MESSAGE"].replace('\\t', '\t')
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
         elif opt in ("--config"):
