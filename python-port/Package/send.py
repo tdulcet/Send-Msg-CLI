@@ -377,7 +377,6 @@ def send(VARS, FROMADDRESS, PORT=465):
             cert_sig = subprocess.check_output("echo \""+str(text)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
         #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
         msg = email.message_from_bytes(cert_sig)
-        #msg.set_boundary("
         #msg.set_payload(attachments2(VARS["ATTACHMENTS"]))
         #msg.attach(email.message_from_string(attachments2(VARS["ATTACHMENTS"])))
 
@@ -418,7 +417,7 @@ def send(VARS, FROMADDRESS, PORT=465):
 
     # No signing of message
     else:
-        # Add attachments; thanks to Oli at https://stackoverflow.com/questions/3362600/how-to-send-email-attachments
+        # Sending a message with an attachment requires Mutlipart()
         mime_text = MIMEText(VARS["MESSAGE"], "plain")
         del mime_text["MIME-Version"]
         if VARS["ATTACHMENTS"]:
@@ -426,16 +425,9 @@ def send(VARS, FROMADDRESS, PORT=465):
             message.attach(mime_text)
 
             set_main_headers(VARS, message)
-            for path in VARS["ATTACHMENTS"]:
-                with open(path, 'rb') as f1:
-                    part = MIMEApplication(
-                            f1.read(),
-                            name=op.basename(path))
-                encoders.encode_base64(part)
-                part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
-                message.attach(part)
+            attachments(message, VARS["ATTACHMENTS"])
 
-        # Sending a message with an attachment requires Mutlipart()
+        # Otherwise, just a regular text message is sufficient
         if not VARS["ATTACHMENTS"]:
             message = mime_text
             set_main_headers(VARS, message)
