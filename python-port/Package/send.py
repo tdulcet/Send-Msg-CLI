@@ -57,20 +57,47 @@ def attachments2(attachments):
     sys.exit()
 
 def attachments(message, attachments):
+    '''
+
+    If this ever fails, try this method: https://code.activestate.com/recipes/578150-sending-non-ascii-emails-from-python-3/
+    '''
+    import os
+    #from email.header import Header
     for path in attachments:
         with open(path, 'rb') as f1:
             #part = MIMEApplication(
             part = MIMEApplication(
                     f1.read(),
-                    #_subtype=guess_type(path)[0],
-                    name=op.basename(path))
-        #encoders.encode_base64(part)
-        part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
+                    name=f'{path}')
+                    #name=op.basename(path))
+        '''
+        try:
+            path.encode('us-ascii')
+            part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
+            #part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path).encode())
+        except Exception as error:
+            print(error)
+            #part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
+            #part['Content-Disposition'] = f'attachment;' + f' filename="{path}"'
+            part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path).encode()) # only way to get to attach with an EMOJI/UNICODE symbol
+        #part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path).encode('utf-8'))
+        '''
+        part['Content-Disposition'] = f'attachment;' + f' filename="{path}"'
+        #part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
+        #part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path).encode())
+        print(type(path))
+        print(type('attachment; filename="{}"'.format(op.basename(path))))
+        print(type(part['Content-Disposition']))
+        #part['Content-Disposition'] = part['Content-Disposition'].decode()
+        #part['Content-Disposition'] = f'attachment;' + f' filename="{path}"'
+        print(part['Content-Disposition'])
         #print(guess_type(path)[0])
-        part.replace_header('Content-Type', guess_type(path)[0])
+        #part.replace_header('Content-Type', guess_type(path)[0])
         del part["MIME-Version"]
-        message.attach(part)
-
+        print(part)
+        print(message.attach(part))
+        print("WE JUST ATTACHED")
+        #sys.exit()
 
 # thanks to: https://stackoverflow.com/questions/10496902/pgp-signing-multipart-e-mails-with-python
 def messageFromSignature(signature, content_type=None):
@@ -113,80 +140,6 @@ def send(VARS, FROMADDRESS, PORT=465):
 
     # SMIME
     #print("CERT: " + VARS["CERT"])
-
-    '''
-    if VARS["CERT"]:
-        cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True).decode().strip("\n").encode('utf-8','ignore')
-        print(cert_sig)
-        MIMEText(cert_sig, _charset="utf-8")
-       # cert_sig = MIMEText(subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True).decode().strip("\n"))
-        # TODO -- add check for VARS["MESSAGE"] being None, here or elsewhere
-        print(cert_sig.as_string())
-        sys.exit()
-        #basemsg = MIMEText(VARS["MESSAGE"])
-        basemsg = MIMEText(VARS["MESSAGE"].replace('\n', '\r\n'))
-        del basemsg["MIME-Version"]
-        #signmsg = messageFromSignature(cert_sig, #'application/pkcs7-signature; name="smime.p7s"')
-        signmsg = messageFromSignature(cert_sig) #'application/pkcs7-signature; name="smime.p7s"')
-        #signmsg['Content-Disposition'] = 'attachment; filename="smime.p7s"'
-        del signmsg["MIME-Version"]
-        message = MIMEMultipart()#_subtype="signed", micalg="sha-256", protocol="application/pkcs7-signature")
-        del message["MIME-Version"]
-       # message = MIMEMultipart(_subtype="signed", micalg="sha-256", protocol="application/pkcs7-signature")
-
-        signmsg = MIMEMessage(MIMEText(cert_sig))
-        attachments(message, VARS["ATTACHMENTS"])
-        set_main_headers(VARS, message)
-        #basemsg = MIMEText(basemsg.as_string().replace('\n','\r\n'))
-        basemsg['Content-Type'] = "text/plain"
-        signmsg.attach(basemsg)
-        #message.attach(basemsg)
-        #signmsg = MIMEText(signmsg.as_string().replace('\n','\r\n'))
-        #message.attach(signmsg)
-        attachments(signmsg, VARS["ATTACHMENTS"])
-        set_main_headers(VARS, signmsg)
-        message = signmsg
-        #print(signmsg)
-        #sys.exit()
-    '''
-    '''
-    if VARS["CERT"]:
-        cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True).decode().strip("\n")
-        #print(cert_sig)
-        #print(cert_sig)
-        cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-        cert_sig = cert_sig.decode().replace('\n' ,'\r\n')
-        #print(cert_sig)
-        #sys.exit()
-        #text = cert_sig.decode().strip("\n")
-        #text = text.encode('utf-8')
-        #text = cert_sig.decode().replace('\n' ,'\r\n')
-        #print(text)
-        #text = text.encode('utf-8')
-        #print(text.encode('utf-8'))
-        #sys.exit()
-        #text = MIMEText(text, _charset="utf-8")
-        #print(text)
-        #sys.exit()
-        #text = MIMEMessage(MIMEText(text))
-        #print(text)
-        #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True).decode().strip("\n").replace('\n', '\r\n')
-        #print("\n\n\n\n")
-        #print(cert_sig)
-        #sys.exit()
-        # TODO -- add check for VARS["MESSAGE"] being None, here or elsewhere
-        basemsg = MIMEText(VARS["MESSAGE"])
-        del basemsg["MIME-Version"]
-        signmsg = messageFromSignature(cert_sig)#, 'application/pkcs7-signature; name="smime.p7s"')
-        signmsg['Content-Disposition'] = 'attachment; filename="smime.p7s"'
-        del signmsg["MIME-Version"]
-        message = MIMEMultipart(_subtype="signed", micalg="sha-256", protocol="application/pkcs7-signature")
-        attachments(message, VARS["ATTACHMENTS"])
-        set_main_headers(VARS, message)
-        message.attach(basemsg)
-        message.attach(signmsg)
-    '''
-
     '''
     # SPARKY VERSION.... works for EVERYTHING but attachments...
     if VARS["CERT"]:
@@ -206,7 +159,7 @@ def send(VARS, FROMADDRESS, PORT=465):
         if VARS["PRIORITY"]:
             message["X-Priority"] = VARS["PRIORITY"]
         print(message)
-# ATTEMPTING THIS CURRENTLY TODO: https://stackoverflow.com/questions/32505722/signing-data-using-openssl-with-python
+    # ATTEMPTING THIS CURRENTLY TODO: https://stackoverflow.com/questions/32505722/signing-data-using-openssl-with-python
         import base64
 
         #print(crypto.sign(
@@ -270,7 +223,6 @@ def send(VARS, FROMADDRESS, PORT=465):
         #print(sign)
 
         #sys.exit()
-
         with open("cert.pem", "r") as key_file:
             key = key_file.read()
         password = "5C8Hvk2v1pKS"
@@ -291,83 +243,34 @@ def send(VARS, FROMADDRESS, PORT=465):
 
         sys.exit()
         '''
-    '''
-    if VARS["CERT"]:
-        cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-        #message = MIMEMultipart()
-        #print(message.as_string())
-        #sys.exit()
-        #del basemsg["MIME-Version"]
 
-        tru_msg = MIMEMultipart()
-        set_main_headers(VARS, tru_msg)
-        del tru_msg['Content-type']
-        del tru_msg['MIME-Version']
-        print(tru_msg.keys())
 
-        copyHeaders(tru_msg,email.message_from_bytes(cert_sig))
-        #copyHeaders(email.message_from_bytes(cert_sig),tru_msg)
-        #msg = email.message_from_bytes(cert_sig)
-        #msg.attach(headers)
-        #print(msg.as_string())
-        #print(msg.keys())
-        #msg.attach(msg)
-        print(tru_msg.keys())
-        print(tru_msg.as_string())
-        message = tru_msg
-        #message = msg
-        #sys.exit()
-    '''
-    '''
-     # PIECE-DE-RESISTANCE -- Everything works...though its a bit sloppy
-    if VARS["CERT"]:
-        #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-        #temp = MIMEMultipart()
-        text = MIMEText(VARS["MESSAGE"], _charset="UTF-8")
-        #set_main_headers(VARS, temp)
-        #attachments(temp, VARS["ATTACHMENTS"])
-        #temp.attach(text)
-        del text["MIME-Version"]
-        #print(str(text))
-        #print(str(temp))
-
-        #cert_sig = subprocess.check_output("echo \""+temp.as_string()+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-        #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-        cert_sig = subprocess.check_output("echo \""+str(text)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
-        msg = email.message_from_bytes(cert_sig)
-        #msg.set_payload(attachments2(VARS["ATTACHMENTS"]))
-        #msg.attach(email.message_from_string(attachments2(VARS["ATTACHMENTS"])))
-
-        attachments(msg, VARS["ATTACHMENTS"])
-        #msg.attach(email.message_from_string(temp.as_string()))
-        set_main_headers(VARS, msg)
-        #print(msg.as_string())
-        print(msg.keys())
-        message = msg
-        #sys.exit()
-
-    ''' # This will have the verification symbol in all cases and matches the Bash output perfectly, but does not work with Yahoo Mail!
+     # This will have the verification symbol in all cases and matches the Bash output perfectly, but does not work with Yahoo Mail!
      # PIECE-DE-RESISTANCE -- Everything works...though its a bit sloppy
     if VARS["CERT"]:
         #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
         if not len(VARS["MESSAGE"]) > 0:
             print("No message to sign")
             sys.exit(1)
-        text = MIMEText(VARS["MESSAGE"], _charset="UTF-8")
+        #text = MIMEText(VARS["MESSAGE"], _charset="UTF-8")
+        text = MIMEText(VARS["MESSAGE"])
         #set_main_headers(VARS, temp)
         del text["MIME-Version"]
         #print(str(text))
         #print(str(temp))
 
-        if len(VARS["ATTACHMENTS"]) > 0:
+        if len(VARS["ATTACHMENTS"]) >= 0:
             #del text["Content-Transfer-Encoding"]
             #del text["Content-Type"]
             #for i in text.walk():
             #    text=i
             #sys.exit()
             temp = MIMEMultipart(boundary='"MULTPART-MIXED-BOUNDARY"')
+            #temp = MIMEMultipart(boundary='\"----MULTPART-MIXED-BOUNDARY\"')
             del temp["MIME-Version"]
             temp.attach(text)
+            #print(VARS["MESSAGE"])
+            #sys.exit()
             attachments(temp, VARS["ATTACHMENTS"])
             cert_sig = subprocess.check_output("echo \""+str(temp)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
             #cert_sig = subprocess.check_output("echo \""+temp.as_string()+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
