@@ -14,8 +14,26 @@ import usage, configuration
 '''
 
 ###Variables###
-
-#VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"3","CERT":"","CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":datetime.datetime.now().strftime("%b %d %H:%M:%S %Y %Z"),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "DRYRUN": False}
+escape_dict={'\\a':'\a',
+           '\\b':'\b',
+           '\\c':'\c',
+           '\\f':'\f',
+           '\\n':'\n',
+           '\\r':'\r',
+           '\\t':'\t',
+           #'\\u':'\u', # TODO -- Teal https://stackoverflow.com/questions/32280753/how-to-encode-python-3-string-using-u-escape-code
+           #'\\U':'\U', # TODO -- Teal https://stackoverflow.com/questions/32280753/how-to-encode-python-3-string-using-u-escape-code
+           '\\v':'\v',
+           #"\\'":"\'",
+           '\"':'\"',
+           '\\0':'0',
+           '\\1':'\1',
+           '\\2':'\2',
+           '\\3':'\3',
+           '\\4':'\4',
+           '\\5':'\5',
+           '\\6':'\6',
+           '\\7':'\7'}
 VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"","CERT":'',"CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":time.strftime("%b %d %H:%M:%S %Y %Z", time.gmtime()),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "SMIME": '', "PGP": '', "DRYRUN": False}
 
 CONFIG_FILE="~/.sendmsg.ini"
@@ -51,9 +69,11 @@ def assign(opts):
         elif opt in ("-k", "--passphrase"):
             VARS["PASSPHRASE"]=arg
         elif opt in ("-m", "--message"):
-            #VARS["MESSAGE"]= """{}""".format(arg)
-            VARS["MESSAGE"]=arg.replace('\\n', '\n')
-            VARS["MESSAGE"]=VARS["MESSAGE"].replace('\\t', '\t')
+            for key,value in escape_dict.items():
+                arg = arg.replace(key, value)
+            VARS["MESSAGE"] = arg
+            #print(VARS["MESSAGE"])
+            #sys.exit()
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
         elif opt in ("--config"):
@@ -65,7 +85,9 @@ def assign(opts):
             configuration.config_email()
             sys.exit(0)
         elif opt in ("-s", "--subject"):
-            VARS["SUBJECT"]=arg
+            for key,value in escape_dict.items():
+                arg = arg.replace(key, value)
+            VARS["SUBJECT"] = arg
         elif opt in ("-t", "--toemails"):
             VARS["TOEMAILS"].append(arg)
         elif opt in ("-u", "--username"):
