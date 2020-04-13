@@ -14,26 +14,16 @@ import usage, configuration
 '''
 
 ###Variables###
-escape_dict={'\\a':'\a',
+escape_dict={'\\a':'\a',  # We cannot escape many characters (e.g., '\u') due to how Python reads in '\'.
            '\\b':'\b',
-           '\\c':'\c',
            '\\f':'\f',
            '\\n':'\n',
            '\\r':'\r',
            '\\t':'\t',
-           #'\\u':'\u', # TODO -- Teal https://stackoverflow.com/questions/32280753/how-to-encode-python-3-string-using-u-escape-code
-           #'\\U':'\U', # TODO -- Teal https://stackoverflow.com/questions/32280753/how-to-encode-python-3-string-using-u-escape-code
            '\\v':'\v',
-           #"\\'":"\'",
-           '\"':'\"',
-           '\\0':'0',
-           '\\1':'\1',
-           '\\2':'\2',
-           '\\3':'\3',
-           '\\4':'\4',
-           '\\5':'\5',
-           '\\6':'\6',
-           '\\7':'\7'}
+           "\\'":"\'",
+           '\"':'\"'}
+
 VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"","CERT":'',"CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":time.strftime("%b %d %H:%M:%S %Y %Z", time.gmtime()),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "SMIME": '', "PGP": '', "DRYRUN": False}
 
 CONFIG_FILE="~/.sendmsg.ini"
@@ -59,7 +49,10 @@ def assign(opts):
             usage.examples()
             sys.exit(0)
         elif opt in ("-f", "--fromemail"):
-            VARS["FROMEMAIL"] = arg
+            if not VARS["FROMEMAIL"]:
+                VARS["FROMEMAIL"] = arg
+            else:
+                error_exit(True, "Only one 'from' address must be specified as.")
         elif opt in ("-g", "--gateways"):
             usage.carriers()
             sys.exit(0)
@@ -83,6 +76,7 @@ def assign(opts):
                 with open(os.path.expanduser(CONFIG_FILE), "w") as f1:
                     f1.write("[email]\nsmtp =\nusername =\npassword =")
             configuration.config_email()
+            print("Configuration file successfully set")
             sys.exit(0)
         elif opt in ("-s", "--subject"):
             for key,value in escape_dict.items():
@@ -106,12 +100,12 @@ def assign(opts):
         elif opt in ("-V", "--VERBOSE"):
             VARS["VERBOSE"]= arg
 
-
 def configuration_assignment():
     '''If a user decides, they may work from a configuration if the user does not specify a necessary
        flag (e.g., -u). If the config file is empty, an error will be thrown.
     '''
-    print("SMTP, Username or Password not set not typed on CMDline. Checking configfile...") # TODO -- uncomment again
+    print("SMTP, Username or Password not set not typed on CMDline. Checking configfile...")
+
     # make file with appropriate fields if file does not exist
     if not VARS["SMTP"] or not VARS["USERNAME"] or not VARS["PASSWORD"]:
         if not os.path.exists(os.path.expanduser(CONFIG_FILE)):
@@ -120,8 +114,7 @@ def configuration_assignment():
             VARS["SMTP"], VARS["USERNAME"], VARS["PASSWORD"] = configuration.send_mail()
 
 def parse_assign(argv):
-    '''Find the correct variable to assign the opt to.'''
-    # Parsing. Erroneous flags throw exception.
+    '''Find the correct variable to assign the arg/opt to.'''
     try:
         opts, args = getopt.getopt(argv,"a:b:c:def:ghk:m:p:rs:t:u:vz:C:P:S:V",
                 ["attachments=", "bccemails=", "ccemails=", "dryrun=", "examples","fromemail=", "gateways",
@@ -134,18 +127,22 @@ def parse_assign(argv):
 
 # modified from source: https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
 def convert_bytes(size, byte_type):
-   byte_array = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB'] if byte_type == "i" else ['bytes', 'KB', 'MB', 'GB', 'TB']
-   div_size = 1024.0 if byte_type == "i" else 1000.0
+    '''Calculates how large an attachment in two ways -- iB and B'''
+    byte_array = ['bytes', 'KiB', 'MiB', 'GiB', 'TiB'] if byte_type == "i" else ['bytes', 'KB', 'MB', 'GB', 'TB']
+    div_size = 1024.0 if byte_type == "i" else 1000.0
 
-   for x in byte_array:
-       if size < div_size:
-           return "%3.1f %s" % (size, x)
-       size = round(size / div_size, 1)
+    for x in byte_array:
+        if size < div_size:
+            return "%3.1f %s" % (size, x)
+        size = round(size / div_size, 1)
 
-   return size
+    return size
 
 # user codeskyblue from: https://stackoverflow.com/questions/19103052/python-string-formatting-columns-in-line
 def format_attachment_output(rows):
+    '''Spaces the printing of attachments based on largest length. A replacement for the column cmd.
+       Also used for printing out our help menus found in usage.py.
+    '''
     lens = []
     for col in zip(*rows):
         lens.append(max([len(v) for v in col]))
@@ -154,6 +151,9 @@ def format_attachment_output(rows):
         print(format.format(*row))
 
 def attachment_work():
+    '''Zips files to send in msg if user specifies the '-z' flag. Will also calculate size of attachments
+       and warn user if size is large.
+    '''
     if VARS["ATTACHMENTS"]:
         TOTAL=0
         rows = []
@@ -173,58 +173,59 @@ def attachment_work():
             VARS["ATTACHMENTS"] = [zip_file]
 
         # checking if attachment size are > 25 MB
-        #print("Attachments:") # TODO uncomment
+        print("Attachments:")
         for attachment in VARS["ATTACHMENTS"]:
             SIZE=os.path.getsize(attachment)
             TOTAL +=int(SIZE)
             rows.append((attachment, convert_bytes(int(SIZE), "i"), "("+convert_bytes(int(SIZE), "b")+")"))
 
         rows.append(("\nTotal Size:", convert_bytes(int(TOTAL),"i"), "("+convert_bytes(int(TOTAL),"b")+")"))
-        #format_attachment_output(rows) # TODO -- unncomment again after testing pgp/mime
+        format_attachment_output(rows)
 
         if TOTAL >= 26214400:
             error_exit(True, "Warning: The total size of all attachments is greater than or equal to 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
 
-# Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
-def email_checks():
-    global TOADDRESSES
-    global CCADDRESSES
-    global BCCADDRESSES
+def email_work():
+    '''Get e-mail address(es): "Example <example@example.com>" -> "example@example.com". Also check for
+       valid email addresses. Note: We don't need to separate name and email address, since the email
+       library will do this parsing on its own.
+    '''
     global FROMADDRESS
-
-    TOADDRESSES=VARS["TOEMAILS"]
-    CCADDRESSES=VARS["CCEMAILS"]
-    BCCADDRESSES=VARS["BCCEMAILS"]
     FROMADDRESS=VARS["FROMEMAIL"]
-    RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1
+    RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1 # TODO -- needs a check for a '.'. The current one doesn't work on, for example, 'danc2@pdxedu'.
+    #RE=re.compile("([^@|\s]+@[^@]+\.[^@|\s]+)")
+    #RE=re.compile('[^@]+@[^@]+\.[^@]+')
+    #RE=re.compile(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)") # https://emailregex.com/
 
-    # Note: we do not need to split up the name and email address (email library accepts "name <email>" pattern). Only check if the email is valid.
+    # Check if the email is valid.
     try:
-        for i in range(0, len(TOADDRESSES)):
-            result = RE.match(TOADDRESSES[i])
-            if result:
-                TOADDRESSES[i] = result.group(2)
-            else:
-                error_exit(True, "Error: \""+TOADDRESSES[i]+"\" is not a valid e-mail address.")
+        for i in range(0, len(VARS["TOEMAILS"])):
+            # TODO -- ask Teal
+            #import email
+            #print(VARS["TOEMAILS"])
+            #print(email.utils.parseaddr(VARS["TOEMAILS"][i]))
+            #from validate_email import validate_email
+            #print(validate_email(email.utils.parseaddr(VARS["TOEMAILS"][i])[1]))
+            #print(validate_email(email.utils.parseaddr(VARS["TOEMAILS"][i])[1], check_mx=True))
+            #print(validate_email(email.utils.parseaddr(VARS["TOEMAILS"][i])[1], verify=True))
+            result = RE.match(VARS["TOEMAILS"][i])
+            if not result:
+                error_exit(True, "Error: \""+VARS["TOEMAILS"][i]+"\" is not a valid e-mail address.")
 
-        for i in range(0, len(CCADDRESSES)):
-            result = RE.match(CCADDRESSES[i])
-            if result:
-                CCADDRESSES[i]=result.group(2)
-            else:
-                error_exit(True, "Error: \""+CCADDRESSES[i]+"\" is not a valid e-mail address.")
+        for i in range(0, len(VARS["CCEMAILS"])):
+            result = RE.match(VARS["CCEMAILS"][i])
+            if not result:
+                error_exit(True, "Error: \""+VARS["CCEMAILS"][i]+"\" is not a valid e-mail address.")
 
-        for i in range(0, len(BCCADDRESSES)):
-            result = RE.match(BCCADDRESSES[i])
-            if result:
-                BCCADDRESSES[i]=result.group(2)
-            else:
-                error_exit(True, "Error: \""+BCCADDRESSES[i]+"\" is not a valid e-mail address.")
+        for i in range(0, len(VARS["BCCEMAILS"])):
+            result = RE.match(VARS["BCCEMAILS"][i])
+            if not result:
+                error_exit(True, "Error: \""+VARS["BCCEMAILS"][i]+"\" is not a valid e-mail address.")
 
-        if len(FROMADDRESS)>0:
+        if FROMADDRESS:
             result = RE.match(FROMADDRESS)
             if result:
-                FROMADDRESS=result.group(2)
+                FROMADDRESS=result.group(2) # changes to 1 if using another regex.
             else:
                 error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address.")
         else:
@@ -249,7 +250,6 @@ def cert_checks():
     except Exception as error:
         misc_check(true, "Unexpected error occured when installing smime Python dependency:\n\n" + error)
     '''
-
 
     if len(VARS["CERT"]) > 0:
         if not os.path.exists(VARS["CERT"]) and os.access(VARS["CERT"], os.R_OK) and not os.path.exists(VARS["CLIENTCERT"]):
@@ -276,7 +276,8 @@ def cert_checks():
 
         #if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
         # TODO -- may output something like "will expire in x days, so may change this condition..Ask Teal?
-        if "Certificate will not expire" in subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
+        #if "Certificate will not expire" in subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
+        if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
             sec = int(time.mktime(datetime.datetime.strptime(date, "%b %d %H:%M:%S %Y %Z").timetuple()) - time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
             if sec / 86400 < int(VARS["WARNDAYS"]):
                 print(f'Warning: The S/MIME Certificate from {issuer} expires in less than ' + VARS["WARNDAYS"]+ ' days {date}')
@@ -288,22 +289,23 @@ def passphrase_checks():
     if len(VARS["PASSPHRASE"]) > 0:
         # TODO -- use a pipe in Python3 -- https://gist.github.com/waylan/2353749   ????
         # TODO -- implement below line
-        #if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo)", shell=True).decode().strip("\n"):
+        if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo)", shell=True).decode().strip("\n"):
         #if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0", shell=True).decode().strip("\n"):
-            #error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
-        # TODO -- I need a check for FROMADDRESS being empty...in here or in general. Can't assign from USERNAME as I think Teal said those vary sometimes.
+            error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
+        #print(FROMADDRESS)
         date=subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
         date = date.split(":")[4]
         if len(date) > 0:
             sec = str(int(date) - int(time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple())))
             # TODO -- replaec AWK
             fingerprint=subprocess.check_output("gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1", shell=True).decode().strip("\n")
+            print(fingerprint)
+            sys.exit()
             if len(sec) > 0:
                 if int(sec) / 86400 < int(VARS["WARNDAYS"]):
-                    print("HERE")
-                    print(f'Warning: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expires in less than "+VARS["WARNDAYS"]+" days {date}.\n') # TODO -- ask Teal why this was an array?
+                    print(f'Warning: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expires in less than "+VARS["WARNDAYS"]+" days {date}.\n')
             else:
-                print(f'Error: The PGP key pair for \"{FROMADDRESS}\" with fingerprint {fingerprint} expired {date}') # TODO -- same as above todo
+                print(f'Error: The PGP key pair for \"{FROMADDRESS}\" with fingerprint {fingerprint} expired {date}')
                 sys.exit(1)
 
     if len(VARS["CERT"]) > 0 and len(VARS["PASSPHRASE"]) > 0:
@@ -315,7 +317,7 @@ def main(argv):
     configuration_assignment() # use default configuration if nothing was put on the CMDline
 
     # email checks
-    email_checks()
+    email_work()
     attachment_work()
 
     # Cert checks
