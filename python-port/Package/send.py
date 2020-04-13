@@ -69,35 +69,8 @@ def attachments(message, attachments):
             part = MIMEApplication(
                     f1.read(),
                     name=f'{path}')
-                    #name=op.basename(path))
-        '''
-        try:
-            path.encode('us-ascii')
-            part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
-            #part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path).encode())
-        except Exception as error:
-            print(error)
-            #part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
-            #part['Content-Disposition'] = f'attachment;' + f' filename="{path}"'
-            part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path).encode()) # only way to get to attach with an EMOJI/UNICODE symbol
-        #part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path).encode('utf-8'))
-        '''
         part['Content-Disposition'] = f'attachment;' + f' filename="{path}"'
-        #part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
-        #part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path).encode())
-        print(type(path))
-        print(type('attachment; filename="{}"'.format(op.basename(path))))
-        print(type(part['Content-Disposition']))
-        #part['Content-Disposition'] = part['Content-Disposition'].decode()
-        #part['Content-Disposition'] = f'attachment;' + f' filename="{path}"'
-        print(part['Content-Disposition'])
-        #print(guess_type(path)[0])
-        #part.replace_header('Content-Type', guess_type(path)[0])
         del part["MIME-Version"]
-        print(part)
-        print(message.attach(part))
-        print("WE JUST ATTACHED")
-        #sys.exit()
 
 # thanks to: https://stackoverflow.com/questions/10496902/pgp-signing-multipart-e-mails-with-python
 def messageFromSignature(signature, content_type=None):
@@ -272,11 +245,18 @@ def send(VARS, FROMADDRESS, PORT=465):
             #print(VARS["MESSAGE"])
             #sys.exit()
             attachments(temp, VARS["ATTACHMENTS"])
+            #try:
+                #cert_sig = subprocess.check_output("openssl cms -sign -in \"" +FILE THAT HAS str(temp)+"\" -signer \"" + VARS["CLIENTCERT"]+"\"",shell=True)
+                #cert_sig = subprocess.check_output("openssl cms -sign -in 'Hello, world!' -signer \"" + VARS["CLIENTCERT"]+"\"",shell=True)
+            #except Exception as error:
+                #print(error)
+            #    sys.exit()
+            #sys.exit()
             cert_sig = subprocess.check_output("echo \""+str(temp)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
             #cert_sig = subprocess.check_output("echo \""+temp.as_string()+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
             #temp.set_payload(text)
             #temp.attach(text)
-        else:
+        else: # TODO -- delete
             cert_sig = subprocess.check_output("echo \""+str(text)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
         #cert_sig = subprocess.check_output("echo \""+VARS["MESSAGE"]+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
         msg = email.message_from_bytes(cert_sig)
@@ -338,10 +318,8 @@ def send(VARS, FROMADDRESS, PORT=465):
     # TODO -- try this https://stackoverflow.com/questions/10496902/pgp-signing-multipart-e-mails-with-python
 #    gpg = gnupg.GPG()
 
-    #print(message.as_string())
     # DEBUG-CODE: iterate through the message header/content. OR print message as string
     print(message.as_string())
-    #print(message.as_string().encode("ascii",'ignore'))
     #for part in message.walk():
         #print("PART")
         #print(part)
