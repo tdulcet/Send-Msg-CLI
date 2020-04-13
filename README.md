@@ -20,7 +20,8 @@ One or more To, CC or BCC e-mail addresses are required. Send text messages by u
 1. Make sure the required commands above are installed.
 2. Download the script ([sendmsg.sh](sendmsg.sh)). Run: `wget https://raw.github.com/tdulcet/Send-Msg-CLI/master/sendmsg.sh`.
 3. At a minimum, you need to provide one To e-mail address. If the computer is on a residential network or if it does not have an SMTP server setup then you will also need to provide an external SMTP server. For security, any passwords/passphrases should be set in the script, instead of on the command line.
-4. Execute the script once to make sure there are no errors. For example, run: `./sendmsg.sh -s "Test" -m "This is a test!" -t "Example <example@example.com>" -d`.
+4. Execute the script once to make sure there are no errors. For example, run: `chmod u+x sendmsg.sh` and `./sendmsg.sh -s "Test" -m "This is a test!" -t "Example <example@example.com>" -d`.
+5. If you want the script to be available for all users, install it. Run: `sudo mv sendmsg.sh /usr/local/bin/sendmsg` and `sudo chmod +x /usr/local/bin/sendmsg`.
 
 ### Examples
 
@@ -58,7 +59,7 @@ PASSWORD="PASSWORD"
 ```
 Replace `example` with the username and `PASSWORD` with the actual password. For security, the password should be set in the script, instead of on the command line.
 
-You will also need to enable "Less secure app access": https://myaccount.google.com/lesssecureapps. It is not actually less secure, since it is using the same SSL/TLS encryption (note the `smtps://` protocol). Note that Google may disable this setting if it is not being used.
+You will also need to enable "Less secure app access": https://myaccount.google.com/lesssecureapps. It is not actually less secure, since it is using the same SSL/TLS encryption (note the `smtps://` protocol). Note that Google may disable this setting if it is not being used. If you get a "Login denied" error, try visiting this page: https://accounts.google.com/DisplayUnlockCaptcha.
 </details>
 
 ## Feature comparison
@@ -280,6 +281,10 @@ Options:
     -k <passphrase> PGP secret key passphrase for digitally signing the e-mails with PGP/MIME
                         Requires SMTP server.
     -z <zipfile>    Compress attachment(s) with zip
+    -l              Set Content-Language
+                        Uses value of LANG environment variable.
+    -U              Sanitize the Date
+                        Uses Coordinated Universal Time (UTC) and rounds date down to whole minute. Set the TZ environment variable to change time zone.
     -d              Dry run, do not send the e-mail
     -V              Verbose, show the client-server communication
                         Requires SMTP server.

@@ -77,6 +77,16 @@ WARNDAYS=3
 # Uncomment this to enable
 # ZIPFILE="attachments.zip"
 
+# Set Content-Language
+# Uses value of LANG environment variable
+# Uncomment this to enable
+# CONTENTLANG=1
+
+# Sanitize the Date
+# Uses Coordinated Universal Time (UTC), to prevent leaking the local time zone and rounds date down to whole minute, to prevent fingerprinting of clock offset.
+# Uncomment this to enable
+# UTC=1
+
 # Show the client-server communication
 # Requires SMTP server above
 # Uncomment this to enable
@@ -117,6 +127,10 @@ Options:
     -k <passphrase> PGP secret key passphrase for digitally signing the e-mails with PGP/MIME
                         Requires SMTP server.
     -z <zipfile>    Compress attachment(s) with zip
+    -l              Set Content-Language
+                        Uses value of LANG environment variable.
+    -U              Sanitize the Date
+                        Uses Coordinated Universal Time (UTC) and rounds date down to whole minute. Set the TZ environment variable to change time zone.
     -d              Dry run, do not send the e-mail
     -V              Verbose, show the client-server communication
                         Requires SMTP server.
@@ -174,7 +188,7 @@ if ! echo "$OSTYPE" | grep -iq "linux"; then
 	exit 1
 fi
 
-while getopts "a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V" c; do
+while getopts "a:b:c:df:hk:lm:p:s:t:u:vz:C:P:S:UV" c; do
 	case ${c} in
 	a )
 		ATTACHMENTS+=( "$OPTARG" )
@@ -197,6 +211,9 @@ while getopts "a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V" c; do
 	;;
 	k )
 		PASSPHRASE=$OPTARG
+	;;
+	l )
+		CONTENTLANG=1
 	;;
 	m )
 		MESSAGE=$OPTARG
@@ -228,6 +245,9 @@ while getopts "a:b:c:df:hk:m:p:s:t:u:vz:C:P:S:V" c; do
 	;;
 	S )
 		SMTP=$OPTARG
+	;;
+	U )
+		UTC=1
 	;;
 	V )
 		VERBOSE=1
@@ -441,14 +461,14 @@ fi
 # Supports Unicode characters in subject, message and attachment filename
 # send <subject> [message] [attachment(s)]...
 send() {
-	local headers message amessage
+	local headers message amessage lang=${LANG%.*}
 	if [[ -n "$SEND" ]]; then
 		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
-			headers="${PRIORITY:+X-Priority: $PRIORITY\n}From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
+			headers="${PRIORITY:+X-Priority: $PRIORITY\n}From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(if [[ -n "$UTC" ]]; then date -Rud "@$(( ${EPOCHSECONDS:-$(date +%s)} / 60 * 60 ))"; else date -R; fi)\n"
 			if [[ "$#" -ge 3 ]]; then
-				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
+				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n${CONTENTLANG:+$([[ "${#lang}" -ge 2 ]] && echo "Content-Language: ${lang/_/-}\n")}\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
 			else
-				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
+				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n${CONTENTLANG:+$([[ "${#lang}" -ge 2 ]] && echo "Content-Language: ${lang/_/-}\n")}\n$2"
 			fi
 			if [[ -n "$CERT" ]]; then
 				echo -e "${headers}$(echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT")"
