@@ -1,32 +1,45 @@
 #!/usr/bin/env python3
 
-import sys, os, socket, re
+import sys, os,
+import re
 import getopt
 import datetime, time
 import subprocess
+import codecs # for decode escapes
+from shutil import which # discover if OpenSSL and/or gpg are in the system
 
 sys.path.append(os.environ["PWD"]) # allows "from" to be used (FIXME and the path of this module permanently to the environment so Python can search there and not have this line here
 from send import send # how we send emails
 import usage, configuration
 
-'''The purpose of this file is to parse all flags given on the cmdline.
-   Skipping to the bottom main function is where the control-flow begins.
+'''The purpose of this file is to
+   1. parse all flags given on the cmdline.
+   2. do checks to see if those files are valid
+   3. handle escape characters appropriately
 '''
 
-###Variables###
-escape_dict={'\\a':'\a',  # We cannot escape many characters (e.g., '\u') due to how Python reads in '\'.
-           '\\b':'\b',
-           '\\f':'\f',
-           '\\n':'\n',
-           '\\r':'\r',
-           '\\t':'\t',
-           '\\v':'\v',
-           "\\'":"\'",
-           '\"':'\"'}
+# Default Variables
 
 VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERNAME":'',"PASSWORD":'',"PRIORITY":"","CERT":'',"CLIENTCERT":"cert.pem","PASSPHRASE":'',"WARNDAYS":"3","ZIPFILE":'',"VERBOSE":0,"NOW":time.strftime("%b %d %H:%M:%S %Y %Z", time.gmtime()),"SUBJECT":'',"MESSAGE":'',"ATTACHMENTS":[], "SMIME": '', "PGP": '', "DRYRUN": False}
 
+# Stores default SMTP server, username, password if `--config` option is set.
 CONFIG_FILE="~/.sendmsg.ini"
+
+# ESCAPE_SEQUENCE_RE and decode_escapes credit -- https://stackoverflow.com/a/24519338/8651748
+ESCAPE_SEQUENCE_RE = re.compile(r'''
+    ( \\U[0-9a-fA-F]{1,8} # 8-digit hex escapes
+    | \\u[0-9a-fA-F]{1,4} # 4-digit hex escapes
+    | \\x[0-9a-fA-F]{1,2} # 2-digit hex escapes
+    | \\[0-7]{1,3}     # Octal escapes
+    | \\N\{[^}]+\}     # Unicode characters by name
+    | \\[\\'"abfnrtv]  # Single-character escapes
+    )''', re.UNICODE | re.VERBOSE)
+
+def decode_escapes(s):
+    def decode_match(match):
+        return codecs.decode(match.group(0), 'unicode-escape')
+
+    return ESCAPE_SEQUENCE_RE.sub(decode_match, s)
 
 def error_exit(condition, err):
     '''print an error and exit when one occurs'''
@@ -62,26 +75,22 @@ def assign(opts):
         elif opt in ("-k", "--passphrase"):
             VARS["PASSPHRASE"]=arg
         elif opt in ("-m", "--message"):
-            for key,value in escape_dict.items():
-                arg = arg.replace(key, value)
-            VARS["MESSAGE"] = arg
-            #print(VARS["MESSAGE"])
+            VARS["MESSAGE"] = decode_escapes(arg)
+            print(VARS["MESSAGE"])
             #sys.exit()
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
         elif opt in ("--config"):
             # make config file with appropriate fields if file does not exist
             if not os.path.exists(os.path.expanduser(CONFIG_FILE)):
-                print(f'Creating configuration file on path {CONFIG_FILE}....')
+                print(f'Creating configuration file on path {CONFIG_FILE}....\n')
                 with open(os.path.expanduser(CONFIG_FILE), "w") as f1:
                     f1.write("[email]\nsmtp =\nusername =\npassword =")
             configuration.config_email()
-            print("Configuration file successfully set")
+            print("Configuration file successfully set\n")
             sys.exit(0)
         elif opt in ("-s", "--subject"):
-            for key,value in escape_dict.items():
-                arg = arg.replace(key, value)
-            VARS["SUBJECT"] = arg
+            VARS["SUBJECT"] = decode_escapes(arg)
         elif opt in ("-t", "--toemails"):
             VARS["TOEMAILS"].append(arg)
         elif opt in ("-u", "--username"):
@@ -104,13 +113,12 @@ def configuration_assignment():
     '''If a user decides, they may work from a configuration if the user does not specify a necessary
        flag (e.g., -u). If the config file is empty, an error will be thrown.
     '''
-    print("SMTP, Username or Password not set not typed on CMDline. Checking configfile...")
-
     # make file with appropriate fields if file does not exist
     if not VARS["SMTP"] or not VARS["USERNAME"] or not VARS["PASSWORD"]:
         if not os.path.exists(os.path.expanduser(CONFIG_FILE)):
-            error_exit(True, "SMTP, Username or Password not set in config file and not typed on CMDline. Please include the -S, -u, or -p flags or use the following command to set the config file: `sendmsg --config`")
+            error_exit(True, "Error: SMTP, Username or Password not set in config file and not typed on CMDline. Please include the -S, -u, or -p flags or use the following command to set the config file: `sendmsg --config`")
         else:
+            print("SMTP, Username or Password not typed on CMDline. Checking configfile...\n")
             VARS["SMTP"], VARS["USERNAME"], VARS["PASSWORD"] = configuration.send_mail()
 
 def parse_assign(argv):
@@ -192,7 +200,7 @@ def email_work():
     '''
     global FROMADDRESS
     FROMADDRESS=VARS["FROMEMAIL"]
-    RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1 # TODO -- needs a check for a '.'. The current one doesn't work on, for example, 'danc2@pdxedu'.
+    RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1 # TODO -- needs a check for a '.'. The current one doesn't work on, for example, 'danc2@pdxedu'. But this parses "Example <email@example.com>" correctly.
     #RE=re.compile("([^@|\s]+@[^@]+\.[^@|\s]+)")
     #RE=re.compile('[^@]+@[^@]+\.[^@]+')
     #RE=re.compile(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)") # https://emailregex.com/
@@ -200,14 +208,6 @@ def email_work():
     # Check if the email is valid.
     try:
         for i in range(0, len(VARS["TOEMAILS"])):
-            # TODO -- ask Teal
-            #import email
-            #print(VARS["TOEMAILS"])
-            #print(email.utils.parseaddr(VARS["TOEMAILS"][i]))
-            #from validate_email import validate_email
-            #print(validate_email(email.utils.parseaddr(VARS["TOEMAILS"][i])[1]))
-            #print(validate_email(email.utils.parseaddr(VARS["TOEMAILS"][i])[1], check_mx=True))
-            #print(validate_email(email.utils.parseaddr(VARS["TOEMAILS"][i])[1], verify=True))
             result = RE.match(VARS["TOEMAILS"][i])
             if not result:
                 error_exit(True, "Error: \""+VARS["TOEMAILS"][i]+"\" is not a valid e-mail address.")
@@ -239,19 +239,10 @@ def cert_checks():
        located in VARS["CERT"] (read in from CMDLINE using -C, or --cert)
     '''
 
-    # TODO for Windows
-    '''
-    try:
-        import smime
-    except ImportError as error:
-        print("Installing smime dependency")
-        p = subprocess.run('pip install smime', shell=True)
-        import smime
-    except Exception as error:
-        misc_check(true, "Unexpected error occured when installing smime Python dependency:\n\n" + error)
-    '''
-
     if len(VARS["CERT"]) > 0:
+        if which("openssl") is None:
+            error_exit(True, "Error: OpenSSL not found. You need this to sign a message with S/MIME")
+
         if not os.path.exists(VARS["CERT"]) and os.access(VARS["CERT"], os.R_OK) and not os.path.exists(VARS["CLIENTCERT"]):
             error_exit(True, "Error: \""+CERT+"\" certificate file does not exist.")
 
@@ -259,7 +250,29 @@ def cert_checks():
             print("Saving the client certificate from \""+VARS["CERT"]+"\" to \""+VARS["CLIENTCERT"]+"\"")
             print("Please enter the password when prompted.\n")
             subprocess.check_output("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True).decode().strip("\n")
+            '''
+            from OpenSSL import crypto
+            # open it, using password. Supply/read your own from stdin.
+            #passwd = input("ENTER password") # TODO
+            passwd = "5C8Hvk2v1pKS"
+            p12 = crypto.load_pkcs12(open(VARS["CERT"], 'rb').read(), passwd)
 
+            # get various properties of said file.
+            # note these are PyOpenSSL objects, not strings although you
+            # can convert them to PEM-encoded strings.
+            # https://www.semicolonworld.com/question/59687/python-reading-a-pkcs12-certificate-with-pyopenssl-crypto
+            print(crypto.dump_certificate(crypto.FILETYPE_PEM, p12.get_certificate()).decode())     # (signed) certificate object
+            print(crypto.dump_privatekey(crypto.FILETYPE_PEM, p12.get_privatekey()).decode())      # private key.
+            priv_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, p12.get_privatekey())      # private key.
+            a = p12.get_ca_certificates() # ca chain.
+            from OpenSSL.crypto import sign
+            priv_key = crypto.load_privatekey(crypto.FILETYPE_PEM, p12.get_privatekey())
+            client_cert = crypto.X509()
+
+            print(priv_key.decode())
+            print(sign(priv_key, VARS["MESSAGE"], "sha1"))
+            sys.exit()
+            '''
         aissuer=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", shell=True).decode().strip("\n")
         if aissuer:
             for line in aissuer.split("commonName="):
@@ -274,7 +287,6 @@ def cert_checks():
         else:
             date=""
 
-        #if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
         # TODO -- may output something like "will expire in x days, so may change this condition..Ask Teal?
         #if "Certificate will not expire" in subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
         if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
@@ -285,28 +297,33 @@ def cert_checks():
             error_exit(True, "Error: The S/MIME Certificate from {issuer} expired {date}")
 
 def passphrase_checks():
-
+    '''Does a number of checks if a user indicated they watn to sign with a GPG key to utilize PGP/MIME'''
     if len(VARS["PASSPHRASE"]) > 0:
-        # TODO -- use a pipe in Python3 -- https://gist.github.com/waylan/2353749   ????
-        # TODO -- implement below line
-        if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 <(echo)", shell=True).decode().strip("\n"):
-        #if not subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0", shell=True).decode().strip("\n"):
+        if which("gpg") is None:
+            error_exit(True, "Error: GPG not found. You need this to sign a message with PGP/MIME")
+
+        # check if GPG key exists
+        with open("message", "w") as f1:
+            f1.write(VARS["MESSAGE"])
+        if not "BEGIN PGP SIGNATURE" in subprocess.check_output("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase \""+VARS["PASSPHRASE"]+"\" message", shell=True).decode().strip("\n"):
             error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
-        #print(FROMADDRESS)
+        subprocess.run("rm message", shell=True)
+
+        # check if GPG key will expire soon or has expird
         date=subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
         date = date.split(":")[4]
         if len(date) > 0:
             sec = str(int(date) - int(time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple())))
-            # TODO -- replaec AWK
-            fingerprint=subprocess.check_output("gpg --fingerprint --with-colons \""+FROMADDRESS+"\" | awk -F':' '/^fpr/ { print $10 }' | head -n 1", shell=True).decode().strip("\n")
-            print(fingerprint)
-            sys.exit()
+            fingerprint=subprocess.check_output("gpg --fingerprint --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
+            for line in fingerprint.split("\n"):
+                if "fpr" in line:
+                    fingerprint = line[12:-1]
+                    break
             if len(sec) > 0:
                 if int(sec) / 86400 < int(VARS["WARNDAYS"]):
-                    print(f'Warning: The PGP key pair for \""+FROMADDRESS+"\" with fingerprint "+fingerprint+" expires in less than "+VARS["WARNDAYS"]+" days {date}.\n')
+                    print(f'Warning: The PGP key pair for \"{FROMADDRESS}\" with fingerprint {fingerprint} expires in less than ' + VARS["WARNDAYS"] + ' days {date}.\n')
             else:
-                print(f'Error: The PGP key pair for \"{FROMADDRESS}\" with fingerprint {fingerprint} expired {date}')
-                sys.exit(1)
+                error_exit(True,f'Error: The PGP key pair for \"{FROMADDRESS}\" with fingerprint {fingerprint} expired {date}')
 
     if len(VARS["CERT"]) > 0 and len(VARS["PASSPHRASE"]) > 0:
         print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
@@ -320,13 +337,9 @@ def main(argv):
     email_work()
     attachment_work()
 
-    # Cert checks
-    from shutil import which
-    if which("openssl") is not None and which("gpg") is not None: # USE commands
-        cert_checks()
-        passphrase_checks()
-    else: # TODO -- use third party libraries to do .pem creation and signing of email messages
-        pass
+    # signing checks
+    cert_checks()
+    passphrase_checks()
 
     # sending
     send(VARS, FROMADDRESS)

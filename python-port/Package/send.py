@@ -20,18 +20,15 @@ def set_main_headers(VARS, message):
     # Set headers
     message["From"] = VARS["FROMEMAIL"]
     message["To"] = ", ".join(VARS["TOEMAILS"])
-    #message["To"] = VARS["FROMEMAIL"] + ", " + ", ".join(VARS["TOEMAILS"])
     if VARS["CCEMAILS"]:
         message["Cc"] = ", ".join(VARS["CCEMAILS"])
     if VARS["BCCEMAILS"]:
         message["Bcc"] = ", ".join(VARS["BCCEMAILS"])
-    #message["Date"] = VARS["NOW"]
     message["Date"] = email.utils.formatdate(localtime=True)
     message["Subject"] = VARS["SUBJECT"]
     if VARS["PRIORITY"]:
         message["X-Priority"] = VARS["PRIORITY"]
     return message
-    #message.__delitem__('Bcc') # remove Bcc area
 
 def attachments2(attachments):
     message = MIMEMultipart()
@@ -40,7 +37,6 @@ def attachments2(attachments):
             part = MIMEApplication(
                     f1.read(),
                     name=op.basename(path))
-        #encoders.encode_base64(part)
         part['Content-Disposition'] = 'attachment; filename="{}"'.format(op.basename(path))
         del part["MIME-Version"]
         message.attach(part)
@@ -50,9 +46,6 @@ def attachments2(attachments):
         if part.get_content_type() == "application/octet-stream":
             attachments.append(part)
             print(part)
-        #sys.exit()
-        #if part.is_attachment():
-        #    print(part)
     return attachments
     sys.exit()
 
@@ -71,6 +64,7 @@ def attachments(message, attachments):
                     name=f'{path}')
         part['Content-Disposition'] = f'attachment;' + f' filename="{path}"'
         del part["MIME-Version"]
+        message.attach(part)
 
 # thanks to: https://stackoverflow.com/questions/10496902/pgp-signing-multipart-e-mails-with-python
 def messageFromSignature(signature, content_type=None):
@@ -238,7 +232,8 @@ def send(VARS, FROMADDRESS, PORT=465):
             #for i in text.walk():
             #    text=i
             #sys.exit()
-            temp = MIMEMultipart(boundary='"MULTPART-MIXED-BOUNDARY"')
+            temp = MIMEMultipart() # This works with using '-in message' where message is a file written out to disk and deleted later
+            #temp = MIMEMultipart(boundary='"MULTPART-MIXED-BOUNDARY"') # This worked with the "echo str(temp) |"
             #temp = MIMEMultipart(boundary='\"----MULTPART-MIXED-BOUNDARY\"')
             del temp["MIME-Version"]
             temp.attach(text)
@@ -252,7 +247,11 @@ def send(VARS, FROMADDRESS, PORT=465):
                 #print(error)
             #    sys.exit()
             #sys.exit()
-            cert_sig = subprocess.check_output("echo \""+str(temp)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
+            #cert_sig = subprocess.check_output("echo \""+str(temp)+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
+            with open("message", "w") as f1:
+                f1.write(str(temp))
+            cert_sig = subprocess.check_output("openssl cms -sign -in message -signer "+VARS["CLIENTCERT"],shell=True)
+            subprocess.run("rm message", shell=True)
             #cert_sig = subprocess.check_output("echo \""+temp.as_string()+"\" | openssl cms -sign -signer "+VARS["CLIENTCERT"],shell=True)
             #temp.set_payload(text)
             #temp.attach(text)
@@ -287,7 +286,11 @@ def send(VARS, FROMADDRESS, PORT=465):
         if not len(VARS["MESSAGE"]) > 0:
             print("No message to sign")
             sys.exit(1)
-        pgp_sig = subprocess.check_output("echo \""+VARS["PASSPHRASE"]+"\" | gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0", shell=True).decode().strip("\n")
+
+        with open("message", "w") as f1:
+            f1.write(VARS["MESSAGE"])
+        pgp_sig = subprocess.check_output("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase \""+VARS["PASSPHRASE"]+"\" message", shell=True).decode().strip("\n")
+        subprocess.run("rm message", shell=True)
         basemsg = MIMEText(VARS["MESSAGE"], _charset="utf-8")
         del basemsg["MIME-Version"]
         signmsg = messageFromSignature(pgp_sig, 'application/pgp-signature; name="signature.asc"')
@@ -334,7 +337,6 @@ def send(VARS, FROMADDRESS, PORT=465):
                     server.set_debuglevel(2)
                 server.login(VARS["USERNAME"], VARS["PASSWORD"])
                 server.send_message(message) # send_message() annoymizes BCC, rather than sendmail().
-                #server.sendmail(VARS["FROMEMAIL"], VARS["TOEMAILS"], message.as_string()) # send_message() annoymizes BCC, rather than sendmail().
                 print("Message sent")
     except smtplib.SMTPHeloError as e:
         print("Server did not reply. You may have Port 25 blocked on your host machine.")
