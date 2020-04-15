@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, os,
+import sys, os
 import re
 import getopt
 import datetime, time
@@ -76,7 +76,7 @@ def assign(opts):
             VARS["PASSPHRASE"]=arg
         elif opt in ("-m", "--message"):
             VARS["MESSAGE"] = decode_escapes(arg)
-            print(VARS["MESSAGE"])
+            #print(VARS["MESSAGE"])
             #sys.exit()
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
@@ -119,7 +119,7 @@ def configuration_assignment():
             error_exit(True, "Error: SMTP, Username or Password not set in config file and not typed on CMDline. Please include the -S, -u, or -p flags or use the following command to set the config file: `sendmsg --config`")
         else:
             print("SMTP, Username or Password not typed on CMDline. Checking configfile...\n")
-            VARS["SMTP"], VARS["USERNAME"], VARS["PASSWORD"] = configuration.send_mail()
+            VARS["SMTP"], VARS["USERNAME"], VARS["PASSWORD"] = configuration.return_config()
 
 def parse_assign(argv):
     '''Find the correct variable to assign the arg/opt to.'''
@@ -250,29 +250,6 @@ def cert_checks():
             print("Saving the client certificate from \""+VARS["CERT"]+"\" to \""+VARS["CLIENTCERT"]+"\"")
             print("Please enter the password when prompted.\n")
             subprocess.check_output("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True).decode().strip("\n")
-            '''
-            from OpenSSL import crypto
-            # open it, using password. Supply/read your own from stdin.
-            #passwd = input("ENTER password") # TODO
-            passwd = "5C8Hvk2v1pKS"
-            p12 = crypto.load_pkcs12(open(VARS["CERT"], 'rb').read(), passwd)
-
-            # get various properties of said file.
-            # note these are PyOpenSSL objects, not strings although you
-            # can convert them to PEM-encoded strings.
-            # https://www.semicolonworld.com/question/59687/python-reading-a-pkcs12-certificate-with-pyopenssl-crypto
-            print(crypto.dump_certificate(crypto.FILETYPE_PEM, p12.get_certificate()).decode())     # (signed) certificate object
-            print(crypto.dump_privatekey(crypto.FILETYPE_PEM, p12.get_privatekey()).decode())      # private key.
-            priv_key = crypto.dump_privatekey(crypto.FILETYPE_PEM, p12.get_privatekey())      # private key.
-            a = p12.get_ca_certificates() # ca chain.
-            from OpenSSL.crypto import sign
-            priv_key = crypto.load_privatekey(crypto.FILETYPE_PEM, p12.get_privatekey())
-            client_cert = crypto.X509()
-
-            print(priv_key.decode())
-            print(sign(priv_key, VARS["MESSAGE"], "sha1"))
-            sys.exit()
-            '''
         aissuer=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", shell=True).decode().strip("\n")
         if aissuer:
             for line in aissuer.split("commonName="):
