@@ -15,7 +15,7 @@ def config_email():
     SMTP = str(input("Enter in the email provider you wish to use (e.g., smtp.gmail.com) "))
     USERNAME = str(input("Enter in your username for this email (e.g., example@example.edu) "))
     PASSWORD = str(getpass.getpass("Enter in your password for this email "))
-    field = "email" # be careful 'email' does not work for some reason...
+    field = "email" # be careful 'email' does not work...
     parser.set(field, 'smtp', SMTP)
     parser.set(field, 'username', USERNAME)
     parser.set(field, 'password', PASSWORD)
@@ -24,7 +24,7 @@ def config_email():
         parser.write(configfile)
     print("Configuration file set successfully.")
 
-def return_config():
+def send_mail():
     '''Pull (and check) variables in the .ini file'''
     SMTP = parser['email']
     SMTP = parser['email']['smtp']
