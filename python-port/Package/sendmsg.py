@@ -26,6 +26,7 @@ VARS={"TOEMAILS":[],"CCEMAILS":[],"BCCEMAILS":[],"FROMEMAIL":'',"SMTP":'',"USERN
 CONFIG_FILE="~/.sendmsg.ini"
 
 # ESCAPE_SEQUENCE_RE and decode_escapes credit -- https://stackoverflow.com/a/24519338/8651748
+"""
 ESCAPE_SEQUENCE_RE = re.compile(r'''
     ( \\U[0-9a-fA-F]{1,8} # 8-digit hex escapes
     | \\u[0-9a-fA-F]{1,4} # 4-digit hex escapes
@@ -34,7 +35,8 @@ ESCAPE_SEQUENCE_RE = re.compile(r'''
     | \\N\{[^}]+\}     # Unicode characters by name
     | \\[\\'"abfnrtv]  # Single-character escapes
     )''', re.UNICODE | re.VERBOSE)
-
+"""
+ESCAPE_SEQUENCE_RE = re.compile(r'''(\\U[0-9a-fA-F]{1,8}|\\u[0-9a-fA-F]{1,4}|\\x[0-9a-fA-F]{1,2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])''', re.UNICODE)
 def decode_escapes(s):
     def decode_match(match):
         return codecs.decode(match.group(0), 'unicode-escape')
@@ -76,7 +78,7 @@ def assign(opts):
             VARS["PASSPHRASE"]=arg
         elif opt in ("-m", "--message"):
             VARS["MESSAGE"] = decode_escapes(arg)
-            #print(VARS["MESSAGE"])
+            print(VARS["MESSAGE"])
             #sys.exit()
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
@@ -107,7 +109,7 @@ def assign(opts):
         elif opt in ("-S", "--smtp"):
             VARS["SMTP"]= arg
         elif opt in ("-V", "--VERBOSE"):
-            VARS["VERBOSE"]= arg
+            VARS["VERBOSE"]= True
 
 def configuration_assignment():
     '''If a user decides, they may work from a configuration if the user does not specify a necessary
@@ -156,7 +158,7 @@ def format_attachment_output(rows):
         lens.append(max([len(v) for v in col]))
     format = "  ".join(["{:<" + str(l) + "}" for l in lens])
     for row in rows:
-        print(format.format(*row))
+        print(format.format(*row).strip('\n'))
 
 def attachment_work():
     '''Zips files to send in msg if user specifies the '-z' flag. Will also calculate size of attachments
@@ -319,6 +321,7 @@ def main(argv):
     passphrase_checks()
 
     # sending
+    #if VARS["PORT"] send(VARS, FROMADDRESS)
     send(VARS, FROMADDRESS)
     if VARS["ZIPFILE"]:
         os.remove(VARS["ZIPFILE"])
