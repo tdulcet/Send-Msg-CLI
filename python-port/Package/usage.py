@@ -14,30 +14,36 @@ def usage():
     format_attachment_output([
     (f'Options:', f''),
     (f'    -a --attachments', 'Attachment filename'),
-    (" ", "Use multiple times for multiple attachments. Supports Unicode characters in filename."),
-    ("    -b --bccemails", "BCC e-mail address(es)"),
-    ("    -c --ccemails",  "CC e-mail address(es)"),
+        (" ", "-Use multiple times for multiple attachments. Supports Unicode characters in filename."),
+    ("    -b --bccemails", "BCC e-mail address"),
+        (" ", "-Use multiple times for multiple attachments. Supports Unicode characters in filename."),
+    ("    -c --ccemails",  "CC e-mail address"),
+        (" ", "-Use multiple times for multiple attachments. Supports Unicode characters in filename."),
     ("    -C --certificate", "S/MIME Certificate filename for digitally signing the e-mails"),
-        (" ", "It will ask you for the password the first time you run the script with this option. Requires SMTP server."),
+        (" ", "-It will ask you for the password the first time you run the script with this option. Requires SMTP server."),
     ("    -d --dryrun",     "Dry run, do not send the e-mail"),
     ("    -e --examples",   "Show example usages for this script"),
     ("    -f --fromemail", "From e-mail address"),
     ("    -g --gateways",  "A non-complete listing of SMS and MMS Gateways for the US and Canada"),
     ("    -h --help",       "Display this help and exit"),
     ("    -k --passphrase", "PGP secret key passphrase for digitally signing the e-mails with PGP/MIME"),
-        (" ", "Requires SMTP server."),
+        (" ", "-Requires SMTP server."),
     ("    -m --message",      "Message body"),
-        (" ", "Escape sequences are expanded. Supports Unicode characters."),
+        (" ", "-Escape sequences are expanded. Supports 4 and 8 digit Unicode characters."),
     ("    -p --password",   "SMTP server password"),
     ("    -P --priority",   "Priority"),
-        (" ", "Supported priorities: '5 (Lowest)', '4 (Low)', 'Normal', '2 (High)' and '1 (Highest)'. Requires SMTP server."),
+        (" ", "-Supported priorities: '5 (Lowest)', '4 (Low)', 'Normal', '2 (High)' and '1 (Highest)'. Requires SMTP server."),
     ("    -s, --subject",    "Subject"),
-        (" ", "Escape sequences are expanded. Supports Unicode characters."),
+        (" ", "-Escape sequences are expanded. Supports Unicode characters."),
+    ("    -S, --smtp", "SMTP server"),
+        (" ", '-Supported protocols: "smtp" and "smtps". Requires From e-mail address. Use "smtp://localhost" if running a mail server on this device.'),
     ("    -t --toemails",    "To e-mail address(es)"),
+        (" ", "-Use multiple times for multiple attachments. Supports Unicode characters in filename."),
+
     ("    -u --username",   "SMTP server username"),
     ("    -v --version",    "Output version information and exit"),
     ("    -V --verbose",    "Verbose, show the client-server communication"),
-        (" ", "Requires SMTP server."),
+        (" ", "-Requires SMTP server."),
     ("    -z --zipfile",    "Compress attachment(s) with zip")])
 
 def examples():
@@ -61,15 +67,16 @@ def examples():
         f'    $ {sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -t \"Example <example@example.com>\"\n\n'+
 
         "    Send e-mail with an external SMTP server\n"+
-        f'    $ {sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -t \"Example <example@example.com>\"\n\n'+
+        f'    $ {sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -S \"mail.example.com\" -u \"example\" -p \"password\" -t \"Example <example@example.com>\"\n\n'+
 
         "    Send high priority e-mail\n"+
-        f'    $ {sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -P \"1 (Highest)\" -t \"Example <example@example.com>\"\n\n'+
+        f'    $ {sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -S \"mail.example.com\" -u \"example\" -p \"password\" -P \"1 (Highest)\" -t \"Example <example@example.com>\"\n\n'+
 
         "    Send e-mail digitally signed with an S/MIME Certificate\n"+
-        f'    $ {sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -C \"cert.p12\" -t \"Example <example@example.com>\"\n\n'+
+        f'    $ {sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -S \"mail.example.com\" -u \"example\" -p \"password\" -C \"cert.p12\" -t \"Example <example@example.com>\"\n\n'+
 
-        f'    Send e-mail digitally signed with PGP/MIME"+ "{sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -k \"passphrase\" -t \"Example <example@example.com>\"')
+        "    Send e-mail digitally signed with PGP/MIME\n"+
+        f'    $ {sendmsg} -s \"Example\" -f \"Example <example@example.com>\" -S \"mail.example.com\" -u \"example\" -p \"password\" -k \"passphrase\" -t \"Example <example@example.com>\"'"")
 
 def carriers():
     '''Print out common carriers a user could use to send a text message'''
