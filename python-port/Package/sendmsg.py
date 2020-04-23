@@ -356,7 +356,7 @@ def passphrase_checks():
         # create file to be written out, then schedule it to be removed if an exit occurs
         with open("temp_message", "w") as f1:
             f1.write(VARS["MESSAGE"])
-        atexit.register(lambda x: os.remove(x), temp_message)
+        atexit.register(lambda x: os.remove(x), 'temp_message')
 
         # check if GPG key exists
         if not "BEGIN PGP SIGNATURE" in subprocess.check_output("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase \""+VARS["PASSPHRASE"]+"\" temp_message", shell=True).decode().strip("\n"):
