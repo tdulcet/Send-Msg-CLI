@@ -17,7 +17,7 @@ def set_main_headers(VARS, message):
     '''Set common headers in every email'''
     message["From"] = VARS["FROMEMAIL"]
     to = ", ".join(VARS["TOEMAILS"])
-    message["To"] = to if to != "" else "undisclosed-recipients"
+    message["To"] = to if to != "" else "undisclosed-recipients:;"
     if VARS["CCEMAILS"]:
         message["Cc"] = ", ".join(VARS["CCEMAILS"])
     if VARS["BCCEMAILS"]:
@@ -42,7 +42,6 @@ def attachments(message, attachments):
         del part["MIME-Version"]
         message.attach(part)
 
-# thanks to: https://stackoverflow.com/questions/10496902/pgp-signing-multipart-e-mails-with-python
 def messageFromSignature(signature, content_type=None):
     message = EmailMessage()
     if content_type != None:
@@ -91,6 +90,9 @@ def pgp(VARS, FROMADDRESS):
     atexit.register(lambda x: os.remove(x), "message")
 
     pgp_sig = subprocess.check_output("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase \""+VARS["PASSPHRASE"]+"\" message", shell=True).decode().strip("\n")
+    p = subprocess.Popen("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 message", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    #p = subprocess.Popen("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase message", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    pgp_sig = p.communicate(bytes(VARS["PASSPHRASE"], "utf-8"))[0].decode()
     signmsg = messageFromSignature(pgp_sig, 'application/pgp-signature; name="signature.asc"')
     signmsg['Content-Disposition'] = 'attachment; filename="signature.asc"'
     set_main_headers(VARS, message)
@@ -121,7 +123,7 @@ def port465(VARS, message, PORT=465):
         if VARS["VERBOSE"]:
             server.set_debuglevel(2)
         server.login(VARS["USERNAME"], VARS["PASSWORD"])
-        server.send_message(message) # send_message() annoymizes BCC, rather than sendmail().
+        print(server.send_message(message)) # send_message() annoymizes BCC, rather than sendmail().
         print("Message sent")
 
 def port587(VARS, message, PORT=587):
@@ -159,6 +161,7 @@ def sendEmail(VARS, FROMADDRESS, PORT=0):
         message = send_normal(VARS)
 
     # Debug code
+    #print(message["To"])
     #print(message.as_string())
     #sys.exit()
 
