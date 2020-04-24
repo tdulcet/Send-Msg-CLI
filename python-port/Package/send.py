@@ -89,9 +89,7 @@ def pgp(VARS, FROMADDRESS):
         f1.write(str(message))
     atexit.register(lambda x: os.remove(x), "message")
 
-    pgp_sig = subprocess.check_output("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase \""+VARS["PASSPHRASE"]+"\" message", shell=True).decode().strip("\n")
     p = subprocess.Popen("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 message", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    #p = subprocess.Popen("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase message", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     pgp_sig = p.communicate(bytes(VARS["PASSPHRASE"], "utf-8"))[0].decode()
     signmsg = messageFromSignature(pgp_sig, 'application/pgp-signature; name="signature.asc"')
     signmsg['Content-Disposition'] = 'attachment; filename="signature.asc"'
@@ -161,7 +159,6 @@ def sendEmail(VARS, FROMADDRESS, PORT=0):
         message = send_normal(VARS)
 
     # Debug code
-    #print(message["To"])
     #print(message.as_string())
     #sys.exit()
 

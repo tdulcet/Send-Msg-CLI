@@ -51,54 +51,34 @@ CONFIG_FILE="~/.sendmsg.ini"
 ESCAPE_SEQUENCE_RE = re.compile(r'''(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])''', re.UNICODE)
 
 def zero_pad(message):
-    '''zero_pad unicode characters (\ u and \ U) and octals, since python doesn't support this'''
+    '''zero_pad unicode characters (\ u and \ U and \ x) that are < 4 numbers long, since python doesn't support this'''
     new_string = ""
-    start_index = 0
-    inner_start_index = 0
-    end = 0
+    start_index = 0 # what we begin at for each iteration through our loop
     while start_index < len(message):
         for i in range(start_index, len(message)):
-            count = 0 # track number of unicode characters
-            begin_index = 0 # index where we found a match
-            new_string += message[i] # regularly adding to our
-            if message[i] == "\\" and (message[i+1] == "u" or message[i+1] == "U" or message[i+1] == "x"): # two cases of < 4 digit unicode characters (in binary or hex)
+            count = 0 # track number of unicode characters to zero pad
+            new_string += message[i]
+            if i +1 != len(message) and message[i] == "\\" and (message[i+1] == "u" or message[i+1] == "U" or message[i+1] == "x"):
                 new_string += message[i+1] # u, U, or x
-                i+=2
-                begin_index = i
-                inner_start_index += i
+                i+=2 # skipping past the escape character (\u, for example)
                 start_index = i
-                for j in range(inner_start_index, len(message)-1):
-                    if count >= 5: # we have a 4 or 8 sized unicode (e.g., \u0000), don't zero-pad
+                for j in range(start_index, len(message)):
+                    if count >= 5:
                         break
-                    if message[j] != ' ' and message[j] != '\\':
+                    if message[j] != ' ' and message[j] != '\\': # reach the end/beginning of new unicode string
                         count+=1
-                    if message[j] == ' ' or message[j] == '\\': # \\ = start of new unicode
-                        #print(f'Count {count}')
-                        #print("CURRENT STRING: " + new_string)
-
+                    else:
                         # Zero pad
                         for k in range(0, 4-count):
                             new_string +='0'
-                            print(new_string)
 
                         # add back in characters
                         for k in range(0, count):
-                            new_string+=message[begin_index]
-                            begin_index +=1
-                            print(new_string)
-                        #new_string += ' '
-                        start_index += count
-                        end = i
+                            new_string+=message[start_index]
+                            start_index += 1
                         break
-                break
-                count = 0
-            else:
-                end+=1
+                break # for loop is different in Python than C, so we must break here and reassign var i
             start_index += 1
-    print()
-    print("NEW_STRING")
-    print(new_string)
-    #sys.exit()
     return new_string
 
 def decode_escapes(s):
@@ -144,7 +124,6 @@ def assign(opts):
             VARS["MESSAGE"] = zero_pad(arg)
             VARS["MESSAGE"] = decode_escapes(VARS["MESSAGE"])
             print(VARS["MESSAGE"])
-            print("HERE")
             #sys.exit()
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
