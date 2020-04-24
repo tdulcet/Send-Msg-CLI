@@ -26,22 +26,32 @@ def config_email():
     with open(CONFIG_FILE, "w") as configfile:
         parser.write(configfile)
 
-# TODO -- use this
 def config_pgp():
     '''set the pgp passphrase to avoid future typing of the passphrase on the commandline'''
     section = "pgp"
+    option = "passphrase"
     try:
-        parser.get(section, option)
-        option = str((input("PGP already set. Reset? (Y\\N)"))).upper()
-        if option == "Y":
-            PGP = str(input("Enter in the email provider you wish to use (e.g., smtp.example.com) "))
+        PGP = parser.get(section, option)
+        choice = int((input("1) Use passphrase?\n2) Reset passphrase\n3) Exit\n")))
+        if choice == 1:
+            return PGP
+        elif choice == 2:
+            PGP = str(getpass.getpass("Enter in your PGP passphrase: "))
+            parser.set(section, 'passphrase', PGP)
+            return parser.get(section, option)
         else:
-            return
-    except:
-        print("PGP not set yet... Enter password")
-        PGP = str(input("Enter in your PGP passphrase"))
+            sys.exit()
+
+    except configparser.NoSectionError: # section is not created yet
+        PGP = str(getpass.getpass("PGP field not set yet. Enter in your PGP passphrase: "))
         parser.add_section(section)
-        parser.set(section, 'passphrase', pgp)
+        parser.set(section, 'passphrase', PGP)
+        with open(CONFIG_FILE, "w") as configfile:
+            parser.write(configfile)
+        print("HERE")
+        return parser.get(section, option)
+    except Exception as error:
+        error_exit(True, error)
 
 def return_config():
     '''Pull (and check) variables in the .ini file'''
