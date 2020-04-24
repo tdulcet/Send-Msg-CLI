@@ -48,54 +48,58 @@ VARS={"TOEMAILS":[],
 CONFIG_FILE="~/.sendmsg.ini"
 
 # ESCAPE_SEQUENCE_RE and decode_escapes credit -- https://stackoverflow.com/a/24519338/8651748
-"""
-ESCAPE_SEQUENCE_RE = re.compile(r'''
-    ( \\U[0-9a-fA-F]{1,8} # 8-digit hex escapes
-    | \\u[0-9a-fA-F]{1,4} # 4-digit hex escapes
-    | \\x[0-9a-fA-F]{1,2} # 2-digit hex escapes
-    | \\[0-7]{1,3}     # Octal escapes
-    | \\N\{[^}]+\}     # Unicode characters by name
-    | \\[\\'"abfnrtv]  # Single-character escapes
-    )''', re.UNICODE | re.VERBOSE)
-"""
-#ESCAPE_SEQUENCE_RE = re.compile(r'''(\\U[0-9a-fA-F]{1,8}|\\u[0-9a-fA-F]{1,4}|\\x[0-9a-fA-F]{1,2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])''', re.UNICODE)
 ESCAPE_SEQUENCE_RE = re.compile(r'''(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])''', re.UNICODE)
 
 def zero_pad(message):
     '''zero_pad unicode characters (\ u and \ U) and octals, since python doesn't support this'''
     new_string = ""
-    for i in range(0, len(message)-1):
-        count = 1 # track number of unicode characters
-        begin_index = 0 # index where we found a match
-        new_string += message[i]
-        if message[i] == "\\":
-            if message[i+1] == "u" or message[i+1] == "U" or message[i+1] == "x":
+    start_index = 0
+    inner_start_index = 0
+    end = 0
+    while start_index < len(message):
+        for i in range(start_index, len(message)):
+            count = 0 # track number of unicode characters
+            begin_index = 0 # index where we found a match
+            new_string += message[i] # regularly adding to our
+            if message[i] == "\\" and (message[i+1] == "u" or message[i+1] == "U" or message[i+1] == "x"): # two cases of < 4 digit unicode characters (in binary or hex)
                 new_string += message[i+1] # u, U, or x
-                #print(new_string)
-                #sys.exit()
-                begin_index = i+3
-                for j in range(i+2, len(message)-1):
+                i+=2
+                begin_index = i
+                inner_start_index += i
+                start_index = i
+                for j in range(inner_start_index, len(message)-1):
                     if count >= 5: # we have a 4 or 8 sized unicode (e.g., \u0000), don't zero-pad
                         break
+                    if message[j] != ' ' and message[j] != '\\':
+                        count+=1
                     if message[j] == ' ' or message[j] == '\\': # \\ = start of new unicode
-                        print(f'Count {count}')
-                        for k in range(0, count):
+                        #print(f'Count {count}')
+                        #print("CURRENT STRING: " + new_string)
+
+                        # Zero pad
+                        for k in range(0, 4-count):
                             new_string +='0'
-                        for k in range(4-count,0, -1):
-                            print(message[begin_index-1])
+                            print(new_string)
+
+                        # add back in characters
+                        for k in range(0, count):
                             new_string+=message[begin_index]
                             begin_index +=1
-                        #new_string+=message[i+count]
+                            print(new_string)
+                        #new_string += ' '
+                        start_index += count
+                        end = i
                         break
-                    if message[j] != '0':
-                        count+=1
-                print("HERE")
-                print(new_string)
-                sys.exit()
-
+                break
+                count = 0
+            else:
+                end+=1
+            start_index += 1
+    print()
+    print("NEW_STRING")
+    print(new_string)
+    #sys.exit()
     return new_string
-    #print(message[i] + message[i+1])
-    #    sys.exit()
 
 def decode_escapes(s):
     def decode_match(match):
@@ -137,10 +141,10 @@ def assign(opts):
         elif opt in ("-k", "--passphrase"):
             VARS["PASSPHRASE"]=arg
         elif opt in ("-m", "--message"):
-            #VARS["MESSAGE"] = zero_pad(VARS["MESSAGE"])
-            VARS["MESSAGE"] = decode_escapes(arg)
-            #print(VARS["MESSAGE"])
-            #zero_pad(VARS["MESSAGE"])
+            VARS["MESSAGE"] = zero_pad(arg)
+            VARS["MESSAGE"] = decode_escapes(VARS["MESSAGE"])
+            print(VARS["MESSAGE"])
+            print("HERE")
             #sys.exit()
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
@@ -159,7 +163,10 @@ def assign(opts):
             print("Send Msg CLI 1.0\n")
             sys.exit(0)
         elif opt in ("-z", "--zipfile"):
-            VARS["ZIPFILE"]= arg+".zip"
+            if arg.endswith('.zip'):
+                VARS["ZIPFILE"]= arg
+            else:
+                VARS["ZIPFILE"]= arg+".zip"
         elif opt in ("-C", "--cert"):
             VARS["CERT"]= arg
         elif opt in ("-P", "--priority"):
@@ -190,9 +197,9 @@ def parse_assign(argv):
     '''Find the correct variable to assign the arg/opt to.'''
     try:
         opts, args = getopt.getopt(argv,"a:b:c:def:ghk:m:p:rs:t:u:vz:C:P:S:V",
-                ["attachments=", "bccemails=", "ccemails=", "dryrun=", "examples","fromemail=", "gateways",
+                ["attachments=", "bccemails=", "ccemails=", "dryrun", "examples","fromemail=", "gateways",
                     "help", "passphrase=", "message=", "password=", "config", "subject=", "toaddress=", "username=", "version", "zipfile=",
-                    "cert=", "priority=", "smtp=", "verbose="])
+                    "cert=", "priority=", "smtp=", "verbose"])
     except getopt.GetoptError:
         usage()
         sys.exit(2)
@@ -201,14 +208,15 @@ def parse_assign(argv):
 # modified from source: https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
 def convert_bytes(size, byte_type):
     '''Calculates how large an attachment in two ways -- iB and B'''
-    byte_array = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'] if byte_type == "i" else ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+    byte_array = ['Bytes', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
     div_size = 1024.0 if byte_type == "i" else 1000.0
 
     for x in byte_array:
         if size < div_size:
             import locale
             locale.setlocale(locale.LC_ALL, '')
-            return f'{size:,.1f}{x}'
+            unit = x + ('' if x == 'Bytes' else ('i' if byte_type == 'i' else '') + 'B')
+            return f'{size:,.1f}{unit}'
         size = round(size / div_size, 1)
 
     return size
@@ -268,10 +276,9 @@ def email_work():
     '''
     global FROMADDRESS
     FROMADDRESS=VARS["FROMEMAIL"]
-    RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1 # TODO -- needs a check for a '.'. The current one doesn't work on, for example, 'danc2@pdxedu'. But this parses "Example <email@example.com>" correctly.
-    #RE=re.compile("([^@|\s]+@[^@]+\.[^@|\s]+)")
-    #RE=re.compile('[^@]+@[^@]+\.[^@]+')
-    #RE=re.compile(r"(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)") # https://emailregex.com/
+    #RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1 # TODO -- needs a check for a '.'. The current one doesn't work on, for example, 'danc2@pdxedu'. But this parses "Example <email@example.com>" correctly.)
+    RE=re.compile('(?:"?([^"]*)"?\s)?[%<a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.>]+')
+    #RE=re.compile('(?:"?([^"]*)"?\s)?[<a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.>]+')
 
     # Check if the email is valid.
     try:
@@ -288,19 +295,21 @@ def email_work():
         for i in range(0, len(VARS["BCCEMAILS"])):
             result = RE.match(VARS["BCCEMAILS"][i])
             if not result:
+                print("HER")
                 error_exit(True, "Error: \""+VARS["BCCEMAILS"][i]+"\" is not a valid e-mail address.")
 
         if FROMADDRESS:
             result = RE.match(FROMADDRESS)
+            #print(result.group(0))
             if result:
-                FROMADDRESS=result.group(2) # changes to 1 if using another regex.
+                FROMADDRESS=result.group(0) # changes to 1 if using another regex.
             else:
                 error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address.")
         else:
             error_exit(True, "Error: Must specify FROM e-mail address.")
-
     except Exception as error:
         error_exit(True, error)
+    sys.exit()
 
 def cert_checks():
     '''Creates the .pem certificate (defined in VARS["CLIENTCERT"]; e.g., cert.pem) with certificate \
@@ -319,6 +328,7 @@ def cert_checks():
             print("Please enter the password when prompted.\n")
             subprocess.check_output("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True).decode().strip("\n")
         aissuer=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", shell=True).decode().strip("\n")
+        print(aissuer)
         if aissuer:
             for line in aissuer.split("commonName="):
                 issuer=line
@@ -333,15 +343,13 @@ def cert_checks():
         else:
             date=""
 
-        # TODO -- may output something like "will expire in x days, so may change this condition..Ask Teal?
-        #if "Certificate will not expire" in subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
         if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
             sec = int(time.mktime(datetime.datetime.strptime(date, "%b %d %H:%M:%S %Y %Z").timetuple()) - time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
             if sec / 86400 < int(VARS["WARNDAYS"]):
                 if issuer:
-                    print(f'Warning: The S/MIME Certificate from \"{issuer}\" expires in less than ' + VARS["WARNDAYS"]+ ' days {date}')
+                    print(f'Warning: The S/MIME Certificate from \"{issuer}\" expires in less than ' + VARS["WARNDAYS"]+ f' days {date}')
                 else:
-                    print(f'Warning: The S/MIME Certificate expires in less than ' + VARS["WARNDAYS"]+ ' days {date}')
+                    print(f'Warning: The S/MIME Certificate expires in less than ' + VARS["WARNDAYS"]+ f' days {date}')
 
         else:
             error = "Error: The S/MIME Certificate from \"{issuer}\" expired {date}" if issuer else "Error: The S/MIME Certificate expired {date}"
@@ -359,12 +367,20 @@ def passphrase_checks():
         atexit.register(lambda x: os.remove(x), 'temp_message')
 
         # check if GPG key exists
-        if not "BEGIN PGP SIGNATURE" in subprocess.check_output("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase \""+VARS["PASSPHRASE"]+"\" temp_message", shell=True).decode().strip("\n"):
+        #if not "BEGIN PGP SIGNATURE" in subprocess.check_output("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase \""+VARS["PASSPHRASE"]+"\" temp_message", shell=True).decode().strip("\n"):
+        p = subprocess.Popen("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 temp_message", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout = p.communicate(bytes(VARS["PASSPHRASE"], "utf-8"))[0].decode()
+        #print(stdout)
+        if not "BEGIN PGP SIGNATURE" in stdout:
             error_exit(True, "Error: A PGP key pair does not yet exist for \""+FROMADDRESS+"\" or the passphrase was incorrect.")
 
         # check if GPG key will expire soon or has expired
         date=subprocess.check_output("gpg -k --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
-        date = date.split(":")[4]
+        for line in date.split("\n"):
+            if "pub" in line:
+                date = line.split(":")[6]
+                break
+
         if len(date) > 0:
             sec = str(int(date) - int(time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple())))
             fingerprint=subprocess.check_output("gpg --fingerprint --with-colons \""+FROMADDRESS+"\"", shell=True).decode().strip("\n")
