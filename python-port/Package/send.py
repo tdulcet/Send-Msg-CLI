@@ -121,7 +121,7 @@ def port465(VARS, message, PORT=465):
         if VARS["VERBOSE"]:
             server.set_debuglevel(2)
         server.login(VARS["USERNAME"], VARS["PASSWORD"])
-        print(server.send_message(message)) # send_message() annoymizes BCC, rather than sendmail().
+        server.send_message(message) # send_message() annoymizes BCC, rather than sendmail().
         print("Message sent")
 
 def port587(VARS, message, PORT=587):

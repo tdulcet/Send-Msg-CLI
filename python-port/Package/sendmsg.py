@@ -288,7 +288,6 @@ def email_work():
             error_exit(True, "Error: Must specify FROM e-mail address.")
     except Exception as error:
         error_exit(True, error)
-    sys.exit()
 
 def cert_checks():
     '''Creates the .pem certificate (defined in VARS["CLIENTCERT"]; e.g., cert.pem) with certificate \
@@ -340,13 +339,17 @@ def passphrase_checks():
         if which("gpg") is None:
             error_exit(True, "Error: GPG not found. You need this to sign a message with PGP/MIME")
 
+        # Work from a config file
+        if VARS["PASSPHRASE"].lower() == "config":
+            print(VARS["PASSPHRASE"])
+            VARS["PASSPHRASE"] = configuration.config_pgp()
+
         # create file to be written out, then schedule it to be removed if an exit occurs
         with open("temp_message", "w") as f1:
             f1.write(VARS["MESSAGE"])
         atexit.register(lambda x: os.remove(x), 'temp_message')
 
         # check if GPG key exists
-        #if not "BEGIN PGP SIGNATURE" in subprocess.check_output("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase \""+VARS["PASSPHRASE"]+"\" temp_message", shell=True).decode().strip("\n"):
         p = subprocess.Popen("gpg --pinentry-mode loopback --batch -o - -ab -u \""+FROMADDRESS+"\" --passphrase-fd 0 temp_message", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout = p.communicate(bytes(VARS["PASSPHRASE"], "utf-8"))[0].decode()
         #print(stdout)
