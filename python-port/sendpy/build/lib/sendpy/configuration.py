@@ -1,4 +1,5 @@
-import sys, os
+import sys
+import os
 import configparser
 import getpass
 
@@ -12,6 +13,7 @@ parser.read(CONFIG_FILE)
 
 def config_email():
     '''Configures or reconfigures settings for send-msg-cli then writes the change to file'''
+    PORT = 0
     SMTP_SERVER = str(input("Enter in the smtp server you wish to use (e.g., smtp.example.com:465) "))
     FROM = str(input("Enter in your From field for this email (e.g., username@example.com) "))
     USERNAME = str(input("Enter in your username for this email (e.g., username@example.com) "))
@@ -59,8 +61,14 @@ def return_config():
     FROM = parser['email']['from']
     USERNAME = parser['email']['username']
     PASSWORD = parser['email']['password']
-    error_exit(SMTP_SERVER == "" or FROM == "" or USERNAME == "" or PASSWORD == "", "SMTP, Username or Password not set in config file and not typed on CMDline. Please include the '-S', '-u', or '-p' flags with arguments or use the following command to set the config file: `sendmsg --config`")
-    return SMTP_SERVER, FROM, USERNAME, PASSWORD
+    PORT = 0 # if no port is found, default is 0 (465)
+    smtp_port = SMTP_SERVER.split(":")
+    if len(smtp_port) > 1:
+        SMTP_SERVER = smtp_port[0]
+        PORT = smtp_port[1]
+
+    error_exit(SMTP_SERVER == "" or FROM == "" or USERNAME == "" or PASSWORD == "", "SMTP, Username or Password not set in config file and not typed on CMDline. Please include the '-S', 'f', '-u', or '-p' flags, with arguments, or use the following command to set the config file: `sendpy --config`")
+    return SMTP_SERVER, PORT, FROM, USERNAME, PASSWORD
 
 def error_exit(condition, err):
     '''print an error and exit when one occurs'''

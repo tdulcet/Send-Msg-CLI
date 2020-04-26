@@ -1,10 +1,19 @@
-# Output usage
-# usage <program name>
-import sys
-sendpy = sys.argv[0]
+'''Purpose:
+    Deliver a variety of help commands to the user to explain usage of sendpy.
+'''
 
-#from sendpy import format_attachment_output # this prints out our help menu in an even format.
-#from sendpy import decode_escapes
+sendpy = "sendpy" # must hardcode or else will be path, which is not what we want.
+
+# user codeskyblue from: https://stackoverflow.com/questions/19103052/python-string-formatting-columns-in-line
+def format_attachment_output(rows):
+    '''Spaces the printing of the help menus based on largest length. A replacement for the column cmd.
+    '''
+    lens = []
+    for col in zip(*rows):
+        lens.append(max([len(v) for v in col]))
+    format = "  ".join(["{:<" + str(l) + "}" for l in lens])
+    for row in rows:
+        print(format.format(*row).strip('\n'))
 
 def usage():
     # Bottom three print statements have to be printed separately so as not to affect the ...

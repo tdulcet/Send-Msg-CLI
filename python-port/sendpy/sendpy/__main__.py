@@ -11,7 +11,8 @@ import atexit
 from shutil import which
 
 from .send import sendEmail
-from . import usage, configuration
+from . import usage
+from . import configuration
 
 '''The purpose of this file is to
    1. parse all flags given on the cmdline.
@@ -378,9 +379,6 @@ def passphrase_checks():
         print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
 
 def main(argv):
-    if len(sys.argv) == 1:
-        usage.usage()
-        sys.exit(1)
     # parsing/assignment
     parse_assign(argv)
     configuration_assignment() # use default configuration if nothing was put on the CMDline

@@ -61,8 +61,8 @@ def return_config():
     FROM = parser['email']['from']
     USERNAME = parser['email']['username']
     PASSWORD = parser['email']['password']
-    smtp_port = SMTP_SERVER.split(":")
     PORT = 0 # if no port is found, default is 0 (465)
+    smtp_port = SMTP_SERVER.split(":")
     if len(smtp_port) > 1:
         SMTP_SERVER = smtp_port[0]
         PORT = smtp_port[1]
