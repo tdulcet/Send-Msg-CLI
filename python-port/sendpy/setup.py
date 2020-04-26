@@ -5,7 +5,7 @@ def readme():
         return fh.read()
 
 setuptools.setup(name='sendpy-danc2050',
-      version='0.1',
+      version='0.3',
       description='Email and text notification program',
       long_description=readme(),
       long_description_content_type="text/markdown",
@@ -18,7 +18,7 @@ setuptools.setup(name='sendpy-danc2050',
       scripts=['bin/sendpy'],
       classifiers=[
           "Programming Language :: Python :: 3",
-          "License :: OSI Approved :: GPL License",
+          "License :: OSI Approved :: GNU General Public License (GPL)",
           "Operating System :: OS Independent",
           "Development Status :: 3 - Alpha",
       ],

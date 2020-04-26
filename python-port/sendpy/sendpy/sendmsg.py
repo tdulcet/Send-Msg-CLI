@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
-import sys, os
+import sys
+import os
 import re
 import getopt
 import datetime, time
 import subprocess
-import codecs # for decode escapes
-from shutil import which # discover if OpenSSL and/or gpg are in the system
+import codecs
 import atexit
+from shutil import which
 
-from send import sendEmail # how we send emails
-import usage, configuration
+from .send import sendEmail
+from . import usage, configuration
 
 '''The purpose of this file is to
    1. parse all flags given on the cmdline.
@@ -123,7 +124,7 @@ def assign(opts):
         elif opt in ("-m", "--message"):
             VARS["MESSAGE"] = zero_pad(arg)
             VARS["MESSAGE"] = decode_escapes(VARS["MESSAGE"])
-            print(VARS["MESSAGE"])
+            #print(VARS["MESSAGE"])
             #sys.exit()
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
@@ -169,9 +170,8 @@ def configuration_assignment():
         if not os.path.exists(os.path.expanduser(CONFIG_FILE)):
             error_exit(True, "Error: SMTP server, From, Username or Password fields not set in config file and not typed on CMDline. Please include the -S, -f, -u, or -p flags or use the following command to set the config file: `sendmsg --config`")
         else:
-            print("SMTP server, From, Username or Password fields not typed on CMDline. Checking configfile...\n")
-            VARS["SMTP"], VARS["FROMEMAIL"], VARS["USERNAME"], VARS["PASSWORD"] = configuration.return_config()
-            print(VARS["SMTP"], VARS["FROMEMAIL"], VARS["USERNAME"], VARS["PASSWORD"])
+            print("SMTP server, From, Username or Password fields not typed on CMDline. \n\nAttempting to send msg with configuration file credentials...\n")
+            VARS["SMTP"], VARS["PORT"], VARS["FROMEMAIL"], VARS["USERNAME"], VARS["PASSWORD"] = configuration.return_config()
 
 def parse_assign(argv):
     '''Find the correct variable to assign the arg/opt to.'''
@@ -237,13 +237,13 @@ def attachment_work():
             VARS["ATTACHMENTS"] = [zip_file]
 
         # checking if attachment size are > 25 MB
-        print("Attachments:")
         for attachment in VARS["ATTACHMENTS"]:
             SIZE=os.path.getsize(attachment)
             TOTAL +=int(SIZE)
             rows.append((attachment, convert_bytes(int(SIZE), "i"), "("+convert_bytes(int(SIZE), "b")+")"))
 
         rows.append(("\nTotal Size:", convert_bytes(int(TOTAL),"i"), "("+convert_bytes(int(TOTAL),"b")+")"))
+        print("Attachments:")
         format_attachment_output(rows)
 
         if TOTAL >= 26214400:
@@ -256,9 +256,7 @@ def email_work():
     '''
     global FROMADDRESS
     FROMADDRESS=VARS["FROMEMAIL"]
-    #RE=re.compile('(?:"?([^"]*)"?\s)?(?:<?(.+@[^>]+)>?)') # https://regex101.com/r/dR8hL3/1 # TODO -- needs a check for a '.'. The current one doesn't work on, for example, 'danc2@pdxedu'. But this parses "Example <email@example.com>" correctly.)
     RE=re.compile('(?:"?([^"]*)"?\s)?[%<a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.>]+')
-    #RE=re.compile('(?:"?([^"]*)"?\s)?[<a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.>]+')
 
     # Check if the email is valid.
     try:
@@ -280,9 +278,8 @@ def email_work():
 
         if FROMADDRESS:
             result = RE.match(FROMADDRESS)
-            #print(result.group(0))
             if result:
-                FROMADDRESS=result.group(0) # changes to 1 if using another regex.
+                FROMADDRESS=result.group(0)
             else:
                 error_exit(True, "Error: \""+FROMADDRESS+"\" is not a valid e-mail address.")
         else:
@@ -307,7 +304,6 @@ def cert_checks():
             print("Please enter the password when prompted.\n")
             subprocess.check_output("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True).decode().strip("\n")
         aissuer=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", shell=True).decode().strip("\n")
-        print(aissuer)
         if aissuer:
             for line in aissuer.split("commonName="):
                 issuer=line
@@ -342,7 +338,6 @@ def passphrase_checks():
 
         # Work from a config file
         if VARS["PASSPHRASE"].lower() == "config":
-            print(VARS["PASSPHRASE"])
             VARS["PASSPHRASE"] = configuration.config_pgp()
 
         # create file to be written out, then schedule it to be removed if an exit occurs
@@ -399,10 +394,7 @@ def main(argv):
     passphrase_checks()
 
     # sending
-    #if VARS["PORT"] send(VARS, FROMADDRESS)
-
     sendEmail(VARS, FROMADDRESS, int(VARS["PORT"]))
-    #sendEmail(VARS, FROMADDRESS, PORT=587)
 
 if __name__=="__main__":
     if len(sys.argv) == 1:
