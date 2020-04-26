@@ -1,8 +1,8 @@
+import sys
+import os
 import email, smtplib, ssl
-import sys # duplicate import
 import subprocess
-import atexit # duplicate import
-import os # duplicate import
+import atexit
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -163,7 +163,6 @@ def sendEmail(VARS, FROMADDRESS, PORT=0):
     #sys.exit()
 
     try:
-        #print(PORT)
         if PORT == 0 or PORT == 465:
             port465(VARS, message)
         elif PORT == 587:

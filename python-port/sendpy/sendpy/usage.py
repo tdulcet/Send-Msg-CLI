@@ -1,16 +1,16 @@
-# Output usage
-# usage <program name>
-import sys
-sendpy = sys.argv[0]
+from sendpy.sendmsg import format_attachment_output
 
-#from sendpy import format_attachment_output # this prints out our help menu in an even format.
-#from sendpy import decode_escapes
+'''Purpose:
+    Deliver a variety of help commands to the user to explain usage of sendpy.
+'''
+
+sendpy = "sendpy" # must hardcode or else will be path, which is not what we want.
 
 def usage():
     # Bottom three print statements have to be printed separately so as not to affect the ...
     print(f"Usage: {sendpy} <OPTION(S)>... -S <smtp server> -t <To address> -f <From address> -u 'username' -p 'password'", "")
     print(f'or: {sendpy} <OPTION>')
-    print(f"One or more 'To', 'CC' or 'BCC' e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients). See examples by using the -e or --examples option.", "\n")
+    print(f"One or more 'To', 'CC' or 'BCC' e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients).\nSee examples by using the -e or --examples option.", "\n")
 
     # Then we create a row and print it
     format_attachment_output([
