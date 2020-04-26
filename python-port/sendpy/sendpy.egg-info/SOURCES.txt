@@ -1,0 +1,14 @@
+MANIFEST.in
+README.rst
+setup.py
+bin/sendpy
+sendpy/__init__.py
+sendpy/configuration.py
+sendpy/send.py
+sendpy/sendpy.py
+sendpy/usage.py
+sendpy.egg-info/PKG-INFO
+sendpy.egg-info/SOURCES.txt
+sendpy.egg-info/dependency_links.txt
+sendpy.egg-info/not-zip-safe
+sendpy.egg-info/top_level.txt

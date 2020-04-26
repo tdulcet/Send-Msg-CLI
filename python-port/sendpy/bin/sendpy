@@ -1,0 +1,6 @@
+#!/usr/bin/env python
+
+import sendpy
+import sys
+
+sys.exit(sendpy.main(sys.argv))

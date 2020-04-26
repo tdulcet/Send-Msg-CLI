@@ -30,6 +30,7 @@ def usage():
     ("    -g, --gateways", "Displays a non-complete listing of SMS and MMS Gateways for the US and Canada, then exits"),
     ("    -h, --help", "Display this help and exit"),
     ("    -k, --passphrase <passphrase>", "PGP secret key passphrase for digitally signing the e-mails with PGP/MIME"),
+        (" ", "-If you do not want to type this into the commandline, use '-k config' to set the password in the configuration file"),
     ("    -m, --message <message>",      "Message body"),
         (" ", "-Escape sequences are expanded. Supports Unicode characters."),
     ("    -p, --password <password>",   "SMTP server password"),
@@ -38,7 +39,7 @@ def usage():
     ("    -s, --subject <subject>",    "Subject"),
         (" ", "-Escape sequences are expanded. Supports Unicode characters."),
     ("    -S, --smtp <server>", "SMTP server"),
-    (" ", '-Supported protocols: "smtp" and "smtps". Use "localhost:25" if running a mail server on this device.'),
+    (" ", '-Example: "smtp.example.com:465". Defaults to port 465 without a port number. Use "localhost:25" if running a mail server on this device.'),
     ("    -t, --toemail <address>",    "To e-mail address(es)"),
         (" ", "-Use multiple times for multiple TO addresses."),
 

@@ -145,7 +145,7 @@ def port25(VARS, message, PORT=25):
 
 # TODO -- verify local SMTP server is handled correctly.
 def sendEmail(VARS, FROMADDRESS, PORT=0):
-    '''This function compiles our (optionally signed) message'''
+    '''This function compiles our (optionally signed) message and calls the correct send function according to what port is entered.'''
     if VARS["DRYRUN"]:
         sys.exit()
     # S/MIME
