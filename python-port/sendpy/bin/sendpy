@@ -1,6 +1,13 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 
-import sendpy
 import sys
+from sendpy.__main__ import main
+from sendpy.usage import usage
 
-sys.exit(sendpy.main(sys.argv))
+if __name__=="__main__":
+    if len(sys.argv) == 1:
+        usage()
+        sys.exit(1)
+
+    sys.exit(main(sys.argv[1:]))
+

@@ -1,16 +1,25 @@
-from sendpy.sendmsg import format_attachment_output
-
 '''Purpose:
     Deliver a variety of help commands to the user to explain usage of sendpy.
 '''
 
 sendpy = "sendpy" # must hardcode or else will be path, which is not what we want.
 
+# user codeskyblue from: https://stackoverflow.com/questions/19103052/python-string-formatting-columns-in-line
+def format_attachment_output(rows):
+    '''Spaces the printing of the help menus based on largest length. A replacement for the column cmd.
+    '''
+    lens = []
+    for col in zip(*rows):
+        lens.append(max([len(v) for v in col]))
+    format = "  ".join(["{:<" + str(l) + "}" for l in lens])
+    for row in rows:
+        print(format.format(*row).strip('\n'))
+
 def usage():
     # Bottom three print statements have to be printed separately so as not to affect the ...
     print(f"Usage: {sendpy} <OPTION(S)>... -S <smtp server> -t <To address> -f <From address> -u 'username' -p 'password'", "")
     print(f'or: {sendpy} <OPTION>')
-    print(f"One or more 'To', 'CC' or 'BCC' e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients).\nSee examples by using the -e or --examples option.", "\n")
+    print(f"One or more 'To', 'CC' or 'BCC' e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients). See examples by using the -e or --examples option.", "\n")
 
     # Then we create a row and print it
     format_attachment_output([

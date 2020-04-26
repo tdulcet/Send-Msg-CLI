@@ -1,8 +1,8 @@
-import sys
-import os
 import email, smtplib, ssl
+import sys
 import subprocess
 import atexit
+import os
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
