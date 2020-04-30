@@ -24,7 +24,7 @@ setuptools.setup(name='sendpy-danc2050',
       keywords='sendpy email e-mail send text notification g-mail gmail',
       python_requires='>=3.0',
       include_package_data=True,
-      zip_safe=False
+      zip_safe=False,
       project_urls={
           'Bug Reports': 'https://github.com/tdulcet/Send-Msg-CLI',
           'Funding': 'https://www.haveibeenexploited.com/donate',

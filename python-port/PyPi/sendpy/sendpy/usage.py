@@ -4,7 +4,17 @@
 
 prog_name = "sendpy" # must hardcode or else will be path, which is not what we want.
 
-import sendpy
+# user codeskyblue from: https://stackoverflow.com/questions/19103052/python-string-formatting-columns-in-line
+def format_attachment_output(rows):
+    '''Spaces the printing of attachments based on largest length. A replacement for the column cmd.
+       Also used for printing out our help menus found in usage.py.
+    '''
+    lens = []
+    for col in zip(*rows):
+        lens.append(max([len(v) for v in col]))
+    format = "  ".join(["{:<" + str(l) + "}" for l in lens])
+    for row in rows:
+        print(format.format(*row).strip('\n'))
 
 def usage():
     '''Print out help menu'''
@@ -14,7 +24,7 @@ def usage():
     print(f"One or more 'To', 'CC' or 'BCC' e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients). See examples by using the -e or --examples option.", "\n")
 
     # Then we create a row and print it
-    sendpy.__main__.format_attachment_output([
+    format_attachment_output([
     ("Options:\nMandatory arguments to long options are mandatory for short options too.", ''),
     ("    -a, --attachment <attachment>", "Attachment filename"),
         (" ", "-Use multiple times for multiple attachments. Supports Unicode characters in filename"),
@@ -85,7 +95,7 @@ def examples():
 def carriers():
     '''Print out common carriers a user could use to send a text message'''
     print("If you do not see your carrier, use the network your provider uses. For example, the carrier Tello uses Sprint.\n")
-    sendpy.__main__.format_attachment_output([
+    format_attachment_output([
     ("\033[1mUS CARRIERS\033[0m", " ", " "),
     ("\033[1mMobile carrier\033[0m", "        \033[1mSMS gateway domain\033[0m", "                \033[1mMMS gateway domain\033[0m"),
     ("--------------------------", "------------------------","------------------------"),
@@ -123,7 +133,7 @@ def emails():
     print("\033[1mPopular SMTP Servers and Corresponding Ports List\033[0m:\n")
     print("\033[1mEmail carrier\033[0m\t", "\033[1mPort\033[0m", "\t   \033[1mExample\033[0m")
     print("-------------", "   -------", "  ---------------------------")
-    sendpy.__main__.format_attachment_output([
+    format_attachment_output([
     ("Gmail", "465/587 ", "smtp.gmail.com:[465 or 587]"),
     ("Outlook", "465", "smtp.live.com:465"),
     ("Office365", "465", "smtp.office365.com:465"),
