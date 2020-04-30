@@ -3,11 +3,14 @@ import sys
 import subprocess
 import atexit
 import os
+import time
 
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.message import EmailMessage
 from email.mime.application import MIMEApplication
+
+import sendpy
 
 """The purpose of this file is to fill a MIME object, possibly with sub MIME objects, with the necessary
    values/attachments/keys to send the message requested by the user.
@@ -43,6 +46,7 @@ def attachments(message, attachments):
         message.attach(part)
 
 def messageFromSignature(signature, content_type=None):
+    '''Returns the pgp message signature as a payload of the message'''
     message = EmailMessage()
     if content_type != None:
         message['Content-Type'] = content_type
@@ -137,17 +141,24 @@ def port587(VARS, message, PORT=587):
 
 def port25(VARS, message, PORT=25):
     '''Use a local SMTP server connection to send email'''
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(3)
+        if sock.connect_ex(('127.0.0.1',25)) != 0:
+            sendpy.__main__.error_exit(True, "You have Port 25 blocked on this machine.")
+
     with smtplib.SMTP(VARS["SMTP"], PORT) as server:
         if VARS["VERBOSE"]:
             server.set_debuglevel(2)
         server.send_message(message) # send_message() annoymizes BCC, rather than sendmail().
         print("Message sent\n")
 
-# TODO -- verify local SMTP server is handled correctly.
 def sendEmail(VARS, FROMADDRESS, PORT=0):
     '''This function compiles our (optionally signed) message and calls the correct send function according to what port is entered.'''
     if VARS["DRYRUN"]:
         sys.exit()
+    if VARS["TIME"]:
+        time.sleep(int(VARS["TIME"]))
     # S/MIME
     if VARS["CERT"]:
         message = smime(VARS)
@@ -170,7 +181,7 @@ def sendEmail(VARS, FROMADDRESS, PORT=0):
         elif PORT == 25:
             port25(VARS, message)
         else:
-            error_exit(True, "Error: Wrong port specified. Use either 25 (local smtp server) or 465 or 587 (external SMTP server)")
+            sendpy.__main__.error_exit(True, "Error: Wrong port specified. Use either 25 (local smtp server) or 465 or 587 (external SMTP server)")
 
     except smtplib.SMTPHeloError as e:
         print("Server did not reply. You may have Port 25 blocked on your host machine.")

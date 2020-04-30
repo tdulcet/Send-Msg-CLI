@@ -11,6 +11,8 @@ parser = configparser.ConfigParser()
 CONFIG_FILE = os.path.expanduser('~/.sendmsg.ini')
 parser.read(CONFIG_FILE)
 
+import sendpy
+
 def config_email():
     '''Configures or reconfigures settings for send-msg-cli then writes the change to file'''
     PORT = 0
@@ -53,7 +55,7 @@ def config_pgp():
         print("HERE")
         return parser.get(section, option)
     except Exception as error:
-        error_exit(True, error)
+        sendpy.__main__.error_exit(True,error)
 
 def return_config():
     '''Pull (and check) variables in the .ini file'''
@@ -67,11 +69,6 @@ def return_config():
         SMTP_SERVER = smtp_port[0]
         PORT = smtp_port[1]
 
-    error_exit(SMTP_SERVER == "" or FROM == "" or USERNAME == "" or PASSWORD == "", "SMTP, Username or Password not set in config file and not typed on CMDline. Please include the '-S', 'f', '-u', or '-p' flags, with arguments, or use the following command to set the config file: `sendpy --config`")
+    sendpy.__main__.error_exit(SMTP_SERVER == "" or FROM == "" or USERNAME == "" or PASSWORD == "", "SMTP, Username or Password not set in config file and not typed on CMDline. Please include the '-S', 'f', '-u', or '-p' flags, with arguments, or use the following command to set the config file: `sendpy --config`")
     return SMTP_SERVER, PORT, FROM, USERNAME, PASSWORD
 
-def error_exit(condition, err):
-    '''print an error and exit when one occurs'''
-    if condition:
-        sys.stderr.write(err)
-        sys.exit(1)
