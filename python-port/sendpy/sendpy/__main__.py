@@ -43,7 +43,9 @@ VARS={"TOEMAILS":[],
         "ATTACHMENTS":[],
         "SMIME": '',
         "PGP": '',
-        "DRYRUN": False}
+        "DRYRUN": False,
+        "TIME": 0,
+        "NOTIFY": ''}
 
 # Stores default SMTP server, username, password if `--config` option is set.
 CONFIG_FILE="~/.sendmsg.ini"
@@ -59,19 +61,25 @@ def zero_pad(message):
         for i in range(start_index, len(message)):
             count = 0 # track number of unicode characters to zero pad
             new_string += message[i]
-            #if i +1 != len(message) and message[i] == "\\" and (message[i+1] == "u" or message[i+1] == "U" or message[i+1] == "x"):
-            if i +1 != len(message) and message[i] == "\\" and (message[i+1] == "u" or message[i+1] == "U"):
-                new_string += message[i+1] # u, U, or x
+            if i +1 != len(message) and message[i] == "\\" and (message[i+1] == "u" or message[i+1] == "U" or message[i+1] == "x"):
+                esc_char = message[i+1] # u, U, or x
+                if esc_char == 'u':
+                    zero_pad = 4
+                elif esc_char == 'U':
+                    zero_pad = 8
+                else: # x
+                    zero_pad = 2 # amount of zeroes to add
+                new_string += esc_char
                 i+=2 # skipping past the escape character (\u, for example)
                 start_index = i
                 for j in range(start_index, len(message)):
-                    if count >= 5:
+                    if (esc_char == 'u' and count >= 5) or (esc_char == 'U' and count >= 8) or (esc_char == 'x' and count >= 2):
                         break
                     if message[j] != ' ' and message[j] != '\\': # reach the end/beginning of new unicode string
                         count+=1
                     else:
                         # Zero pad
-                        for k in range(0, 4-count):
+                        for k in range(0, zero_pad-count):
                             new_string +='0'
 
                         # add back in characters
@@ -123,19 +131,25 @@ def assign(opts):
         elif opt in ("-k", "--passphrase"):
             VARS["PASSPHRASE"]=arg
         elif opt in ("-m", "--message"):
-            VARS["MESSAGE"] = zero_pad(arg)
-            VARS["MESSAGE"] = decode_escapes(VARS["MESSAGE"])
-            #print(VARS["MESSAGE"])
-            #sys.exit()
+            if VARS["MESSAGE"] != '':
+                print("Warning: Output from the program named in the `-n, --notify` flag will be sent in addition to the message indicated in the `-m, -message` flag.")
+            message = zero_pad(arg)
+            VARS["MESSAGE"] += decode_escapes(message)
+        elif opt in ("-n", "--notify"):
+            p = subprocess.Popen(arg, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            stdout, stderr = [x.decode() for x in p.communicate()]
+            message = f'\n**OUTPUT**\n{stdout}\n**ERRORS**\n{stderr}\n**EXIT CODE**\n{p.returncode}'
+            message = zero_pad(message)
+            VARS["MESSAGE"] += decode_escapes(message)
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
         elif opt in ("--config"):
-            # make config file with appropriate fields if file does not exist
             configuration.config_email()
             print("Configuration file successfully set\n")
             sys.exit(0)
         elif opt in ("-s", "--subject"):
-            VARS["SUBJECT"] = decode_escapes(arg)
+            VARS["SUBJECT"] = zero_pad(arg)
+            VARS["SUBJECT"] = decode_escapes(VARS["SUBJECT"])
         elif opt in ("-t", "--toemails"):
             VARS["TOEMAILS"].append(arg)
         elif opt in ("-u", "--username"):
@@ -150,6 +164,11 @@ def assign(opts):
                 VARS["ZIPFILE"]= arg+".zip"
         elif opt in ("-C", "--cert"):
             VARS["CERT"]= arg
+        elif opt in ("-E", "--emails"):
+            usage.emails()
+            sys.exit(0)
+        elif opt in ("-T", "--time"):
+            VARS["TIME"] = arg
         elif opt in ("-P", "--priority"):
             VARS["PRIORITY"]= arg
         elif opt in ("-S", "--smtp"):
@@ -177,12 +196,12 @@ def configuration_assignment():
 def parse_assign(argv):
     '''Find the correct variable to assign the arg/opt to.'''
     try:
-        opts, args = getopt.getopt(argv,"a:b:c:def:ghk:m:p:rs:t:u:vz:C:P:S:V",
-                ["attachments=", "bccemails=", "ccemails=", "dryrun", "examples","fromemail=", "gateways",
-                    "help", "passphrase=", "message=", "password=", "config", "subject=", "toaddress=", "username=", "version", "zipfile=",
+        opts, args = getopt.getopt(argv,"a:b:c:def:ghk:m:n:p:rs:t:u:vz:C:EP:S:T:V",
+                ["attachments=", "bccemails=", "ccemails=", "dryrun", "examples", "emails", "fromemail=", "gateways",
+                    "help", "passphrase=", "message=", "notify", "password=", "time", "config", "subject=", "toaddress=", "username=", "version", "zipfile=",
                     "cert=", "priority=", "smtp=", "verbose"])
     except getopt.GetoptError:
-        usage()
+        usage.usage()
         sys.exit(2)
     assign(opts)
 
@@ -383,11 +402,11 @@ def main(argv):
     parse_assign(argv)
     configuration_assignment() # use default configuration if nothing was put on the CMDline
 
-    # email checks
+    # email/email checks
     email_work()
     attachment_work()
 
-    # signing checks
+    # signing/signing checks
     cert_checks()
     passphrase_checks()
 
