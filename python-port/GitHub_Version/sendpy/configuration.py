@@ -3,24 +3,33 @@ import os
 import configparser
 import getpass
 
-'''The purpose of this file is to save a configured person's settings
+
+'''Copyright © Daniel Connelly
+
+   The purpose of this file is to save a configured person's settings
    for later use so they do not have to repeat cmdline arguments.
 '''
 
 parser = configparser.ConfigParser()
-CONFIG_FILE = os.path.expanduser('~/.sendmsg.ini')
+CONFIG_FILE = os.path.expanduser('~/.sendpy.ini')
 parser.read(CONFIG_FILE)
+
+def error_exit(condition, err):
+    '''print an error and exit when one occurs'''
+    if condition:
+        sys.stderr.write(err)
+        sys.exit(1)
 
 def config_email():
     '''Configures or reconfigures settings for send-msg-cli then writes the change to file'''
-    PORT = 0
-    SMTP_SERVER = str(input("Enter in the smtp server you wish to use (e.g., smtp.example.com:465) "))
-    FROM = str(input("Enter in your From field for this email (e.g., username@example.com) "))
+    SMTP_SERVER = str(input("Enter in the SMTP server you wish to use (e.g., smtp.example.com:465) "))
+    FROM = str(input("Enter in your From field for this email (e.g., User <username@example.com>) "))
     USERNAME = str(input("Enter in your username for this email (e.g., username@example.com) "))
     PASSWORD = str(getpass.getpass("Enter in your password for this email "))
     section = 'email'
-    parser.add_section(section)
-    parser.set(section, 'smtp', SMTP_SERVER)
+    if not parser.has_section(section):
+        parser.add_section(section)
+    parser.set(section, 'SMTP', SMTP_SERVER)
     parser.set(section, 'from', FROM)
     parser.set(section, 'username', USERNAME)
     parser.set(section, 'password', PASSWORD)
@@ -50,23 +59,21 @@ def config_pgp():
         parser.set(section, 'passphrase', PGP)
         with open(CONFIG_FILE, "w") as configfile:
             parser.write(configfile)
-        print("HERE")
         return parser.get(section, option)
     except Exception as error:
-        sendpy.__main__.error_exit(True,error)
+        error_exit(True,error)
 
 def return_config():
     '''Pull (and check) variables in the .ini file'''
-    SMTP_SERVER = parser['email']['smtp']
+    SMTP_SERVER = parser['email']['SMTP']
     FROM = parser['email']['from']
     USERNAME = parser['email']['username']
     PASSWORD = parser['email']['password']
     PORT = 0 # if no port is found, default is 0 (465)
     smtp_port = SMTP_SERVER.split(":")
-    if len(smtp_port) > 1:
+    if len(smtp_port) == 2:
         SMTP_SERVER = smtp_port[0]
-        PORT = smtp_port[1]
-
-    sendpy.__main__.error_exit(SMTP_SERVER == "" or FROM == "" or USERNAME == "" or PASSWORD == "", "SMTP, Username or Password not set in config file and not typed on CMDline. Please include the '-S', 'f', '-u', or '-p' flags, with arguments, or use the following command to set the config file: `sendpy --config`")
+        PORT = int(smtp_port[1])
+    error_exit((len(smtp_port) > 2 or len(smtp_port) == 0) or FROM == "" or USERNAME == "", "SMTP, Username or Password not set in config file and not typed on CMDline. Please include the '-S', 'f', or '-u' flags, with arguments, or use the following command to set the config file: `sendpy --config`")
     return SMTP_SERVER, PORT, FROM, USERNAME, PASSWORD
 
