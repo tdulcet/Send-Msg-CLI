@@ -81,9 +81,12 @@ def smime(VARS):
         f1.write(str(temp_msg))
     atexit.register(lambda x: os.remove(x), "message")
 
-    cert_sig = bytes(subprocess.check_output("openssl cms -sign -in message -signer "+VARS["CLIENTCERT"],shell=True).decode().replace("\r\n", "\n"), "utf-8")
+    p = subprocess.Popen("openssl cms -sign -in message -signer "+VARS["CLIENTCERT"],shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    cert_sig, stderr = [x.decode().replace("r\n", "\n") for x in p.communicate()]
+    if "is an invalid command" in stderr:
+        error_exit(True, str(stderr) + "\nNote: Brew install of OpenSSL does not contain necessary 'cms' attribute of OpenSSL.\nFollow the instructions here https://security.stackexchange.com/a/86181/208814 and reset your PATH variable to point to this new installation.")
 
-    message = email.message_from_bytes(cert_sig)
+    message = email.message_from_bytes(bytes(cert_sig, "utf-8"))
     set_main_headers(VARS, message)
     return message
 
@@ -219,7 +222,8 @@ def sendEmail(VARS, PORT=0):
         print("Server did not reply. You may have Port 25 blocked on your host machine.")
         sys.exit(2)
     except smtplib.SMTPAuthenticationError as e:
-        print("Incorrect username/password combination or, if you are using Google, you may need to lower the security settings (see the README.md for more information).")
+        print(e)
+        print("Incorrect username/password combination or, if you are using Google, you may need to lower the security settings or login from this computer (see the README.md for more information).")
         sys.exit(2)
     except smtplib.SMTPException as e:
         print(e)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python -W ignore::DeprecationWarning
+#!/usr/bin/env python
 
 # Copyright © Daniel Connelly
 
@@ -305,7 +305,6 @@ def email_work():
        library will do this parsing on its own.
     '''
     FROMADDRESS = VARS["FROMEMAIL"]
-    #print(FROMADDRESS)
     RE=re.compile(r'(?:\"?([^\"]*)\"?\s)?[%<a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.>]+')
     # Check if the email is valid.
     try:
@@ -334,7 +333,8 @@ def email_work():
             error_exit(True, "Error: Must specify FROM e-mail address.")
 
     except Exception as error:
-        error_exit(True, error)
+        print(error)
+        sys.exit(1)
 
 def cert_checks():
     '''Creates the .pem certificate (defined in VARS["CLIENTCERT"]; e.g., cert.pem) with certificate \
@@ -353,17 +353,21 @@ def cert_checks():
             print("Please enter the password when prompted.\n")
             subprocess.check_output("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True).decode().strip("\n")
 
-        if os.name == 'nt':  # if on Windows, OpenSSL x509 is a little harder to get working...
+        platform = sys.platform
+        if platform == 'win32' or platform == 'cygwin':  # if on Windows, OpenSSL x509 is a little harder to get working...
             p=subprocess.Popen("openssl x509 -in " + VARS["CLIENTCERT"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
             aissuer = p.communicate(bytes("-noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", "utf-8"))[0].decode().strip("\n")
-        else:
+            p=subprocess.Popen("openssl x509 -in " + VARS["CLIENTCERT"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            date = p.communicate(bytes("-noout -enddate", "utf-8"))[0].decode().strip("\n")
+        else: # linux, linux2, or darwin (macOS)
             aissuer=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", shell=True).decode().strip("\n")
+            date=subprocess.check_output("openssl x509 -in "+VARS["CLIENTCERT"] + " -noout -enddate", shell=True).decode().strip("\r\n")
+
         if aissuer:
             for line in aissuer.split("commonName="):
                 issuer=line
         else:
             issuer=''
-        date=subprocess.check_output("openssl x509 -in "+VARS["CLIENTCERT"] + " -noout -enddate", shell=True).decode().strip("\r\n")
 
         split = date.split("notAfter=")
         if split:
@@ -371,8 +375,11 @@ def cert_checks():
                 date=line
         else:
             date=""
+	
+        p=subprocess.Popen("openssl x509 -in " + VARS["CLIENTCERT"] + " -noout -checkend 0", stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        p.communicate()
 
-        if subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -checkend 0", shell=True).decode().strip("\n"):
+        if p != 0:
             sec = int(time.mktime(datetime.datetime.strptime(date, "%b %d %H:%M:%S %Y %Z").timetuple()) - time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
             if sec / 86400 < int(VARS["WARNDAYS"]):
                 if issuer:
