@@ -69,7 +69,7 @@ def smime(VARS):
 
     text = MIMEText(VARS["MESSAGE"])
     if VARS["LANGUAGE"]:
-        text['Content-Language'] = ".".join(locale.getdefaultlocale())
+        text['Content-Language'] = locale.getdefaultlocale()[0].replace('_', '-')
     del text["MIME-Version"]
 
     temp_msg = MIMEMultipart()
@@ -82,7 +82,7 @@ def smime(VARS):
     atexit.register(lambda x: os.remove(x), "message")
 
     p = subprocess.Popen("openssl cms -sign -in message -signer "+VARS["CLIENTCERT"],shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    cert_sig, stderr = [x.decode().replace("r\n", "\n") for x in p.communicate()]
+    cert_sig, stderr = [x.decode().replace("\r\n", "\n") for x in p.communicate()]
     if "is an invalid command" in stderr:
         error_exit(True, str(stderr) + "\nNote: Brew install of OpenSSL does not contain necessary 'cms' attribute of OpenSSL.\nFollow the instructions here https://security.stackexchange.com/a/86181/208814 and reset your PATH variable to point to this new installation.")
 
@@ -98,7 +98,8 @@ def pgp(VARS):
 
     message = MIMEMultipart(_subtype="signed", micalg="pgp-sha1", protocol="application/pgp-signature")
     if VARS["LANGUAGE"]:
-        message['Content-Language'] = ".".join(locale.getdefaultlocale())
+        message['Content-Language'] = locale.getdefaultlocale()[0].replace('_', '-')
+
     basemsg = MIMEText(VARS["MESSAGE"], _charset="utf-8")
     del basemsg["MIME-Version"]
     message.attach(basemsg)
@@ -120,7 +121,8 @@ def send_normal(VARS):
     '''Sends (does not sign) a message'''
     mime_text = MIMEText(VARS["MESSAGE"], "plain")
     if VARS["LANGUAGE"]:
-        mime_text['Content-Language'] = ".".join(locale.getdefaultlocale())
+        mime_text['Content-Language'] = locale.getdefaultlocale()[0].replace('_', '-')
+
     del mime_text["MIME-Version"]
 
     # Attachments require a multipart object; else, just a mimetext object.
@@ -136,7 +138,7 @@ def send_normal(VARS):
 def port465(VARS, message, PORT=465):
     '''Log in to server using secure context from the onset and send email. This uses SSL/TLS.'''
     context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(VARS["SMTP"], PORT, context=context) as server:
+    with smtplib.SMTP_SSL(VARS["SMTP"], PORT, context=context, timeout=10) as server:
         if VARS["VERBOSE"]:
             server.set_debuglevel(2)
         server.login(VARS["USERNAME"], VARS["PASSWORD"])
@@ -146,7 +148,7 @@ def port465(VARS, message, PORT=465):
 def port587(VARS, message, PORT=587):
     '''Create an unsecured connection, then secure it, and then send email. This uses startTLS.'''
     context = ssl.create_default_context()
-    with smtplib.SMTP(VARS["SMTP"], PORT) as server:
+    with smtplib.SMTP(VARS["SMTP"], PORT, timeout=10) as server:
         server.starttls(context=context)
         if VARS["VERBOSE"]:
             server.set_debuglevel(2)
@@ -156,8 +158,8 @@ def port587(VARS, message, PORT=587):
 
 def port25(VARS, message, PORT=25):
     '''Use a local SMTP server connection to send email'''
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.settimeout(3)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM, timeout=10) as sock:
+        sock.settimeout(10)
         if sock.connect_ex(('aspmx.l.google.com',25)) != 0: # testing connection as computer may not block port 25, but ISP/Cloud provider may.
             error_exit(True, "You have Port 25 blocked on this machine.")
 
@@ -166,27 +168,6 @@ def port25(VARS, message, PORT=25):
             server.set_debuglevel(2)
         server.send_message(message) # send_message() annoymizes BCC, rather than sendmail().
         print("Message MAY have been sent; this program can only check if port 25 is blocked.\n")
-
-def port_nonstandard(VARS, message, PORT):
-    '''A function for sending e-mail from a non-standard port'''
-    print("NONSTANDARD PORT")
-    context = ssl.create_default_context()
-    try:
-        if VARS["STARTTLS"]:
-            server = smtplib.SMTP(VARS["SMTP"], PORT, timeout=5)
-            server.starttls(context=context)
-        elif VARS["TLS"]:
-            server = smtplib.SMTP_SSL(VARS["SMTP"], PORT, context=context)
-        else:
-            error_exit(True, "Non-standard port chosen, but --tls or --startTLS flags were not selected. Please add the correct protocol/flag and try again.")
-    except socket.timeout:
-        error_exit(True, "Connection timed out when trying to connect with a non-standard port. Please verify the server is up or you entered the correct port number for the SMTP server.")
-
-    if VARS["VERBOSE"]:
-        server.set_debuglevel(2)
-    server.login(VARS["USERNAME"], VARS["PASSWORD"])
-    server.send_message(message) # send_message() annoymizes BCC, rather than sendmail().
-    print("Message sent\n")
 
 def sendEmail(VARS, PORT=0):
     '''This function compiles our (optionally signed) message and calls the correct send function according to what port is entered.'''
@@ -209,15 +190,17 @@ def sendEmail(VARS, PORT=0):
     #sys.exit()
 
     try:
-        if PORT == 0 or PORT == 465:
-            port465(VARS, message)
-        elif PORT == 587:
-            port587(VARS, message)
-        elif PORT == 25:
-            port25(VARS, message)
+        if VARS["TLS"] or PORT == 465:
+            port465(VARS, message, PORT)
+        elif VARS["STARTTLS"] or PORT == 587:
+            port587(VARS, message, PORT)
+        elif PORT == 0 or PORT == 25:
+            port25(VARS, message, PORT)
         else:
-            port_nonstandard(VARS, message, PORT)
+            error_exit(True, "Non-standard port chosen, but --tls or --starttls flags were not selected. Please add the correct protocol/flag and try again.")
 
+    except socket.timeout:
+        error_exit(True, "Connection timed out when trying to connect. Please verify the server is up or you entered the correct port number for the SMTP server.")
     except smtplib.SMTPHeloError as e:
         print("Server did not reply. You may have Port 25 blocked on your host machine.")
         sys.exit(2)

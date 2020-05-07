@@ -4,8 +4,8 @@ def readme():
     with open("README.rst", "r") as fh:
         return fh.read()
 
-setuptools.setup(name='sendpy-danc2050',
-      version='0.4',
+setuptools.setup(name='sendpy',
+      version='1.0',
       description='Email and text notification program',
       long_description=readme(),
       long_description_content_type="text/markdown",
@@ -13,7 +13,6 @@ setuptools.setup(name='sendpy-danc2050',
       author='Daniel Connelly',
       author_email='connellyd2050@gmail.com',
       license='GPL',
-      #packages=setuptools.find_packages(),
       packages=['sendpy'],
       scripts=['bin/sendpy'],
       classifiers=[

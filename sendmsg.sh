@@ -35,15 +35,12 @@ BCCEMAILS=(
 )
 
 # Optional From e-mail address
-FROMEMAIL="Daniel Connelly <danc2@pdx.edu>"
+# FROMEMAIL="Example <example@example.com>"
 
 # Optional SMTP server to send e-mails
 # Supported protocols: "smtp" and "smtps".
 # Requires From e-mail address above
 
- SMTP="smtps://smtp.gmail.com"
- USERNAME="danc2@pdx.edu"
- PASSWORD="School21!"
 # SMTP="smtps://mail.example.com"
 # USERNAME="example"
 # PASSWORD="password"
