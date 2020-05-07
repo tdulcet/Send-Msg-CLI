@@ -1,0 +1,13 @@
+very.common@example.com
+disposable.style.email.with+symbol@example.com
+other.email-with-hyphen@example.com
+fully-qualified-domain@example.com
+user.name+tag+sorting@example.com
+x@example.com
+example-indeed@strange-example.com
+admin@mailserver1
+example@s.example
+" "@example.org
+"john..doe"@example.org
+mailhost!username@example.org
+user%example.com@example.org

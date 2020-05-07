@@ -24,7 +24,7 @@ def format_attachment_output(rows):
 def usage():
     '''Print out help menu'''
     # Bottom three print statements have to be printed separately so as not to affect the ...
-    print(f"Usage: {prog_name} <OPTION(S)>... -S <SMTP server> -t <To address> -f <From address> -u 'username' -p 'password'", "")
+    print(f"Usage: {prog_name} <OPTION(S)>... -S <SMTP server> -t <To address> -f <From address> -u <username> -p <password>", "")
     print(f'or: {prog_name} <OPTION>')
     print(f"One or more 'To', 'CC' or 'BCC' e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (see the -g or --gateways option). See examples by using the -e or --examples option.", "\n")
 
@@ -37,20 +37,19 @@ def usage():
         (" ", "-Use multiple times for multiple BCC addresses"),
     ("    -c, --cc <address>",  "CC e-mail address"),
         (" ", "-Use multiple times for multiple CC addresses"),
-    ("    --config",  "Configure default SMTP server (-S), from (-f), username (-u), and password (-p). to include by default every time you run sendpy"),
+    ("    --config",  "Configure default SMTP server (-S), from (-f), username (-u), and password (-p). to include by default every time you run this script"),
     ("    -C, --certificate <file path>", "S/MIME Certificate filename for digitally signing the e-mails"),
         (" ", "-It will ask you for the password the first time you run the script with this option"),
     ("    -d, --dryrun", "Dry run, do not send the e-mail"),
     ("    -e, --examples","Show example usages for this script"),
-    ("    -E, --emails","List common SMTP servers and ports to use in this script, then exits"),
     ("    -f, --from <address>", "From e-mail address"),
     ("    -g, --gateways", "Displays a non-complete listing of SMS and MMS Gateways for the US and Canada, then exits"),
     ("    -h, --help", "Display this help and exit"),
     ("    -k, --passphrase <passphrase>", "PGP secret key passphrase for digitally signing the e-mails with PGP/MIME"),
-        (" ", "-For maximum security, use 'config' as the passphrase to set or utilize a configuration file"),
-    ("    -m, --message <file path>", "Message body"),
+        (" ", "For security, use 'config' as the passphrase to use the configuration file. It will then prompt you for the passphrase"),
+    ("    -m, --message <message>", "Message body"),
         (" ", "-Escape sequences are expanded. Supports Unicode characters"),
-    ("    --message-file <message>", "Delivers a message from a file. Optionally, can take input from STDIN by entering '-' as the arg"),
+    ("    --message-file <file path>", "Delivers a message from a file. Optionally, can take input from standard input by entering '-' as the argument"),
     ("    -n, --notify <command>", "Get notified when program ends and receive output."),
     ("    -p, --password <password>", "SMTP server password"),
     ("    -P, --priority <priority>", "Priority"),
@@ -58,8 +57,9 @@ def usage():
     ("    -s, --subject <subject>", "Subject"),
         (" ", "-Escape sequences are expanded. Supports Unicode characters"),
     ("    --starttls", "For use when using a non-standard port and an SMTP server that supports the startTLS method"),
+    ("    --smtpservers","Lists common SMTP servers and ports to use in this script, then exits"),
     ("    -S, --smtp <server>", "SMTP server"),
-        (" ", "-External SMTP server example: 'smtp.example.com:465'. Defaults to port 465 without a port number"),
+        (" ", "-External SMTP server example: 'smtp.example.com:465'. Defaults to port 25 without a port number"),
         ("", "-Use 'localhost:25' if running a mail server on this device"),
     ("    -t, --to <address>", "To e-mail address"),
         (" ", "-Use multiple times for multiple TO addresses"),
@@ -95,12 +95,14 @@ def examples():
         f'    $ {prog_name} --subject \"Example\" --certificate \"cert.p12\" --to \"Example <example@example.com>\"\n\n'+
 
         "    Send e-mail digitally signed with PGP/MIME\n"+
-        f'    $ {prog_name} --subject \"Example\" --passphrase \"passphrase\" --to \"Example <example@example.com>\"'"\n")
+        f'    $ {prog_name} --subject \"Example\" --passphrase \"config\" --to \"Example <example@example.com>\"'"\n")
 
 def carriers():
     '''Print out common carriers a user could use to send a text message
     '''
     print("If you do not see your carrier, use the network your provider uses. For example, the carrier Tello uses Sprint.\nSource: https://en.wikipedia.org/wiki/SMS_gateway#Email_clients\n")
+    print("Use the relevant SMS gateway to send messages or use the MMS gateway to send messages with attachments\n")
+
     format_attachment_output([
     (bold + "US CARRIERS", " ", " "),
     (bold + "Mobile carrier", bold + "    SMS gateway domain", bold + "        MMS gateway domain"),
@@ -131,13 +133,13 @@ def carriers():
     ("SaskTel", "sms.sasktel.com", ""),
     ("Telus", "msg.telus.com", "\n")])
 
-def emails():
+def servers():
     '''Print out common emails and how to use the SMTP servers to send messages from.
        This information may be outdated. Information is gained from:
        https://www.arclab.com/en/kb/email/list-of-smtp-and-pop3-servers-mailserver-list.html
     '''
     print(bold + "Popular SMTP Servers and Corresponding Ports List\n")
-    print(bold + "Email Provider\033[0m\t", bold + "\033[1mSMTP Server Example"+reset)
+    print(bold + "Email Provider\t", bold + "SMTP Server Example"+reset)
     print("--------------", "  -------------------------")
     format_attachment_output([
     ("Gmail", "\t smtp.gmail.com:465"),
