@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-# Copyright © Daniel Connelly
-
 import sys
 import os
 import re
@@ -40,7 +38,7 @@ VARS={"TOEMAILS":[],
         "CERT":'',
         "CLIENTCERT":'cert.pem',
         "PASSPHRASE":'',
-        "WARNDAYS":'3',
+        "WARNDAYS":3,
         "ZIPFILE":'',
         "VERBOSE":False,
         "NOW":time.strftime("%b %d %H:%M:%S %Y %Z", time.gmtime()),
@@ -59,7 +57,7 @@ VARS={"TOEMAILS":[],
 # Stores default SMTP server, username, password if `--config` option is set.
 CONFIG_FILE="~/.sendpy.ini"
 
-# ESCAPE_SEQUENCE_RE and decode_escapes credit -- https://stackoverflow.com/a/24519338/8651748
+# ESCAPE_SEQUENCE_RE and decode_escapes credit -- https://stackoverflow.com/a/24519338/8651748 and Teal Dulcet
 ESCAPE_SEQUENCE_RE = re.compile(r'''(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])''', re.UNICODE)
 
 def zero_pad(message):
@@ -67,7 +65,7 @@ def zero_pad(message):
     new_message = ""
     start_index = 0 # what we begin at for each iteration through our loop
     len_message = len(message)
-    RE = re.compile('^[^0-9a-fA-F]$') # matches any hexadecimal char
+    RE = re.compile('^[0-9a-fA-F]$') # matches any hexadecimal char
     while start_index < len_message:
         count = 0 # track number of escape characters to zero pad
         new_message += message[start_index]
@@ -84,7 +82,7 @@ def zero_pad(message):
             for j in range(start_index, len_message):
                 if count >= zero_pad:
                     break
-                if not re.match(RE, message[j]): # reach the end/beginning of new unicode/x string:
+                if re.match(RE, message[j]): # reach the end/beginning of new unicode/x string:
                     count+=1
                 else:
                     # Zero pad
@@ -119,7 +117,6 @@ def assign(opts):
             if not arg or not (os.path.exists(arg) and os.access(arg, os.R_OK)): # [-r ..] in bash
                 error_exit(True, f'Error: Cannot read {arg} file.')
             VARS["ATTACHMENTS"].append(arg)
-            #VARS["ATTACHMENTS"].append(arg)
         elif opt in ("-b", "--bcc"):
             VARS["BCCEMAILS"].append(arg)
         elif opt in ("-c", "--cc"):
@@ -234,16 +231,18 @@ def parse_assign(argv):
         usage.usage()
         sys.exit(2)
     assign(opts)
+    if VARS["TLS"] and VARS["STARTTLS"]:
+        error_exit(True, "Cannot specify both --tls and --starttls option. Please choose one and try again.")
 
 # modified from source: https://stackoverflow.com/questions/5194057/better-way-to-convert-file-sizes-in-python
 def convert_bytes(size, byte_type):
     '''Calculates how large an attachment in two ways -- iB and B'''
     byte_array = ['Bytes', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y']
     div_size = 1024.0 if byte_type == "i" else 1000.0
+    import locale
 
     for x in byte_array:
         if size < div_size:
-            import locale
             locale.setlocale(locale.LC_ALL, '')
             unit = x + ('' if x == 'Bytes' else ('i' if byte_type == 'i' else '') + 'B')
             return f'{size:,.1f}{unit}'
@@ -279,7 +278,7 @@ def attachment_work():
             import zipfile
             with zipfile.ZipFile(zip_file, 'w') as myzip:
                 for attachment in VARS["ATTACHMENTS"]:
-                    myzip.write(os.path.basename(attachment))
+                    myzip.write(attachment, os.path.basename(attachment))
             atexit.register(lambda x: os.remove(x), zip_file)
             VARS["ATTACHMENTS"] = [zip_file]
 
@@ -287,7 +286,7 @@ def attachment_work():
         for attachment in VARS["ATTACHMENTS"]:
             SIZE=os.path.getsize(attachment)
             TOTAL +=int(SIZE)
-            if SIZE < 1024:
+            if SIZE < 1000:
                 rows.append((os.path.basename(attachment), convert_bytes(int(SIZE), "i"), ""))
             else:
                 rows.append((os.path.basename(attachment), convert_bytes(int(SIZE), "i"), "("+convert_bytes(int(SIZE), "b")+")"))
@@ -300,10 +299,12 @@ def attachment_work():
             print("Warning: The total size of all attachments is greater than or equal to 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
 
 def email_work():
-    '''Get e-mail address(es): "Example <example@example.com>" -> "example@example.com". Also check for
-       valid email addresses. Note: We don't need to separate name and email address, since the email
-       library will do this parsing on its own.
+    '''Check for valid email addresses.
+       Split 'From' e-mail address into name (if one is given) and email: "Example <example@example.com>" -> "Example", "example@example.com".
     '''
+    if not VARS["TOEMAILS"] and not VARS["BCCEMAILS"]:
+        error_exit(True, "No 'To' or 'BCC' email supplied. Please enter one or both.")
+
     FROMADDRESS = VARS["FROMEMAIL"]
     RE=re.compile(r'(?:\"?([^\"]*)\"?\s)?[%<a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.>]+')
     # Check if the email is valid.
@@ -340,7 +341,6 @@ def cert_checks():
     '''Creates the .pem certificate (defined in VARS["CLIENTCERT"]; e.g., cert.pem) with certificate \
        located in VARS["CERT"] (read in from CMDLINE using -C, or --cert)
     '''
-
     if VARS["CERT"]:
         if which("openssl") is None:
             error_exit(True, "Error: OpenSSL not found on PATH. Please download OpenSSL and/or add it to the PATH. You need this to sign a message with S/MIME.")
@@ -351,17 +351,10 @@ def cert_checks():
         if not os.path.exists(VARS["CLIENTCERT"]):
             print("Saving the client certificate from \""+VARS["CERT"]+"\" to \""+VARS["CLIENTCERT"]+"\"")
             print("Please enter the password when prompted.\n")
-            subprocess.check_output("openssl pkcs12 -in "+VARS["CERT"]+" -out "+VARS["CLIENTCERT"]+" -clcerts -nodes",shell=True).decode().strip("\n")
+            subprocess.check_output("openssl pkcs12 -in \""+VARS["CERT"]+"\" -out \""+VARS["CLIENTCERT"]+"\" -clcerts -nodes",shell=True).decode().strip("\n")
 
-        platform = sys.platform
-        if platform == 'win32' or platform == 'cygwin':  # if on Windows, OpenSSL x509 is a little harder to get working...
-            p=subprocess.Popen("openssl x509 -in " + VARS["CLIENTCERT"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-            aissuer = p.communicate(bytes("-noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", "utf-8"))[0].decode().strip("\n")
-            p=subprocess.Popen("openssl x509 -in " + VARS["CLIENTCERT"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
-            date = p.communicate(bytes("-noout -enddate", "utf-8"))[0].decode().strip("\n")
-        else: # linux, linux2, or darwin (macOS)
-            aissuer=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq;", shell=True).decode().strip("\n")
-            date=subprocess.check_output("openssl x509 -in "+VARS["CLIENTCERT"] + " -noout -enddate", shell=True).decode().strip("\r\n")
+        aissuer=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"]+"\" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq", shell=True).decode().strip("\n")
+        date=subprocess.check_output("openssl x509 -in \""+VARS["CLIENTCERT"] + "\" -noout -enddate", shell=True).decode().strip("\r\n")
 
         if aissuer:
             for line in aissuer.split("commonName="):
@@ -375,17 +368,17 @@ def cert_checks():
                 date=line
         else:
             date=""
-	
-        p=subprocess.Popen("openssl x509 -in " + VARS["CLIENTCERT"] + " -noout -checkend 0", stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+
+        p=subprocess.Popen("openssl x509 -in \"" + VARS["CLIENTCERT"] + "\" -noout -checkend 0", stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         p.communicate()
 
         if p != 0:
             sec = int(time.mktime(datetime.datetime.strptime(date, "%b %d %H:%M:%S %Y %Z").timetuple()) - time.mktime(datetime.datetime.strptime(VARS["NOW"], "%b %d %H:%M:%S %Y %Z").timetuple()))
-            if sec / 86400 < int(VARS["WARNDAYS"]):
+            if sec / 86400 < VARS["WARNDAYS"]:
                 if issuer:
-                    print(f'Warning: The S/MIME Certificate from \"{issuer}\" expires in less than ' + VARS["WARNDAYS"]+ f' days {date}')
+                    print(f'Warning: The S/MIME Certificate from \"{issuer}\" expires in less than ' + str(VARS["WARNDAYS"])+ f' days {date}')
                 else:
-                    print(f'Warning: The S/MIME Certificate expires in less than ' + VARS["WARNDAYS"]+ f' days {date}')
+                    print(f'Warning: The S/MIME Certificate expires in less than ' + str(VARS["WARNDAYS"])+ f' days {date}')
 
         else:
             error = f'Error: The S/MIME Certificate from \"{issuer}\" expired {date}' if issuer else f'Error: The S/MIME Certificate expired {date}'
@@ -429,8 +422,8 @@ def passphrase_checks():
 
             readable_date = datetime.datetime.fromtimestamp(int(date)).strftime("%b %d %H:%M:%S %Y %Z")
             if sec > 0:
-                if sec / 86400 < int(VARS["WARNDAYS"]):
-                    print(f'Warning: The PGP key pair for \"' + VARS["FROMADDRESS"] + f'\" with fingerprint {fingerprint} expires in less than ' + VARS["WARNDAYS"] + f' days {readable_date}.\n')
+                if sec / 86400 < VARS["WARNDAYS"]:
+                    print(f'Warning: The PGP key pair for \"' + VARS["FROMADDRESS"] + f'\" with fingerprint {fingerprint} expires in less than ' + str(VARS["WARNDAYS"]) + f' days {readable_date}.\n')
             else:
                 error_exit(True,f'Error: The PGP key pair for \"' + VARS["FROMADDRESS"] + f'\" with fingerprint {fingerprint} expired {readable_date}')
 

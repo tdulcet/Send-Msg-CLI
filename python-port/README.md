@@ -26,7 +26,7 @@ To expedite the ability for users to send a message, here is a quick setup and e
 
 3. Enable lower security settings in your external email client, if necessary (ex. [Gmail](https://myaccount.google.com/lesssecureapps)).
 
-4. Send a basic message `sendpy -s "Employment Opportunity" -t "connellyd2050@gmail.com" -m "Hello, Daniel.\n\nWhen is a good time to talk about an open position? Best,\nXYZHiring Team."`.
+4. Send a basic message `sendpy -s "Employment Opportunity" -t "connellyd2050@gmail.com" -m "Hello, Daniel.\n\nWhen is a good time to talk about an open position? Best,\nXYZ Hiring Team."`.
 
 ## Dependencies
 The following non-standard libraries are used in this program:

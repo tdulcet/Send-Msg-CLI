@@ -1,9 +1,13 @@
+import os
+
 '''Copyright © Daniel Connelly
 
    Purpose: Deliver a variety of help commands to the user to explain usage of sendpy.
 '''
-
+bold = '\033[1m'
+reset = '\033[0m'
 prog_name = "sendpy" # must hardcode or else will be path, which is not what we want.
+os.system("")
 
 # user codeskyblue from: https://stackoverflow.com/questions/19103052/python-string-formatting-columns-in-line
 def format_attachment_output(rows):
@@ -44,7 +48,7 @@ def usage():
     ("    -h, --help", "Display this help and exit"),
     ("    -k, --passphrase <passphrase>", "PGP secret key passphrase for digitally signing the e-mails with PGP/MIME"),
         (" ", "-For maximum security, use 'config' as the passphrase to set or utilize a configuration file"),
-    ("    -m, --message <message>", "Message body"),
+    ("    -m, --message <file path>", "Message body"),
         (" ", "-Escape sequences are expanded. Supports Unicode characters"),
     ("    --message-file <message>", "Delivers a message from a file. Optionally, can take input from STDIN by entering '-' as the arg"),
     ("    -n, --notify <command>", "Get notified when program ends and receive output."),
@@ -53,13 +57,13 @@ def usage():
         (" ", "-Supported priorities: '5 (Lowest)', '4 (Low)', 'Normal', '2 (High)' and '1 (Highest)'"),
     ("    -s, --subject <subject>", "Subject"),
         (" ", "-Escape sequences are expanded. Supports Unicode characters"),
-    ("    --starttls", "For use when using a non-standard port and an SMTP server that supports the starttls method"),
+    ("    --starttls", "For use when using a non-standard port and an SMTP server that supports the startTLS method"),
     ("    -S, --smtp <server>", "SMTP server"),
         (" ", "-External SMTP server example: 'smtp.example.com:465'. Defaults to port 465 without a port number"),
         ("", "-Use 'localhost:25' if running a mail server on this device"),
     ("    -t, --to <address>", "To e-mail address"),
         (" ", "-Use multiple times for multiple TO addresses"),
-    ("    --tls", "For use when using a non-standard port and an SMTP server that supports the tls method"),
+    ("    --tls", "For use when using a non-standard port and an SMTP server that supports the TLS method"),
     ("    -T, --time <seconds>", "Time to delay the sending of email"), # could use a date instead...
     ("    -u, --username <username>", "SMTP server username"),
     ("    -v, --version", "Output version information and exit"),
@@ -98,9 +102,9 @@ def carriers():
     '''
     print("If you do not see your carrier, use the network your provider uses. For example, the carrier Tello uses Sprint.\nSource: https://en.wikipedia.org/wiki/SMS_gateway#Email_clients\n")
     format_attachment_output([
-    ("\033[1mUS CARRIERS\033[0m", " ", " "),
-    ("\033[1mMobile carrier\033[0m", "        \033[1mSMS gateway domain\033[0m", "                \033[1mMMS gateway domain\033[0m"),
-    ("--------------------------", "------------------------","------------------------"),
+    (bold + "US CARRIERS", " ", " "),
+    (bold + "Mobile carrier", bold + "    SMS gateway domain", bold + "        MMS gateway domain"),
+    (reset + "------------------", "    -------------------------","    ------------------------"),
     ("Alltel", "sms.alltelwireless.com", "mms.alltelwireless.com"),
     ("AT&T", "txt.att.net", "mms.att.net"),
     ("Boost Mobile", "sms.myboostmobile.com", "myboostmobile.com"),
@@ -114,9 +118,9 @@ def carriers():
     ("U.S. Cellular", "email.uscc.net",	"mms.uscc.net"),
     ("Verizon Wireless", "vtext.com", "vzwpix.com"),
     ("Virgin Mobile", "vmobl.com", "vmpix.com\n"),
-    ("\033[1mCANADIAN CARRIERS\033[0m", "",""),
-    ("\033[1mMobile carrier\033[0m", "        \033[1mSMS gateway domain\033[0m", "                \033[1mMMS gateway domain\033[0m"),
-    ("--------------------------", "------------------------","------------------------"),
+    (bold + "CANADIAN CARRIERS", "",""),
+    (bold + "Mobile carrier", bold + "    SMS gateway domain", bold + "        MMS gateway domain"),
+    (reset + "------------------", "    -------------------------","    ------------------------"),
     ("Bell Canada", "txt.bell.ca", ""),
     ("Bell MTS", "text.mts.net", ""),
     ("Fido Solutions", "fido.ca",""),
@@ -132,9 +136,9 @@ def emails():
        This information may be outdated. Information is gained from:
        https://www.arclab.com/en/kb/email/list-of-smtp-and-pop3-servers-mailserver-list.html
     '''
-    print("[32m Popular SMTP Servers and Corresponding Ports List^[[0m:\n")
-    print("\033[1mEmail Provider\033[0m\t", "\033[1mSMTP Server Example\033[0m")
-    print("--------------", "  -------")
+    print(bold + "Popular SMTP Servers and Corresponding Ports List\n")
+    print(bold + "Email Provider\033[0m\t", bold + "\033[1mSMTP Server Example"+reset)
+    print("--------------", "  -------------------------")
     format_attachment_output([
     ("Gmail", "\t smtp.gmail.com:465"),
     ("Outlook", "\t smtp.live.com:465"),

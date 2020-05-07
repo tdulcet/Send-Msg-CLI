@@ -3,7 +3,6 @@ import os
 import configparser
 import getpass
 
-
 '''Copyright © Daniel Connelly
 
    The purpose of this file is to save a configured person's settings
