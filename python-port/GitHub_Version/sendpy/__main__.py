@@ -32,7 +32,7 @@ VARS={"TOEMAILS":[],
         "USERNAME":'',
         "PASSWORD":'',
         "FROMADDRESS":'',
-        "FROMNAME":'',
+        "FROMNAME":'', # TODO -- delete one regex is solved
         "PRIORITY":'',
         "PORT":0,
         "CERT":'',
@@ -58,7 +58,7 @@ VARS={"TOEMAILS":[],
 CONFIG_FILE="~/.sendpy.ini"
 
 # ESCAPE_SEQUENCE_RE and decode_escapes credit -- https://stackoverflow.com/a/24519338/8651748 and Teal Dulcet
-ESCAPE_SEQUENCE_RE = re.compile(r'''(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])''', re.UNICODE)
+ESCAPE_SEQUENCE_RE = re.compile(r'''(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])''')
 
 def zero_pad(message):
     '''zero_pad escape characters (u and U and x) that are < 4 numbers long, since python doesn't support this'''
@@ -67,7 +67,6 @@ def zero_pad(message):
     len_message = len(message)
     RE = re.compile('^[0-9a-fA-F]$') # matches any hexadecimal char
     while start_index < len_message:
-        count = 0 # track number of escape characters to zero pad
         new_message += message[start_index]
         if start_index +1 != len_message and message[start_index] == "\\" and (message[start_index+1] == "u" or message[start_index+1] == "U" or message[start_index+1] == "x"):
             esc_char = message[start_index+1] # u, U, or x
@@ -77,17 +76,18 @@ def zero_pad(message):
                 zero_pad = 8
             else: # x
                 zero_pad = 2
+            count = 0 # track number of escape characters to zero pad
             new_message += esc_char
             start_index +=2 # skip past escaped escape character
             for j in range(start_index, len_message):
-                if count >= zero_pad:
+                if count > zero_pad:
+                    start_index+= zero_pad # avoid re-checking the unicode/x string.
                     break
                 if re.match(RE, message[j]): # reach the end/beginning of new unicode/x string:
                     count+=1
                 else:
                     # Zero pad
-                    for k in range(0, zero_pad-count):
-                        new_message +='0'
+                    new_message += "0" * (zero_pad-count)
 
                     # add back in characters
                     for k in range(0, count):
@@ -142,7 +142,7 @@ def assign(opts):
         elif opt in ("-l", "--language"):
             VARS["LANGUAGE"]=True
         elif opt in ("-m", "--message"):
-            if VARS["MESSAGE"] != '':
+            if VARS["NOTIFY"] != '':
                 print("Warning: Output from the program named in the `-n, --notify` flag will be sent in addition to the message indicated in the `-m, -message` flag.")
                 VARS["MESSAGE"] +="\n"
             VARS["MESSAGE"] += decode_escapes(zero_pad(arg))
@@ -160,9 +160,9 @@ def assign(opts):
         elif opt in ("-n", "--notify"):
             if VARS["MESSAGE"] != '':
                 VARS["MESSAGE"] +="\n"
-            p = subprocess.Popen(arg, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, stderr = [x.decode() for x in p.communicate()]
-            VARS["MESSAGE"] += decode_escapes(zero_pad(f'\n**OUTPUT**\n{stdout}\n**ERRORS**\n{stderr}\n**EXIT CODE**\n{p.returncode}'))
+            p = subprocess.Popen(arg, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            stdout  = p.communicate()[0].decode()
+            VARS["MESSAGE"] += decode_escapes(zero_pad(f'\n**OUTPUT**\n{stdout}\n**EXIT CODE**\n{p.returncode}'))
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"]=arg
         elif opt in ("--config"):
@@ -189,8 +189,8 @@ def assign(opts):
                 VARS["ZIPFILE"]= arg+".zip"
         elif opt in ("-C", "--cert"):
             VARS["CERT"]= arg
-        elif opt in ("-E", "--emails"):
-            usage.emails()
+        elif opt in ("--smtpservers"):
+            usage.servers()
             sys.exit(0)
         elif opt in ("-T", "--time"):
             VARS["TIME"] = arg
@@ -205,7 +205,7 @@ def assign(opts):
                 error_exit(True, "Extraneous input into -S or --smtp.")
             else:
                 VARS["SMTP"] = res[0]
-        elif opt in ("-V", "--VERBOSE"):
+        elif opt in ("-V", "--verbose"):
             VARS["VERBOSE"]= True
 
 def configuration_assignment():
@@ -223,10 +223,10 @@ def configuration_assignment():
 def parse_assign(argv):
     '''Find the correct variable to assign the arg/opt to.'''
     try:
-        opts, args = getopt.getopt(argv,"a:b:c:def:ghk:lm:n:p:rs:t:u:vz:C:EP:S:T:V",
-                ["attachments=", "bcc=", "cc=", "cert=", "config", "dryrun", "examples", "emails", "from=", "gateways",
+        opts, args = getopt.getopt(argv,"a:b:c:def:ghk:lm:n:p:rs:t:u:vz:C:P:S:T:V",
+                ["attachments=", "bcc=", "cc=", "cert=", "config", "dryrun", "examples", "from=", "gateways",
                     "help", "language", "message=", "message-file=", "notify", "passphrase=", "password=", "priority=", "smtp=", "starttls",
-                    "subject=", "time", "to=", "tls", "username=", "verbose", "version", "zipfile="])
+                    "smtpservers", "subject=", "time", "to=", "tls", "username=", "verbose", "version", "zipfile="])
     except getopt.GetoptError:
         usage.usage()
         sys.exit(2)
@@ -301,12 +301,18 @@ def attachment_work():
 def email_work():
     '''Check for valid email addresses.
        Split 'From' e-mail address into name (if one is given) and email: "Example <example@example.com>" -> "Example", "example@example.com".
+       Credit for a superior regex goes to Teal Dulcet.
     '''
     if not VARS["TOEMAILS"] and not VARS["BCCEMAILS"]:
         error_exit(True, "No 'To' or 'BCC' email supplied. Please enter one or both.")
 
-    FROMADDRESS = VARS["FROMEMAIL"]
-    RE=re.compile(r'(?:\"?([^\"]*)\"?\s)?[%<a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.>]+')
+    #FROMADDRESS = VARS["FROMEMAIL"] # TODO -- delete when regex is solved.
+    #RE=re.compile(r'(?:\"?([^\"]*)\"?\s)?[%<a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.>]+')
+
+    # ***Teal's code***
+    VARS["FROMADDRESS"] = VARS["FROMEMAIL"]
+    RE=re.compile('^([^@\s]{1,64}@[-.\w]{4,254})|((.*) *<([^@\s]{1,64}@[-.\w]{4,254})>)$')
+
     # Check if the email is valid.
     try:
         for i in range(0, len(VARS["TOEMAILS"])):
@@ -324,6 +330,17 @@ def email_work():
             if not result:
                 error_exit(True, "Error: \""+VARS["BCCEMAILS"][i]+"\" is not a valid e-mail address.")
 
+        if VARS["FROMADDRESS"]:
+            result = RE.match(VARS["FROMADDRESS"])
+            if result:
+                VARS["FROMADDRESS"] = result.group(1) if result.group(1) else result.group(4)
+            RE1=re.compile('^.{6,254}$')
+            RE2=re.compile('^[^@\s]{1,64}@((xn--)?[\w][\w\-]{0,61}[\w]\.)+(xn--)?[\w]{2,63}$')
+            if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]):
+                print("Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # TODO -- delete
+                return # TODO -- delete
+                error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.")
+        ''' # TODO -- delete when regex is solved.
         if FROMADDRESS:
             VARS["FROMADDRESS"] = re.findall(r'[%a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', FROMADDRESS)[0]
             VARS["FROMNAME"] = RE.match(FROMADDRESS).group(1)
@@ -332,6 +349,7 @@ def email_work():
             VARS["FROMEMAIL"] = VARS["FROMNAME"] + " " + VARS["FROMADDRESS"] if VARS["FROMNAME"] else VARS["FROMADDRESS"]
         else:
             error_exit(True, "Error: Must specify FROM e-mail address.")
+        '''
 
     except Exception as error:
         print(error)
@@ -367,7 +385,7 @@ def cert_checks():
             for line in split:
                 date=line
         else:
-            date=""
+            error_exit(True, "No expiration date found in cert.pem file. You may try re-creating the file by deleting it and running this script again.")
 
         p=subprocess.Popen("openssl x509 -in \"" + VARS["CLIENTCERT"] + "\" -noout -checkend 0", stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         p.communicate()
@@ -431,20 +449,29 @@ def passphrase_checks():
         print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
 
 def main(argv):
-    # parsing/assignment
-    parse_assign(argv)
-    configuration_assignment() # use default configuration if nothing was put on the CMDline
+    # testing
+    #with open("valid.txt", "r") as f1: # test valid e-mail addresses
+    with open("invalid.txt", "r") as f1: # test invalid e-mail addresses
+        try:
+            for line in f1:
+                VARS["FROMEMAIL"] = line.strip('\n')
 
-    # email/email checks
-    email_work()
-    attachment_work()
+                # parsing/assignment
+                parse_assign(argv)
+                configuration_assignment() # use default configuration if nothing was put on the CMDline
 
-    # signing/signing checks
-    cert_checks()
-    passphrase_checks()
+                # email/email checks
+                email_work()
+                attachment_work()
 
-    # sending
-    sendEmail(VARS, VARS["PORT"])
+                # signing/signing checks
+                cert_checks()
+                passphrase_checks()
+
+                # sending
+                sendEmail(VARS, VARS["PORT"])
+        except Exception as error:
+            print("EXCEPTION CAUGHT")
 
 if __name__=="__main__":
     if len(sys.argv) == 1:
