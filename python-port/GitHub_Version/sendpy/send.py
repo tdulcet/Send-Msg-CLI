@@ -81,11 +81,13 @@ def smime(VARS):
         f1.write(str(temp_msg))
     atexit.register(lambda x: os.remove(x), "message")
 
-    p = subprocess.Popen("openssl cms -sign -in message -signer "+VARS["CLIENTCERT"],shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    cert_sig, stderr = [x.decode().replace("\r\n", "\n") for x in p.communicate()]
-    if "is an invalid command" in stderr:
-        error_exit(True, str(stderr) + "\nNote: Brew install of OpenSSL does not contain necessary 'cms' attribute of OpenSSL.\nFollow the instructions here https://security.stackexchange.com/a/86181/208814 and reset your PATH variable to point to this new installation.")
+    platform = sys.platform
+    if sys.platform == 'darwin':
+        p = subprocess.Popen("/usr/local/ssl/bin/openssl smime -sign -in message -signer "+VARS["CLIENTCERT"],shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    else:
+        p = subprocess.Popen("/usr/local/ssl/bin/openssl cms -sign -in message -signer "+VARS["CLIENTCERT"],shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
+    cert_sig, stderr = [x.decode().replace("\r\n", "\n") for x in p.communicate()]
     message = email.message_from_bytes(bytes(cert_sig, "utf-8"))
     set_main_headers(VARS, message)
     return message
