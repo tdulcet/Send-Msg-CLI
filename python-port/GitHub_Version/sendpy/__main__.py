@@ -310,8 +310,20 @@ def email_work():
     #RE=re.compile(r'(?:\"?([^\"]*)\"?\s)?[%<a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.>]+')
 
     # ***Teal's code***
+    ## This is the 1st regex he developed from the messages.
     VARS["FROMADDRESS"] = VARS["FROMEMAIL"]
+    '''
     RE=re.compile('^([^@\s]{1,64}@[-.\w]{4,254})|((.*) *<([^@\s]{1,64}@[-.\w]{4,254})>)$')
+    RE1=re.compile('^.{6,254}$')
+    RE2=re.compile(r'^[^@\s]{1,64}@((xn--)?[\w]([\w-]{0,61}[\w])?\.)+(xn--)?[\w]{2,63}$')
+    #RE2=re.compile('^[^@\s]{1,64}@((xn--)?[\w][\w\-]{0,61}[\w]\.)+(xn--)?[\w]{2,63}$')
+    '''
+
+    ## This is the 2nd regex he developed (and after we added a lot more test cases).
+    RE=re.compile(r'^(.{1,64}@[\w.-]{4,254})|((.*) *<(.{1,64}@[\w.-]{4,254})>)$')
+    RE1=re.compile(r'^.{6,254}$')
+    RE2=re.compile(r'^.{1,64}@')
+    RE3=re.compile(r'^([^@"(),:;<>\[\\\]\s]+|"([^"\\]|\\.)+")(\.([^@"(),:;<>\[\\\]\s]+|"([^"\\]|\\.)+"))*@((xn--)?[\w]([\w-]{0,61}[\w])?\.)+(xn--)?[\w]{2,63}$')
 
     # Check if the email is valid.
     try:
@@ -334,12 +346,15 @@ def email_work():
             result = RE.match(VARS["FROMADDRESS"])
             if result:
                 VARS["FROMADDRESS"] = result.group(1) if result.group(1) else result.group(4)
-            RE1=re.compile('^.{6,254}$')
-            RE2=re.compile('^[^@\s]{1,64}@((xn--)?[\w][\w\-]{0,61}[\w]\.)+(xn--)?[\w]{2,63}$')
-            if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]):
+            if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]): # TODO -- restore after  after regex testing is done.
                 print("Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # TODO -- delete
-                return # TODO -- delete
-                error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.")
+                return
+                error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # restore after regex testing is done.
+            else:
+                print("Valid: \""+VARS["FROMADDRESS"]+"\".") # TODO -- delete
+                return
+        else:
+            error_exit(True, "Error: Must specify FROM e-mail address.")
         ''' # TODO -- delete when regex is solved.
         if FROMADDRESS:
             VARS["FROMADDRESS"] = re.findall(r'[%a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', FROMADDRESS)[0]
@@ -347,8 +362,6 @@ def email_work():
             if not VARS["FROMADDRESS"]:
                 error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.")
             VARS["FROMEMAIL"] = VARS["FROMNAME"] + " " + VARS["FROMADDRESS"] if VARS["FROMNAME"] else VARS["FROMADDRESS"]
-        else:
-            error_exit(True, "Error: Must specify FROM e-mail address.")
         '''
 
     except Exception as error:
@@ -450,8 +463,8 @@ def passphrase_checks():
 
 def main(argv):
     # testing
-    #with open("valid.txt", "r") as f1: # test valid e-mail addresses
-    with open("invalid.txt", "r") as f1: # test invalid e-mail addresses
+    #with open("invalid.txt", "r") as f1: # test invalid e-mail addresses
+    with open("valid.txt", "r") as f1: # test valid e-mail addresses
         try:
             for line in f1:
                 VARS["FROMEMAIL"] = line.strip('\n')
