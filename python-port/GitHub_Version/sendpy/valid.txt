@@ -25,6 +25,6 @@ email@example.name
 email@example.museum
 email@example.co.jp
 firstname-lastname@example.com
-much.”more\ unusual”@example.com
-very.unusual.”@”.unusual.com@example.com
-very.”(),:;<>[]”.VERY.”very@\\ "very”.unusual@strange.example.com
+much."more\ unusual"@example.com
+very.unusual."@".unusual.com@example.com
+very."(),:;<>[]".VERY."very@\\ "very".unusual@strange.example.com
