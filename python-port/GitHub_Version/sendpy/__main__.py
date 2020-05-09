@@ -346,7 +346,8 @@ def email_work():
             result = RE.match(VARS["FROMADDRESS"])
             if result:
                 VARS["FROMADDRESS"] = result.group(1) if result.group(1) else result.group(4)
-            if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]): # TODO -- restore after  after regex testing is done.
+            #if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]): # TODO -- restore after  after regex testing is done.
+            if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]) or not RE3.match(VARS["FROMADDRESS"]):
                 print("Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # TODO -- delete
                 return
                 error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # restore after regex testing is done.
@@ -463,8 +464,8 @@ def passphrase_checks():
 
 def main(argv):
     # testing
-    #with open("invalid.txt", "r") as f1: # test invalid e-mail addresses
-    with open("valid.txt", "r") as f1: # test valid e-mail addresses
+    #with open("valid.txt", "r") as f1: # test valid e-mail addresses
+    with open("invalid.txt", "r") as f1: # test invalid e-mail addresses
         try:
             for line in f1:
                 VARS["FROMEMAIL"] = line.strip('\n')
