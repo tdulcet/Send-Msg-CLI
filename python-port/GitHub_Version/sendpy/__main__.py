@@ -27,7 +27,7 @@ red = "\033[31m"
 green = "\033[32m"
 reset = '\033[0m'
 index = 0
-values = [
+firefox_values = [
   [green + "VALID" + reset],
   [green + "VALID" + reset],
   [green + "VALID" + reset],
@@ -92,6 +92,170 @@ values = [
   [green + "VALID" + reset],
 ]
 
+chromium_values = [
+["something@something.com", "something@something.com", "expectValid"],
+["someone@localhost.localdomain", "someone@localhost.localdomain", "expectValid"],
+["someone@127.0.0.1", "someone@127.0.0.1", "expectValid"],
+["a@b.b", "a@b.b", "expectValid"],
+["a/b@domain.com", "a/b@domain.com", "expectValid"],
+["{}@domain.com", "{}@domain.com", "expectValid"],
+["m*'!%@something.sa", "m*'!%@something.sa", "expectValid"],
+["tu!!7n7.ad##0!!!@company.ca", "tu!!7n7.ad##0!!!@company.ca", "expectValid"],
+["%@com.com", "%@com.com", "expectValid"],
+["!#$%&'*+/=?^_`{|}~.-@com.com", "!#$%&'*+/=?^_`{|}~.-@com.com", "expectValid"],
+[".wooly@example.com", ".wooly@example.com", "expectValid"],
+["wo..oly@example.com", "wo..oly@example.com", "expectValid"],
+["someone@do-ma-in.com", "someone@do-ma-in.com", "expectValid"],
+["somebody@example", "somebody@example", "expectValid"],
+["\u000Aa@p.com\u000A", "a@p.com", "expectValid"],
+["\u000Da@p.com\u000D", "a@p.com", "expectValid"],
+["a\u000A@p.com", "a@p.com", "expectValid"],
+["a\u000D@p.com", "a@p.com", "expectValid"],
+["", "", "expectValid"],
+[" ", "", "expectValid"],
+[" a@p.com", "a@p.com", "expectValid"],
+["a@p.com ", "a@p.com", "expectValid"],
+[" a@p.com ", "a@p.com", "expectValid"],
+["\u0020a@p.com\u0020", "a@p.com", "expectValid"],
+["\u0009a@p.com\u0009", "a@p.com", "expectValid"],
+["\u000Ca@p.com\u000C", "a@p.com", "expectValid"],
+
+["invalid:email@example.com", "invalid:email@example.com", "expectInvalid"],
+["@somewhere.com", "@somewhere.com", "expectInvalid"],
+["example.com", "example.com", "expectInvalid"],
+["@@example.com", "@@example.com", "expectInvalid"],
+["a space@example.com", "a space@example.com", "expectInvalid"],
+["something@ex..ample.com", "something@ex..ample.com", "expectInvalid"],
+["a\b@c", "a\b@c", "expectInvalid"],
+["someone@somewhere.com.", "someone@somewhere.com.", "expectInvalid"],
+["\"\"test\blah\"\"@example.com", "\"\"test\blah\"\"@example.com", "expectInvalid"],
+["\"testblah\"@example.com", "\"testblah\"@example.com", "expectInvalid"],
+["someone@somewhere.com@", "someone@somewhere.com@", "expectInvalid"],
+["someone@somewhere_com", "someone@somewhere_com", "expectInvalid"],
+["someone@some:where.com", "someone@some:where.com", "expectInvalid"],
+[".", ".", "expectInvalid"],
+["F/s/f/a@feo+re.com", "F/s/f/a@feo+re.com", "expectInvalid"],
+["some+long+email+address@some+host-weird-/looking.com", "some+long+email+address@some+host-weird-/looking.com", "expectInvalid"],
+["a @p.com", "a @p.com", "expectInvalid"],
+["a\u0020@p.com", "a\u0020@p.com", "expectInvalid"],
+["a\u0009@p.com", "a\u0009@p.com", "expectInvalid"],
+["a\u000B@p.com", "a\u000B@p.com", "expectInvalid"],
+["a\u000C@p.com", "a\u000C@p.com", "expectInvalid"],
+["a\u2003@p.com", "a\u2003@p.com", "expectInvalid"],
+["a\u3000@p.com", "a\u3000@p.com", "expectInvalid"],
+["ddjk-s-jk@asl-.com", "ddjk-s-jk@asl-.com", "expectInvalid"],
+["someone@do-.com", "someone@do-.com", "expectInvalid"],
+["somebody@-p.com", "somebody@-p.com", "expectInvalid"],
+["somebody@-.com", "somebody@-.com", "expectInvalid"],
+
+["something@something.com", "something@something.com", "expectValid"],
+["someone@localhost.localdomain", "someone@localhost.localdomain", "expectValid"],
+["someone@127.0.0.1", "someone@127.0.0.1", "expectValid"],
+["a@b.b", "a@b.b", "expectValid"],
+["a/b@domain.com", "a/b@domain.com", "expectValid"],
+["{}@domain.com", "{}@domain.com", "expectValid"],
+["m*'!%@something.sa", "m*'!%@something.sa", "expectValid"],
+["tu!!7n7.ad##0!!!@company.ca", "tu!!7n7.ad##0!!!@company.ca", "expectValid"],
+["%@com.com", "%@com.com", "expectValid"],
+["!#$%&'*+/=?^_`{|}~.-@com.com", "!#$%&'*+/=?^_`{|}~.-@com.com", "expectValid"],
+[".wooly@example.com", ".wooly@example.com", "expectValid"],
+["wo..oly@example.com", "wo..oly@example.com", "expectValid"],
+["someone@do-ma-in.com", "someone@do-ma-in.com", "expectValid"],
+["somebody@example", "somebody@example", "expectValid"],
+["\u0020a@p.com\u0020", "a@p.com", "expectValid"],
+["\u0009a@p.com\u0009", "a@p.com", "expectValid"],
+["\u000Aa@p.com\u000A", "a@p.com", "expectValid"],
+["\u000Ca@p.com\u000C", "a@p.com", "expectValid"],
+["\u000Da@p.com\u000D", "a@p.com", "expectValid"],
+["a\u000A@p.com", "a@p.com", "expectValid"],
+["a\u000D@p.com", "a@p.com", "expectValid"],
+["", "", "expectValid"],
+[" ", "", "expectValid"],
+[" a@p.com", "a@p.com", "expectValid"],
+["a@p.com ", "a@p.com", "expectValid"],
+[" a@p.com ", "a@p.com", "expectValid"],
+
+["invalid:email@example.com", "invalid:email@example.com", "expectInvalid"],
+["@somewhere.com", "@somewhere.com", "expectInvalid"],
+["example.com", "example.com", "expectInvalid"],
+["@@example.com", "@@example.com", "expectInvalid"],
+["a space@example.com", "a space@example.com", "expectInvalid"],
+["something@ex..ample.com", "something@ex..ample.com", "expectInvalid"],
+["a\b@c", "a\b@c", "expectInvalid"],
+["someone@somewhere.com.", "someone@somewhere.com.", "expectInvalid"],
+["\"\"test\blah\"\"@example.com", "\"\"test\blah\"\"@example.com", "expectInvalid"],
+["\"testblah\"@example.com", "\"testblah\"@example.com", "expectInvalid"],
+["someone@somewhere.com@", "someone@somewhere.com@", "expectInvalid"],
+["someone@somewhere_com", "someone@somewhere_com", "expectInvalid"],
+["someone@some:where.com", "someone@some:where.com", "expectInvalid"],
+[".", ".", "expectInvalid"],
+["F/s/f/a@feo+re.com", "F/s/f/a@feo+re.com", "expectInvalid"],
+["some+long+email+address@some+host-weird-/looking.com", "some+long+email+address@some+host-weird-/looking.com", "expectInvalid"],
+["\u000Ba@p.com\u000B", "\u000Ba@p.com\u000B", "expectInvalid"],
+["\u2003a@p.com\u2003", "\u2003a@p.com\u2003", "expectInvalid"],
+["\u3000a@p.com\u3000", "\u3000a@p.com\u3000", "expectInvalid"],
+["a @p.com", "a @p.com", "expectInvalid"],
+["a\u0020@p.com", "a\u0020@p.com", "expectInvalid"],
+["a\u0009@p.com", "a\u0009@p.com", "expectInvalid"],
+["a\u000B@p.com", "a\u000B@p.com", "expectInvalid"],
+["a\u000C@p.com", "a\u000C@p.com", "expectInvalid"],
+["a\u2003@p.com", "a\u2003@p.com", "expectInvalid"],
+["a\u3000@p.com", "a\u3000@p.com", "expectInvalid"],
+["ddjk-s-jk@asl-.com", "ddjk-s-jk@asl-.com", "expectInvalid"],
+["someone@do-.com", "someone@do-.com", "expectInvalid"],
+["somebody@-p.com", "somebody@-p.com", "expectInvalid"],
+["somebody@-.com", "somebody@-.com", "expectInvalid"],
+
+["someone@somewhere.com,john@doe.com,a@b.c,a/b@c.c,ualla@ualla.127", "someone@somewhere.com,john@doe.com,a@b.c,a/b@c.c,ualla@ualla.127", "expectValid"],
+["tu!!7n7.ad##0!!!@company.ca,F/s/f/a@feo-re.com,m*'@a.b", "tu!!7n7.ad##0!!!@company.ca,F/s/f/a@feo-re.com,m*'@a.b", "expectValid"],
+[" a@p.com,b@p.com", "a@p.com,b@p.com", "expectValid"],
+["a@p.com ,b@p.com", "a@p.com,b@p.com", "expectValid"],
+["a@p.com, b@p.com", "a@p.com,b@p.com", "expectValid"],
+["a@p.com,b@p.com ", "a@p.com,b@p.com", "expectValid"],
+["   a@p.com   ,   b@p.com   ", "a@p.com,b@p.com", "expectValid"],
+["\u0020a@p.com\u0020,\u0020b@p.com\u0020", "a@p.com,b@p.com", "expectValid"],
+["\u0009a@p.com\u0009,\u0009b@p.com\u0009", "a@p.com,b@p.com", "expectValid"],
+["\u000Aa@p.com\u000A,\u000Ab@p.com\u000A", "a@p.com,b@p.com", "expectValid"],
+["\u000Ca@p.com\u000C,\u000Cb@p.com\u000C", "a@p.com,b@p.com", "expectValid"],
+["\u000Da@p.com\u000D,\u000Db@p.com\u000D", "a@p.com,b@p.com", "expectValid"],
+
+["someone@somewhere.com,john@doe..com,a@b,a/b@c,ualla@ualla.127", "someone@somewhere.com,john@doe..com,a@b,a/b@c,ualla@ualla.127", "expectInvalid"],
+["some+long+email+address@some+host:weird-/looking.com,F/s/f/a@feo+re.com,,m*'@'!%", "some+long+email+address@some+host:weird-/looking.com,F/s/f/a@feo+re.com,,m*'@'!%", "expectInvalid"],
+["   a @p.com   ,   b@p.com   ", "a @p.com,b@p.com", "expectInvalid"],
+["   a@p.com   ,   b @p.com   ", "a@p.com,b @p.com", "expectInvalid"],
+["\u000Ba@p.com\u000B,\u000Bb@p.com\u000B", "\u000Ba@p.com\u000B,\u000Bb@p.com\u000B", "expectInvalid"],
+["\u2003a@p.com\u2003,\u2003b@p.com\u2003", "\u2003a@p.com\u2003,\u2003b@p.com\u2003", "expectInvalid"],
+["\u3000a@p.com\u3000,\u3000b@p.com\u3000", "\u3000a@p.com\u3000,\u3000b@p.com\u3000", "expectInvalid"],
+[",,", ",,", "expectInvalid"],
+[" ,,", ",,", "expectInvalid"],
+[", ,", ",,", "expectInvalid"],
+[",, ", ",,", "expectInvalid"],
+["  ,  ,  ", ",,", "expectInvalid"],
+["\u0020,\u0020,\u0020", ",,", "expectInvalid"],
+["\u0009,\u0009,\u0009", ",,", "expectInvalid"],
+["\u000A,\u000A,\u000A", ",,", "expectInvalid"],
+["\u000B,\u000B,\u000B", "\u000B,\u000B,\u000B", "expectInvalid"],
+["\u000C,\u000C,\u000C", ",,", "expectInvalid"],
+["\u000D,\u000D,\u000D", ",,", "expectInvalid"],
+["\u2003,\u2003,\u2003", "\u2003,\u2003,\u2003", "expectInvalid"],
+["\u3000,\u3000,\u3000", "\u3000,\u3000,\u3000", "expectInvalid"]]
+
+''' each debug matches up with the empty new line (e.g., 128).
+debug("Valid single addresses when 'multiple' attribute is not set."],
+debug("Invalid single addresses when 'multiple' attribute is not set."],
+debug("Valid single addresses when 'multiple' attribute is set."],
+debug("Invalid single addresses when 'multiple' attribute is set."],
+debug("Valid multiple addresses when 'multiple' attribute is set."],
+debug("Invalid multiple addresses when 'multiple' attribute is set."],
+'''
+chromium_validity = []
+with open("chromium.txt", "r") as f1:
+    for line in f1:
+        if "expectValid" in line:
+            chromium_validity.append(green + line.strip('\n') + reset)
+        else:
+            chromium_validity.append(red + line.strip('\n') + reset)
+
 # Default Variables
 
 VARS={"TOEMAILS":[],
@@ -102,7 +266,6 @@ VARS={"TOEMAILS":[],
         "USERNAME":'',
         "PASSWORD":'',
         "FROMADDRESS":'',
-        "FROMNAME":'', # TODO -- delete one regex is solved
         "PRIORITY":'',
         "PORT":0,
         "CERT":'',
@@ -414,13 +577,15 @@ def email_work():
             #if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]): # TODO -- restore after  after regex testing is done.
             if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]) or not RE3.match(VARS["FROMADDRESS"]):
                 #print("Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # TODO -- delete
-                print(red + "Error: \""+reset + VARS["FROMADDRESS"]+"\" is not a valid e-mail address. Should be " + values[index][0]) # TODO -- firefox version...delete
+                #print(red + "Error: \""+reset + VARS["FROMADDRESS"]+"\" is not a valid e-mail address. Should be " + firefox_values[index][0]) # TODO -- firefox version...delete
+                print(red + "Error: \""+reset + VARS["FROMADDRESS"]+"\" is not a valid e-mail address. Should be " + chromium_validity[index]) # TODO -- chromium version...delete
                 index +=1
                 return
                 error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # restore after regex testing is done.
             else:
                 #print("Valid: \""+VARS["FROMADDRESS"]+"\".") # TODO -- delete
-                print(green + "Valid: \""+reset+VARS["FROMADDRESS"]+"\". Should be " + values[index][0]) # TODO -- firefox version...delete
+                #print(green + "Valid: \""+reset+VARS["FROMADDRESS"]+"\". Should be " + firefox_values[index][0]) # TODO -- firefox version...delete
+                print(green + "Valid: \""+reset+VARS["FROMADDRESS"]+"\". Should be " + chromium_validity[index]) # TODO -- chromium version...delete
                 index +=1
                 return
         else:
@@ -530,8 +695,11 @@ def main(argv):
     #with open("invalid.txt", "r") as f1: # test invalid e-mail addresses
     with open("firefox.txt", "r") as f1: # test invalid e-mail addresses
         try:
-            for line in f1:
-                VARS["FROMEMAIL"] = line.strip('\n')
+            #for line in f1:
+                #VARS["FROMEMAIL"] = line.strip('\n')
+            for line in chromium_values:
+                length = len(line)
+                VARS["FROMEMAIL"] = line[0].strip('\n')
 
                 # parsing/assignment
                 parse_assign(argv)
@@ -548,6 +716,7 @@ def main(argv):
                 # sending
                 sendEmail(VARS, VARS["PORT"])
         except Exception as error:
+            print(error)
             print("EXCEPTION CAUGHT")
 
 if __name__=="__main__":
