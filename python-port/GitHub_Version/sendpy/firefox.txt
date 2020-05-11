@@ -1,11 +1,11 @@
 ''
 foo@bar.com
- foo@bar.com
+foo@bar.com
 foo@bar.com 
-\r\n foo@bar.com
+foo@bar.com
 foo@bar.com \n\r
-\n\n \r\rfoo@bar.com\n\n   \r\r
-\n\r \n\rfoo@bar.com\n\r   \n\r
+foo@bar.com\n\n   \r\r
+\n\rfoo@bar.com\n\r   \n\r
 tulip
 @bar.com
 f\noo@bar.com
