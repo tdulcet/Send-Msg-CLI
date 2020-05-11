@@ -21,6 +21,76 @@ import configuration
    2. do checks to see if those files are valid
    3. handle escape characters appropriately
 '''
+# TODO -- delete after Regex test...these are the Firefox values
+# values trakc what the value should be and index is used to find what that value should be
+red = "\033[31m"
+green = "\033[32m"
+reset = '\033[0m'
+index = 0
+values = [
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+
+  [red + "TYPE_MISMATCH" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [green + "VALID" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+
+  [red + "TYPE_MISMATCH" + reset],
+  [red + "TYPE_MISMATCH, True" + reset],
+
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [green + "VALID" + reset],
+  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
+  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
+  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
+  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
+
+  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
+  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
+  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
+  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
+
+  [green + "VALID" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [green + "VALID" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [red + "TYPE_MISMATCH" + reset],
+  [green + "VALID" + reset],
+]
 
 # Default Variables
 
@@ -312,19 +382,13 @@ def email_work():
     # ***Teal's code***
     ## This is the 1st regex he developed from the messages.
     VARS["FROMADDRESS"] = VARS["FROMEMAIL"]
-    '''
-    RE=re.compile('^([^@\s]{1,64}@[-.\w]{4,254})|((.*) *<([^@\s]{1,64}@[-.\w]{4,254})>)$')
-    RE1=re.compile('^.{6,254}$')
-    RE2=re.compile(r'^[^@\s]{1,64}@((xn--)?[\w]([\w-]{0,61}[\w])?\.)+(xn--)?[\w]{2,63}$')
-    #RE2=re.compile('^[^@\s]{1,64}@((xn--)?[\w][\w\-]{0,61}[\w]\.)+(xn--)?[\w]{2,63}$')
-    '''
 
     ## This is the 2nd regex he developed (and after we added a lot more test cases).
     RE=re.compile(r'^(.{1,64}@[\w.-]{4,254})|((.*) *<(.{1,64}@[\w.-]{4,254})>)$')
     RE1=re.compile(r'^.{6,254}$')
     RE2=re.compile(r'^.{1,64}@')
-    #RE3=re.compile(r'^([^@"(),:;<>\[\\\]\s]+|"([^"\\]|\\.)+")(\.([^@"(),:;<>\[\\\]\s]+|"([^"\\]|\\.)+"))*@((xn--)?[\w]([\w-]{0,61}[\w])?\.)+(xn--)?[\w]{2,63}$')
-    RE3=re.compile(r'^([^@"(),:;<>\[\\\].\s]+|"([^"\\]|\\.)+")(\.([^@"(),:;<>\[\\\].\s]+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$')
+    RE3=re.compile(r'^(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$')
+    global index # TODO -- firefox delet
 
     # Check if the email is valid.
     try:
@@ -349,22 +413,18 @@ def email_work():
                 VARS["FROMADDRESS"] = result.group(1) if result.group(1) else result.group(4)
             #if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]): # TODO -- restore after  after regex testing is done.
             if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]) or not RE3.match(VARS["FROMADDRESS"]):
-                print("Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # TODO -- delete
+                #print("Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # TODO -- delete
+                print(red + "Error: \""+reset + VARS["FROMADDRESS"]+"\" is not a valid e-mail address. Should be " + values[index][0]) # TODO -- firefox version...delete
+                index +=1
                 return
                 error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # restore after regex testing is done.
             else:
-                print("Valid: \""+VARS["FROMADDRESS"]+"\".") # TODO -- delete
+                #print("Valid: \""+VARS["FROMADDRESS"]+"\".") # TODO -- delete
+                print(green + "Valid: \""+reset+VARS["FROMADDRESS"]+"\". Should be " + values[index][0]) # TODO -- firefox version...delete
+                index +=1
                 return
         else:
             error_exit(True, "Error: Must specify FROM e-mail address.")
-        ''' # TODO -- delete when regex is solved.
-        if FROMADDRESS:
-            VARS["FROMADDRESS"] = re.findall(r'[%a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', FROMADDRESS)[0]
-            VARS["FROMNAME"] = RE.match(FROMADDRESS).group(1)
-            if not VARS["FROMADDRESS"]:
-                error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.")
-            VARS["FROMEMAIL"] = VARS["FROMNAME"] + " " + VARS["FROMADDRESS"] if VARS["FROMNAME"] else VARS["FROMADDRESS"]
-        '''
 
     except Exception as error:
         print(error)
@@ -465,8 +525,10 @@ def passphrase_checks():
 
 def main(argv):
     # testing
+    # TODO -- delete this testing structure
     #with open("valid.txt", "r") as f1: # test valid e-mail addresses
-    with open("invalid.txt", "r") as f1: # test invalid e-mail addresses
+    #with open("invalid.txt", "r") as f1: # test invalid e-mail addresses
+    with open("firefox.txt", "r") as f1: # test invalid e-mail addresses
         try:
             for line in f1:
                 VARS["FROMEMAIL"] = line.strip('\n')
