@@ -307,7 +307,7 @@ def email_work():
 
     VARS["FROMADDRESS"] = VARS["FROMEMAIL"]
 
-    RE=re.compile(r'^(.{1,64}@[\w.-]{4,254})|((.*) *<(.{1,64}@[\w.-]{4,254})>)$')
+    RE=re.compile(r'^((.{1,64}@[\w.-]{4,254})|(.*) *<(.{1,64}@[\w.-]{4,254})>)$')
     RE1=re.compile(r'^.{6,254}$')
     RE2=re.compile(r'^.{1,64}@')
     RE3=re.compile(r'^(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$')
@@ -332,7 +332,7 @@ def email_work():
         if VARS["FROMADDRESS"]:
             result = RE.match(VARS["FROMADDRESS"])
             if result:
-                VARS["FROMADDRESS"] = result.group(1) if result.group(1) else result.group(4)
+                VARS["FROMADDRESS"] = result.group(2) if result.group(2) else result.group(4)
             if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]) or not RE3.match(VARS["FROMADDRESS"]):
                 error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.")
         else:

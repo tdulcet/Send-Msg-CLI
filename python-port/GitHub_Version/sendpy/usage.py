@@ -7,7 +7,7 @@ import os
 bold = '\033[1m'
 reset = '\033[0m'
 prog_name = "sendpy" # must hardcode or else will be path, which is not what we want.
-os.system("")
+os.system("") # to print above ASCII lines on Windows
 
 # user codeskyblue from: https://stackoverflow.com/questions/19103052/python-string-formatting-columns-in-line
 def format_attachment_output(rows):

@@ -83,9 +83,9 @@ def smime(VARS):
 
     platform = sys.platform
     if sys.platform == 'darwin':
-        p = subprocess.Popen("/usr/local/ssl/bin/openssl smime -sign -in message -signer "+VARS["CLIENTCERT"],shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen("openssl smime -sign -in message -signer \""+VARS["CLIENTCERT"] + "\"",shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     else:
-        p = subprocess.Popen("/usr/local/ssl/bin/openssl cms -sign -in message -signer "+VARS["CLIENTCERT"],shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen("openssl cms -sign -in message -signer \""+VARS["CLIENTCERT"] + "\"",shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
     cert_sig, stderr = [x.decode().replace("\r\n", "\n") for x in p.communicate()]
     message = email.message_from_bytes(bytes(cert_sig, "utf-8"))
@@ -161,9 +161,8 @@ def port587(VARS, message, PORT=587):
 def port25(VARS, message, PORT=25):
     '''Use a local SMTP server connection to send email'''
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM, timeout=10) as sock:
-        sock.settimeout(10)
         if sock.connect_ex(('aspmx.l.google.com',25)) != 0: # testing connection as computer may not block port 25, but ISP/Cloud provider may.
-            error_exit(True, "You have Port 25 blocked on this machine.")
+            error_exit(True, "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to provide an external SMTP server in order to send e-mails.\n")
 
     with smtplib.SMTP(VARS["SMTP"], PORT) as server:
         if VARS["VERBOSE"]:
@@ -174,7 +173,7 @@ def port25(VARS, message, PORT=25):
 def sendEmail(VARS, PORT=0):
     '''This function compiles our (optionally signed) message and calls the correct send function according to what port is entered.'''
     if VARS["DRYRUN"]:
-        sys.exit()
+        return
     if VARS["TIME"]:
         time.sleep(int(VARS["TIME"]))
     # S/MIME
