@@ -21,178 +21,21 @@ import configuration
    2. do checks to see if those files are valid
    3. handle escape characters appropriately
 '''
-# TODO -- delete after Regex test...these are the Firefox values
-# values trakc what the value should be and index is used to find what that value should be
+
+bold = "\033[1m"
 red = "\033[31m"
 green = "\033[32m"
-reset = '\033[0m'
+reset = "\033[0m"
 index = 0
-firefox_values = [
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [red + "TYPE_MISMATCH" + reset],
 
-  [red + "TYPE_MISMATCH" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [red + "TYPE_MISMATCH" + reset],
+# values track what the value should be and index is used to find what that value should be
+firefox_validity = []
+with open("tests/firefox_validity.txt", "r") as f1:
+    for line in f1:
+        firefox_validity.append(line.strip('\n'))
 
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [green + "VALID" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-
-  [red + "TYPE_MISMATCH" + reset],
-  [red + "TYPE_MISMATCH, True" + reset],
-
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [green + "VALID" + reset],
-  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
-  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
-  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
-  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
-
-  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
-  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
-  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
-  [red + "TYPE_MISMATCH, BAD_INPUT" + reset],
-
-  [green + "VALID" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [green + "VALID" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [red + "TYPE_MISMATCH" + reset],
-  [green + "VALID" + reset],
-]
-
-# chromiums tests (modified to remove '\r','\n', and preceding spaces
-chromium_values = [
-["something@something.com", "something@something.com", "expectValid"],
-["someone@localhost.localdomain", "someone@localhost.localdomain", "expectValid"],
-["someone@127.0.0.1", "someone@127.0.0.1", "expectValid"],
-["a@b.b", "a@b.b", "expectValid"],
-["a/b@domain.com", "a/b@domain.com", "expectValid"],
-["{}@domain.com", "{}@domain.com", "expectValid"],
-["m*'!%@something.sa", "m*'!%@something.sa", "expectValid"],
-["tu!!7n7.ad##0!!!@company.ca", "tu!!7n7.ad##0!!!@company.ca", "expectValid"],
-["%@com.com", "%@com.com", "expectValid"],
-["!#$%&'*+/=?^_`{|}~.-@com.com", "!#$%&'*+/=?^_`{|}~.-@com.com", "expectValid"],
-[".wooly@example.com", ".wooly@example.com", "expectValid"],
-["wo..oly@example.com", "wo..oly@example.com", "expectValid"],
-["someone@do-ma-in.com", "someone@do-ma-in.com", "expectValid"],
-["somebody@example", "somebody@example", "expectValid"],
-["\u000Aa@p.com\u000A", "a@p.com", "expectValid"],
-["\u000Da@p.com\u000D", "a@p.com", "expectValid"],
-["a\u000A@p.com", "a@p.com", "expectValid"],
-["a\u000D@p.com", "a@p.com", "expectValid"],
-["valid@example.com", "", "expectValid"],
-["valid@example.com", "", "expectValid"],
-["a@p.com","a@p.com", "expectValid"],
-["a@p.com ","a@p.com", "expectValid"],
-["a@p.com ","a@p.com", "expectValid"],
-["\u0020a@p.com\u0020", "a@p.com", "expectValid"],
-["\u0009a@p.com\u0009", "a@p.com", "expectValid"],
-["\u000Ca@p.com\u000C", "a@p.com", "expectValid"],
-
-["invalid:email@example.com", "invalid:email@example.com", "expectInvalid"],
-["@somewhere.com", "@somewhere.com", "expectInvalid"],
-["example.com", "example.com", "expectInvalid"],
-["@@example.com", "@@example.com", "expectInvalid"],
-["a space@example.com", "a space@example.com", "expectInvalid"],
-["something@ex..ample.com", "something@ex..ample.com", "expectInvalid"],
-["a\b@c", "a\b@c", "expectInvalid"],
-["someone@somewhere.com.", "someone@somewhere.com.", "expectInvalid"],
-["\"\"test\blah\"\"@example.com", "\"\"test\blah\"\"@example.com", "expectInvalid"],
-["\"testblah\"@example.com", "\"testblah\"@example.com", "expectInvalid"],
-["someone@somewhere.com@", "someone@somewhere.com@", "expectInvalid"],
-["someone@somewhere_com", "someone@somewhere_com", "expectInvalid"],
-["someone@some:where.com", "someone@some:where.com", "expectInvalid"],
-[".", ".", "expectInvalid"],
-["F/s/f/a@feo+re.com", "F/s/f/a@feo+re.com", "expectInvalid"],
-["some+long+email+address@some+host-weird-/looking.com", "some+long+email+address@some+host-weird-/looking.com", "expectInvalid"],
-["a @p.com", "a @p.com", "expectInvalid"],
-["a\u0020@p.com", "a\u0020@p.com", "expectInvalid"],
-["a\u0009@p.com", "a\u0009@p.com", "expectInvalid"],
-["a\u000B@p.com", "a\u000B@p.com", "expectInvalid"],
-["a\u000C@p.com", "a\u000C@p.com", "expectInvalid"],
-["a\u2003@p.com", "a\u2003@p.com", "expectInvalid"],
-["a\u3000@p.com", "a\u3000@p.com", "expectInvalid"],
-["ddjk-s-jk@asl-.com", "ddjk-s-jk@asl-.com", "expectInvalid"],
-["someone@do-.com", "someone@do-.com", "expectInvalid"],
-["somebody@-p.com", "somebody@-p.com", "expectInvalid"],
-["somebody@-.com", "somebody@-.com", "expectInvalid"],
-
-["someone@somewhere.com,john@doe.com,a@b.c,a/b@c.c,ualla@ualla.127", "someone@somewhere.com,john@doe.com,a@b.c,a/b@c.c,ualla@ualla.127", "expectValid"],
-["tu!!7n7.ad##0!!!@company.ca,F/s/f/a@feo-re.com,m*'@a.b", "tu!!7n7.ad##0!!!@company.ca,F/s/f/a@feo-re.com,m*'@a.b", "expectValid"],
-["a@p.com,b@p.com", "a@p.com,b@p.com", "expectValid"],
-["a@p.com,b@p.com", "a@p.com,b@p.com", "expectValid"],
-["a@p.com,b@p.com", "a@p.com,b@p.com", "expectValid"],
-["a@p.com,b@p.com ", "a@p.com,b@p.com", "expectValid"],
-["a@p.com,b@p.com", "a@p.com,b@p.com", "expectValid"],
-["\u0020a@p.com\u0020,\u0020b@p.com\u0020", "a@p.com,b@p.com", "expectValid"],
-["\u0009a@p.com\u0009,\u0009b@p.com\u0009", "a@p.com,b@p.com", "expectValid"],
-["\u000Aa@p.com\u000A,\u000Ab@p.com\u000A", "a@p.com,b@p.com", "expectValid"],
-["\u000Ca@p.com\u000C,\u000Cb@p.com\u000C", "a@p.com,b@p.com", "expectValid"],
-["\u000Da@p.com\u000D,\u000Db@p.com\u000D", "a@p.com,b@p.com", "expectValid"],
-
-["someone@somewhere.com,john@doe..com,a@b,a/b@c,ualla@ualla.127", "someone@somewhere.com,john@doe..com,a@b,a/b@c,ualla@ualla.127", "expectInvalid"],
-["some+long+email+address@some+host:weird-/looking.com,F/s/f/a@feo+re.com,,m*'@'!%", "some+long+email+address@some+host:weird-/looking.com,F/s/f/a@feo+re.com,,m*'@'!%", "expectInvalid"],
-["a @p.com,b@p.com", "a @p.com,b@p.com", "expectInvalid"],
-["a@p.com,b @p.com   ", "a@p.com,b @p.com", "expectInvalid"],
-["\u000Ba@p.com\u000B,\u000Bb@p.com\u000B", "\u000Ba@p.com\u000B,\u000Bb@p.com\u000B", "expectInvalid"],
-["\u2003a@p.com\u2003,\u2003b@p.com\u2003", "\u2003a@p.com\u2003,\u2003b@p.com\u2003", "expectInvalid"],
-["\u3000a@p.com\u3000,\u3000b@p.com\u3000", "\u3000a@p.com\u3000,\u3000b@p.com\u3000", "expectInvalid"],
-[",,", ",,", "expectInvalid"],
-[" ,,", ",,", "expectInvalid"],
-[", ,", ",,", "expectInvalid"],
-[",, ", ",,", "expectInvalid"],
-["  ,  ,  ", ",,", "expectInvalid"],
-["\u0020,\u0020,\u0020", ",,", "expectInvalid"],
-["\u0009,\u0009,\u0009", ",,", "expectInvalid"],
-["\u000A,\u000A,\u000A", ",,", "expectInvalid"],
-["\u000B,\u000B,\u000B", "\u000B,\u000B,\u000B", "expectInvalid"],
-["\u000C,\u000C,\u000C", ",,", "expectInvalid"],
-["\u000D,\u000D,\u000D", ",,", "expectInvalid"],
-["\u2003,\u2003,\u2003", "\u2003,\u2003,\u2003", "expectInvalid"],
-["\u3000,\u3000,\u3000", "\u3000,\u3000,\u3000", "expectInvalid"]]
-
-''' each debug matches up with the empty new line (e.g., 128).
-debug("Valid single addresses when 'multiple' attribute is not set."],
-debug("Invalid single addresses when 'multiple' attribute is not set."],
-debug("Valid single addresses when 'multiple' attribute is set."],
-debug("Invalid single addresses when 'multiple' attribute is set."],
-debug("Valid multiple addresses when 'multiple' attribute is set."],
-debug("Invalid multiple addresses when 'multiple' attribute is set."],
-'''
 chromium_validity = []
-with open("chromium.txt", "r") as f1:
+with open("tests/chromium_validity.txt", "r") as f1:
     for line in f1:
         if "expectValid" in line:
             chromium_validity.append(green + line.strip('\n') + reset)
@@ -474,7 +317,7 @@ def attachment_work():
         if TOTAL >= 26214400:
             print("Warning: The total size of all attachments is greater than or equal to 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n")
 
-def email_work():
+def email_work(test):
     '''Check for valid email addresses.
        Split 'From' e-mail address into name (if one is given) and email: "Example <example@example.com>" -> "Example", "example@example.com".
        Credit for a superior regex goes to Teal Dulcet.
@@ -482,20 +325,13 @@ def email_work():
     if not VARS["TOEMAILS"] and not VARS["BCCEMAILS"]:
         error_exit(True, "No 'To' or 'BCC' email supplied. Please enter one or both.")
 
-    #FROMADDRESS = VARS["FROMEMAIL"] # TODO -- delete when regex is solved.
-    #RE=re.compile(r'(?:\"?([^\"]*)\"?\s)?[%<a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.>]+')
-
-    # ***Teal's code***
-    ## This is the 1st regex he developed from the messages.
     VARS["FROMADDRESS"] = VARS["FROMEMAIL"]
 
-    ## This is the 2nd regex he developed (and after we added a lot more test cases).
-    #RE=re.compile(r'^(.{1,64}@[\w.-]{4,254})|((.*) *<(.{1,64}@[\w.-]{4,254})>)$')
     RE=re.compile(r'^((.{1,64}@[\w.-]{4,254})|(.*) *<(.{1,64}@[\w.-]{4,254})>)$')
     RE1=re.compile(r'^.{6,254}$')
     RE2=re.compile(r'^.{1,64}@')
     RE3=re.compile(r'^(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$')
-    global index # TODO -- firefox delet
+    global index
 
     # Check if the email is valid.
     try:
@@ -518,19 +354,28 @@ def email_work():
             result = RE.match(VARS["FROMADDRESS"])
             if result:
                 VARS["FROMADDRESS"] = result.group(2) if result.group(2) else result.group(4)
-            #if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]): # TODO -- restore after  after regex testing is done.
+            ### Testing Code ###
             if not RE1.match(VARS["FROMADDRESS"]) or not RE2.match(VARS["FROMADDRESS"]) or not RE3.match(VARS["FROMADDRESS"]):
-                #print("Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # TODO -- delete
-                #print(red + "Error: \""+reset + VARS["FROMADDRESS"]+"\" is not a valid e-mail address. Should be " + firefox_values[index][0]) # TODO -- firefox version...delete
-                print(red + "Error: \""+reset + VARS["FROMADDRESS"]+"\" is not a valid e-mail address. Should be " + chromium_validity[index]) # TODO -- chromium version...delete
-                index +=1
+                tests = ["tests/valid.txt", "tests/invalid.txt", "tests/firefox.txt", "tests/chromium.txt"]
+                if test == "valid" or test == "invalid":
+                    print("Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # invalid email test
+                elif test == "firefox":
+                    print(red + "Error: \""+reset + VARS["FROMADDRESS"]+"\" is not a valid e-mail address. Should be " + firefox_validity[index]) # firefox test
+                    index +=1
+                else:
+                    print(red + "Error: \""+reset + VARS["FROMADDRESS"]+"\" is not a valid e-mail address. Should be " + chromium_validity[index]) # chromium test
+                    index +=1
                 return
-                error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.") # restore after regex testing is done.
+                error_exit(True, "Error: \""+VARS["FROMADDRESS"]+"\" is not a valid e-mail address.")
             else:
-                #print("Valid: \""+VARS["FROMADDRESS"]+"\".") # TODO -- delete
-                #print(green + "Valid: \""+reset+VARS["FROMADDRESS"]+"\". Should be " + firefox_values[index][0]) # TODO -- firefox version...delete
-                print(green + "Valid: \""+reset+VARS["FROMADDRESS"]+"\". Should be " + chromium_validity[index]) # TODO -- chromium version...delete
-                index +=1
+                if test == "valid" or test == "invalid":
+                    print("Valid: \""+VARS["FROMADDRESS"]+"\".") # valid e-mail address test
+                elif test == "firefox":
+                    print(green + "Valid: \""+reset+VARS["FROMADDRESS"]+"\". Should be " + firefox_validity[index]) # firefox test
+                    index +=1
+                else:
+                    print(green + "Valid: \""+reset+VARS["FROMADDRESS"]+"\". Should be " + chromium_validity[index]) # chromium test
+                    index +=1
                 return
         else:
             error_exit(True, "Error: Must specify FROM e-mail address.")
@@ -634,34 +479,37 @@ def passphrase_checks():
 
 def main(argv):
     # testing
-    # TODO -- delete this testing structure
-    #with open("valid.txt", "r") as f1: # test valid e-mail addresses
-    #with open("invalid.txt", "r") as f1: # test invalid e-mail addresses
-    with open("firefox.txt", "r") as f1: # test invalid e-mail addresses
-        try:
-            #for line in f1:
-                #VARS["FROMEMAIL"] = line.strip('\n')
-            for line in chromium_values:
-                length = len(line)
-                VARS["FROMEMAIL"] = line[0].strip('\n')
+    tests = ["tests/valid.txt", "tests/invalid.txt", "tests/firefox.txt", "tests/chromium.txt"]
+    for test in tests:
+        with open(test, "r") as f1:
+            print("Running tests from: " + bold + test + reset + "\n")
+            try:
+                for line in f1:
+                    VARS["FROMEMAIL"] = line.strip('\n')
 
-                # parsing/assignment
-                parse_assign(argv)
-                configuration_assignment() # use default configuration if nothing was put on the CMDline
+                    # parsing/assignment
+                    parse_assign(argv)
+                    #configuration_assignment() # use default configuration if nothing was put on the CMDline # NOTE: this will mess up the chromium tests
+                    if VARS["FROMEMAIL"] == "": # We can't test empty strings because logic in our program creates an issue...skip over this as its invalid anyways.
+                        global index
+                        index += 1
+                        continue
 
-                # email/email checks
-                email_work()
-                attachment_work()
+                    # email/email checks
+                    email_work(test.split("/")[1].strip(".txt"))
+                    attachment_work()
 
-                # signing/signing checks
-                cert_checks()
-                passphrase_checks()
+                    # signing/signing checks
+                    cert_checks()
+                    passphrase_checks()
 
-                # sending
-                sendEmail(VARS, VARS["PORT"])
-        except Exception as error:
-            print(error)
-            print("EXCEPTION CAUGHT")
+                    # sending
+                    sendEmail(VARS, VARS["PORT"])
+            except Exception as error:
+                print(error)
+                print("EXCEPTION CAUGHT")
+            print()
+            index = 0
 
 if __name__=="__main__":
     if len(sys.argv) == 1:

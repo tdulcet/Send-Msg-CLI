@@ -36,21 +36,21 @@ check() {
 }
 
 echo -e "\n${BOLD}Valid examples${NC}"
-mapfile -t VALID < valid.txt
+mapfile -t VALID < tests/valid.txt
 for email in "${VALID[@]}"; do
 	printf '%s\t' "$email"
 	check "$email" "✔️ ${GREEN}Valid${NC}" "❌ ${RED}Error Invalid${NC}"
 done | column -t -s $'\t'
 
 echo -e "\n${BOLD}Invalid examples${NC}"
-mapfile -t INVALID < invalid.txt
+mapfile -t INVALID < tests/invalid.txt
 for email in "${INVALID[@]}"; do
 	printf '%s\t' "$email"
 	check "$email" "❌ ${RED}Error Valid${NC}" "✔️ ${GREEN}Invalid${NC}"
 done | column -t -s $'\t'
 
 echo -e "\n${BOLD}Firefox examples${NC} (both Valid and Invalid)"
-mapfile -t FIREFOX < firefox.txt
+mapfile -t FIREFOX < tests/firefox.txt
 for email in "${FIREFOX[@]}"; do
 	printf '%s\t' "$email"
 	email=$(echo -e "$email")
@@ -58,7 +58,7 @@ for email in "${FIREFOX[@]}"; do
 done | column -t -s $'\t'
 
 echo -e "\n${BOLD}Chrome/Chromium examples${NC} (both Valid and Invalid)"
-mapfile -t CHROMIUM < chromium.txt
+mapfile -t CHROMIUM < tests/chromium.txt
 for email in "${CHROMIUM[@]}"; do
 	printf '%s\t' "$email"
 	email=$(echo -e "$email")

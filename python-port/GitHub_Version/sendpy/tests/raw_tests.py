@@ -1,7 +1,71 @@
-red = "\033[31m"
-green = "\033[32m"
-reset = '\033[0m'
-chromium_validity = [
+# Firefox and Chromium tests (modified to remove \r, \n, and spaces.
+
+firefox_values = [
+  [ '' ],
+  [ "foo@bar.com"],
+  [ "foo@bar.com"],
+  [ "foo@bar.com "],
+  [ "foo@bar.com"],
+  [ "foo@bar.com "],
+  [ "foo@bar.com   "],
+  [ "foo@bar.com   "],
+  [ "tulip"],
+
+  [ "@bar.com"],
+  [ "foo@bar.com"],
+  [ "foo@bar.com"],
+  [ "foo@bar.com"],
+  [ "fü@foo.com"],
+
+  [ "foo@bar"],
+  [ "foo@b"],
+  [ "foo@"],
+  [ "foo@bar."],
+  [ "foo@foo.bar"],
+  [ "foo@foo..bar"],
+  [ "foo@.bar"],
+  [ "foo@tulip.foo.bar"],
+  [ "foo@tulip.foo-bar"],
+  [ "foo@1.2"],
+  [ "foo@127.0.0.1"],
+  [ "foo@1.2.3"],
+  [ "foo@bar.com"],
+  [ "foo@bar.com"],
+  [ "foo@bar.com"],
+  [ "foo@."],
+  [ "foo@fü.com"],
+  [ "foo@fu.cüm"],
+  [ "thisUsernameIsLongerThanSixtyThreeCharactersInLengthRightAboutNow@mozilla.tld"],
+
+  [ "this.is.email.should.be.longer.than.sixty.four.characters.föö@mözillä.tld"],
+  [ "this-is-email-should-be-longer-than-sixty-four-characters-föö@mözillä.tld"],
+
+  [ "foo@thislabelisexactly63characterssssssssssssssssssssssssssssssssss"],
+  [ "foo@thislabelisexactly63characterssssssssssssssssssssssssssssssssss.com"],
+  [ "foo@foo.thislabelisexactly63characterssssssssssssssssssssssssssssssssss.com"],
+  [ "foo@foo.thislabelisexactly63characterssssssssssssssssssssssssssssssssss"],
+  [ "foo@thislabelisexactly64charactersssssssssssssssssssssssssssssssssss"],
+  [ "foo@thislabelisexactly64charactersssssssssssssssssssssssssssssssssss.com"],
+  [ "foo@foo.thislabelisexactly64charactersssssssssssssssssssssssssssssssssss.com"],
+  [ "foo@foo.thislabelisexactly64charactersssssssssssssssssssssssssssssssssss"],
+
+  [ "foo@thisläbelisexäctly63charäcterssssssssssssssssssssssssssssssssss"],
+  [ "foo@thisläbelisexäctly63charäcterssssssssssssssssssssssssssssssssss.com"],
+  [ "foo@foo.thisläbelisexäctly63charäcterssssssssssssssssssssssssssssssssss.com"],
+  [ "foo@foo.thisläbelisexäctly63charäcterssssssssssssssssssssssssssssssssss"],
+
+  [ "foo@foo-bar"],
+  [ "foo@-foo"],
+  [ "foo@foo-.bar"],
+  [ "foo@-.-"],
+  [ "foo@fo-o.bar"],
+  [ "foo@fo-o.-bar"],
+  [ "foo@fo-o.bar-"],
+  [ "foo@fo-o.-"],
+  [ "foo@fo--o"],
+]
+
+chromium_values = [
 ["something@something.com", "something@something.com", "expectValid"],
 ["someone@localhost.localdomain", "someone@localhost.localdomain", "expectValid"],
 ["someone@127.0.0.1", "someone@127.0.0.1", "expectValid"],
@@ -148,20 +212,4 @@ chromium_validity = [
 ["\u000D,\u000D,\u000D", ",,", "expectInvalid"],
 ["\u2003,\u2003,\u2003", "\u2003,\u2003,\u2003", "expectInvalid"],
 ["\u3000,\u3000,\u3000", "\u3000,\u3000,\u3000", "expectInvalid"]]
-
-def printColor(value, index, color):
-    if value[index] == "expectValid":
-        print(green + value[index] + reset)
-    else:
-        print(red + value[index] + reset)
-
-for i in chromium_validity:
-    length = len(i)
-    if length == 3:
-        printColor(i, length-1, green) if i[length-1] == "expectValid" else printColor(i, length-1, red)
-    elif length == 4:
-        printColor(i, length-1, green) if i[length-1] == "expectValid" else printColor(i, length-1, red)
-    elif len(i) == 5:
-        printColor(i, length-1, green) if i[length-1] == "expectValid" else printColor(i, length-1, red) # TODO -- change to print i[1] instead of the default i[0]
-
 

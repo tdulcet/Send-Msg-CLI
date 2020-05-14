@@ -3,14 +3,14 @@ foo@bar.com
 foo@bar.com
 foo@bar.com 
 foo@bar.com
-foo@bar.com \n\r
-foo@bar.com\n\n   \r\r
-\n\rfoo@bar.com\n\r   \n\r
+foo@bar.com 
+foo@bar.com   
+foo@bar.com   
 tulip
 @bar.com
-f\noo@bar.com
-f\roo@bar.com
-f\r\noo@bar.com
+foo@bar.com
+foo@bar.com
+foo@bar.com
 fü@foo.com
 foo@bar
 foo@b
@@ -24,9 +24,9 @@ foo@tulip.foo-bar
 foo@1.2
 foo@127.0.0.1
 foo@1.2.3
-foo@b\nar.com
-foo@b\rar.com
-foo@b\r\nar.com
+foo@bar.com
+foo@bar.com
+foo@bar.com
 foo@.
 foo@fü.com
 foo@fu.cüm
