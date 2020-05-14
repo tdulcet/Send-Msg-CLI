@@ -315,19 +315,28 @@ def email_work():
     # Check if the email is valid.
     try:
         for i in range(0, len(VARS["TOEMAILS"])):
-            result = RE.match(VARS["TOEMAILS"][i])
-            if not result:
-                error_exit(True, "Error: \""+VARS["TOEMAILS"][i]+"\" is not a valid e-mail address.")
+            temp = VARS["TOEMAILS"][i]
+            result = RE.match(temp)
+            if result:
+                temp = result.group(2) if result.group(2) else result.group(4)
+            if not (RE1.match(temp) and RE2.match(temp) and RE3.match(temp)):
+                error_exit(True, "Error: \""+temp+"\" is not a valid e-mail address.")
 
         for i in range(0, len(VARS["CCEMAILS"])):
-            result = RE.match(VARS["CCEMAILS"][i])
-            if not result:
-                error_exit(True, "Error: \""+VARS["CCEMAILS"][i]+"\" is not a valid e-mail address.")
+            temp = VARS["CCEMAILS"][i]
+            result = RE.match(temp)
+            if result:
+                temp = result.group(2) if result.group(2) else result.group(4)
+            if not (RE1.match(temp) and RE2.match(temp) and RE3.match(temp)):
+                error_exit(True, "Error: \""+temp+"\" is not a valid e-mail address.")
 
         for i in range(0, len(VARS["BCCEMAILS"])):
-            result = RE.match(VARS["BCCEMAILS"][i])
-            if not result:
-                error_exit(True, "Error: \""+VARS["BCCEMAILS"][i]+"\" is not a valid e-mail address.")
+            temp = VARS["BCCEMAILS"][i]
+            result = RE.match(temp)
+            if result:
+                temp = result.group(2) if result.group(2) else result.group(4)
+            if not (RE1.match(temp) and RE2.match(temp) and RE3.match(temp)):
+                error_exit(True, "Error: \""+temp+"\" is not a valid e-mail address.")
 
         if VARS["FROMADDRESS"]:
             result = RE.match(VARS["FROMADDRESS"])
