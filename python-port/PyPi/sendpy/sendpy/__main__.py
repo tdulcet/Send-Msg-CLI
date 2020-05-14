@@ -10,9 +10,9 @@ import codecs
 import atexit
 from shutil import which
 
-from send import sendEmail
-import usage
-import configuration
+from .send import sendEmail
+from . import usage
+from . import configuration
 
 '''Copyright © Daniel Connelly
 
