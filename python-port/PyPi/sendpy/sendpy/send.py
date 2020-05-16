@@ -1,4 +1,6 @@
-import email, smtplib, ssl
+import email
+import smtplib
+import ssl
 import sys
 import subprocess
 import atexit
@@ -18,11 +20,13 @@ from email.mime.application import MIMEApplication
    values/attachments/keys to send the message requested by the user.
 '''
 
+
 def error_exit(condition, err):
     '''print an error and exit when one occurs'''
     if condition:
         sys.stderr.write(err)
         sys.exit(1)
+
 
 def set_main_headers(VARS, message):
     '''Set common headers in every email'''
@@ -39,6 +43,7 @@ def set_main_headers(VARS, message):
         message["X-Priority"] = VARS["PRIORITY"]
     return message
 
+
 def attachments(message, attachments):
     '''
     Create a MIMEApplication method with our attachment as a payload and then attach it to our main message.
@@ -47,11 +52,13 @@ def attachments(message, attachments):
     for path in attachments:
         with open(path, 'rb') as f1:
             part = MIMEApplication(
-                    f1.read(),
-                    name=f'{path}')
-        part['Content-Disposition'] = f'attachment;' + f' filename='+os.path.basename(path)
+                f1.read(),
+                name=f'{path}')
+        part['Content-Disposition'] = f'attachment;' + \
+            f' filename='+os.path.basename(path)
         del part["MIME-Version"]
         message.attach(part)
+
 
 def messageFromSignature(signature, content_type=None):
     '''Returns the pgp message signature as a payload of the message'''
@@ -60,6 +67,7 @@ def messageFromSignature(signature, content_type=None):
         message['Content-Type'] = content_type
     message.set_payload(signature)
     return message
+
 
 def smime(VARS):
     '''Signs message + attachments with S/MIME protocol'''
@@ -83,14 +91,18 @@ def smime(VARS):
 
     platform = sys.platform
     if sys.platform == 'darwin':
-        p = subprocess.Popen("openssl smime -sign -in message -signer \""+VARS["CLIENTCERT"] + "\"",shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen("openssl smime -sign -in message -signer \"" +
+                             VARS["CLIENTCERT"] + "\"", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     else:
-        p = subprocess.Popen("openssl cms -sign -in message -signer \""+VARS["CLIENTCERT"] + "\"",shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen("openssl cms -sign -in message -signer \"" +
+                             VARS["CLIENTCERT"] + "\"", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    cert_sig, stderr = [x.decode().replace("\r\n", "\n") for x in p.communicate()]
+    cert_sig, stderr = [x.decode().replace("\r\n", "\n")
+                        for x in p.communicate()]
     message = email.message_from_bytes(bytes(cert_sig, "utf-8"))
     set_main_headers(VARS, message)
     return message
+
 
 def pgp(VARS):
     '''Signs message + attachments with PGP key'''
@@ -98,7 +110,8 @@ def pgp(VARS):
         print("No message to sign")
         sys.exit(1)
 
-    message = MIMEMultipart(_subtype="signed", micalg="pgp-sha1", protocol="application/pgp-signature")
+    message = MIMEMultipart(
+        _subtype="signed", micalg="pgp-sha1", protocol="application/pgp-signature")
     if VARS["LANGUAGE"]:
         message['Content-Language'] = locale.getdefaultlocale()[0].replace('_', '-')
 
@@ -111,13 +124,16 @@ def pgp(VARS):
         f1.write(str(message))
     atexit.register(lambda x: os.remove(x), "message")
 
-    p = subprocess.Popen("gpg --pinentry-mode loopback --batch -o - -ab -u \""+VARS["FROMADDRESS"]+"\" --passphrase-fd 0 message", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen("gpg --pinentry-mode loopback --batch -o - -ab -u \"" +
+                         VARS["FROMADDRESS"]+"\" --passphrase-fd 0 message", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     pgp_sig = p.communicate(bytes(VARS["PASSPHRASE"], "utf-8"))[0].decode()
-    signmsg = messageFromSignature(pgp_sig, 'application/pgp-signature; name="signature.asc"')
+    signmsg = messageFromSignature(
+        pgp_sig, 'application/pgp-signature; name="signature.asc"')
     signmsg['Content-Disposition'] = 'attachment; filename="signature.asc"'
     set_main_headers(VARS, message)
     message.attach(signmsg)
     return message
+
 
 def send_normal(VARS):
     '''Sends (does not sign) a message'''
@@ -137,6 +153,7 @@ def send_normal(VARS):
     set_main_headers(VARS, message)
     return message
 
+
 def port465(VARS, message, PORT=465):
     '''Log in to server using secure context from the onset and send email. This uses SSL/TLS.'''
     context = ssl.create_default_context()
@@ -144,8 +161,10 @@ def port465(VARS, message, PORT=465):
         if VARS["VERBOSE"]:
             server.set_debuglevel(2)
         server.login(VARS["USERNAME"], VARS["PASSWORD"])
-        server.send_message(message) # send_message() annoymizes BCC, rather than sendmail().
+        # send_message() annoymizes BCC, rather than sendmail().
+        server.send_message(message)
         print("Message sent\n")
+
 
 def port587(VARS, message, PORT=587):
     '''Create an unsecured connection, then secure it, and then send email. This uses startTLS.'''
@@ -155,20 +174,25 @@ def port587(VARS, message, PORT=587):
         if VARS["VERBOSE"]:
             server.set_debuglevel(2)
         server.login(VARS["USERNAME"], VARS["PASSWORD"])
-        server.send_message(message) # send_message() annoymizes BCC, rather than sendmail().
+        # send_message() annoymizes BCC, rather than sendmail().
+        server.send_message(message)
         print("Message sent\n")
+
 
 def port25(VARS, message, PORT=25):
     '''Use a local SMTP server connection to send email'''
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM, timeout=10) as sock:
-        if sock.connect_ex(('aspmx.l.google.com',25)) != 0: # testing connection as computer may not block port 25, but ISP/Cloud provider may.
+        # testing connection as computer may not block port 25, but ISP/Cloud provider may.
+        if sock.connect_ex(('aspmx.l.google.com', 25)) != 0:
             error_exit(True, "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to provide an external SMTP server in order to send e-mails.\n")
 
     with smtplib.SMTP(VARS["SMTP"], PORT) as server:
         if VARS["VERBOSE"]:
             server.set_debuglevel(2)
-        server.send_message(message) # send_message() annoymizes BCC, rather than sendmail().
+        # send_message() annoymizes BCC, rather than sendmail().
+        server.send_message(message)
         print("Message MAY have been sent; this program can only check if port 25 is blocked.\n")
+
 
 def sendEmail(VARS, PORT=0):
     '''This function compiles our (optionally signed) message and calls the correct send function according to what port is entered.'''
@@ -187,8 +211,8 @@ def sendEmail(VARS, PORT=0):
         message = send_normal(VARS)
 
     # Debug code
-    #print(message.as_string())
-    #sys.exit()
+    # print(message.as_string())
+    # sys.exit()
 
     try:
         if VARS["TLS"] or PORT == 465:
@@ -198,7 +222,8 @@ def sendEmail(VARS, PORT=0):
         elif PORT == 0 or PORT == 25:
             port25(VARS, message, PORT)
         else:
-            error_exit(True, "Non-standard port chosen, but --tls or --starttls flags were not selected. Please add the correct protocol/flag and try again.")
+            error_exit(
+                True, "Non-standard port chosen, but --tls or --starttls flags were not selected. Please add the correct protocol/flag and try again.")
 
     except socket.timeout:
         error_exit(True, "Connection timed out when trying to connect. Please verify the server is up or you entered the correct port number for the SMTP server.")
