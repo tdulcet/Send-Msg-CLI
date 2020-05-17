@@ -19,8 +19,8 @@ import configuration
 
    The purpose of this file is to
    1. parse all flags given on the cmdline.
-   2. do checks to see if those files are valid
-   3. handle escape characters appropriately
+   2. do checks to see if those flags are valid
+   3. handle escape characters appropriately and call sendEmail()
 '''
 
 # Default Variables
@@ -55,53 +55,30 @@ VARS = {"TOEMAILS": [],
 # Stores default SMTP server, username, password if `--config` option is set.
 CONFIG_FILE = "~/.sendpy.ini"
 
-# ESCAPE_SEQUENCE_RE and decode_escapes credit -- https://stackoverflow.com/a/24519338/8651748 and Teal Dulcet
-ESCAPE_SEQUENCE_RE = re.compile(
-    r'''(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])''')
+# Thanks to Teal Dulcet for greatly improving the zero_pad functions.
 
 
-def zero_pad(message):
-    '''zero_pad escape characters (u and U and x) that are < 4 numbers long, since python doesn't support this'''
-    new_message = ""
-    start_index = 0  # what we begin at for each iteration through our loop
-    len_message = len(message)
-    RE = re.compile('^[0-9a-fA-F]$')  # matches any hexadecimal char
-    while start_index < len_message:
-        new_message += message[start_index]
-        if start_index + 1 != len_message and message[start_index] == "\\" and (message[start_index+1] == "u" or message[start_index+1] == "U" or message[start_index+1] == "x"):
-            esc_char = message[start_index+1]  # u, U, or x
-            if esc_char == 'u':
-                zero_pad = 4  # amount of zeroes to add
-            elif esc_char == 'U':
-                zero_pad = 8
-            else:  # x
-                zero_pad = 2
-            count = 0  # track number of escape characters to zero pad
-            new_message += esc_char
-            start_index += 2  # skip past escaped escape character
-            for j in range(start_index, len_message):
-                if count > zero_pad:
-                    # avoid re-checking the unicode/x string.
-                    start_index += zero_pad
-                    break
-                # reach the end/beginning of new unicode/x string:
-                if re.match(RE, message[j]):
-                    count += 1
-                else:
-                    # Zero pad
-                    new_message += "0" * (zero_pad-count)
+def zero_pad(match):
+    amatch = match.group(0)
+    if amatch[1] == 'U':
+        zero_pad = 8
+    elif amatch[1] == 'u':
+        zero_pad = 4
+    else:  # x
+        zero_pad = 2
+    # the unicode character + amount of zeros + the original unicode typed in
+    return amatch[:2] + ("0" * (zero_pad-(len(amatch)-2))) + amatch[2:]
 
-                    # add back in characters
-                    for k in range(0, count):
-                        new_message += message[start_index]
-                        start_index += 1
-                    start_index -= 1  # for back-to-back escape sequences
-                    break
-        start_index += 1
-    return new_message
+
+def zero_pad_w(message):
+    return re.sub(r'\\U[0-9a-fA-F]{4,8}|\\u[0-9a-fA-F]{2,4}|\\x[0-9a-fA-F]{1,2}', zero_pad, message)
 
 
 def decode_escapes(s):
+    # ESCAPE_SEQUENCE_RE and decode_escapes credit -- https://stackoverflow.com/a/24519338/8651748 and Teal Dulcet
+    ESCAPE_SEQUENCE_RE = re.compile(
+        r'''(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])''')
+
     def decode_match(match):
         return codecs.decode(match.group(0), 'unicode-escape')
 
@@ -152,16 +129,17 @@ def assign(opts):
             if VARS["NOTIFY"] != '':
                 print("Warning: Output from the program named in the `-n, --notify` flag will be sent in addition to the message indicated in the `-m, -message` flag.")
                 VARS["MESSAGE"] += "\n"
-            VARS["MESSAGE"] += decode_escapes(zero_pad(arg))
+            VARS["MESSAGE"] += decode_escapes(zero_pad_w(arg))
         elif opt in ("--message-file"):
             if VARS["MESSAGE"] != '':
                 VARS["MESSAGE"] += "\n"
             expanded_file = os.path.expanduser(arg)
+
             if expanded_file == '-':
-                VARS["MESSAGE"] += decode_escapes(zero_pad(sys.stdin.read()))
+                VARS["MESSAGE"] += decode_escapes(zero_pad_w(sys.stdin.read()))
             elif os.path.exists(expanded_file) and os.access(expanded_file, os.R_OK):
                 with open(expanded_file, "r") as f1:
-                    VARS["MESSAGE"] += decode_escapes(zero_pad(f1.read()))
+                    VARS["MESSAGE"] += decode_escapes(zero_pad_w(f1.read()))
             else:
                 error_exit(True, "Error: \"" + expanded_file +
                            "\" file does not exist.")
@@ -171,8 +149,8 @@ def assign(opts):
             p = subprocess.Popen(arg, shell=True, stdin=subprocess.PIPE,
                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             stdout = p.communicate()[0].decode()
-            VARS["MESSAGE"] += decode_escapes(
-                zero_pad(f'\n**OUTPUT**\n{stdout}\n**EXIT CODE**\n{p.returncode}'))
+            VARS["MESSAGE"] += (
+                zero_pad_w(f'\n**OUTPUT**\n{stdout}\n**EXIT CODE**\n{p.returncode}'))
         elif opt in ("-p", "--password"):
             VARS["PASSWORD"] = arg
         elif opt in ("--config"):
@@ -180,7 +158,7 @@ def assign(opts):
             print("Configuration file successfully set\n")
             sys.exit(0)
         elif opt in ("-s", "--subject"):
-            VARS["SUBJECT"] = decode_escapes(zero_pad(arg))
+            VARS["SUBJECT"] += decode_escapes(zero_pad_w(arg))
         elif opt in ("--starttls"):
             VARS["STARTTLS"] = True
         elif opt in ("-t", "--to"):
@@ -301,7 +279,7 @@ def attachment_work():
             atexit.register(lambda x: os.remove(x), zip_file)
             VARS["ATTACHMENTS"] = [zip_file]
 
-        # printing in a nice row; checking if total attachment size is >= 25 MB
+        # printing in a nice row; checking if total attachment size is >= 25 MiB
         for attachment in VARS["ATTACHMENTS"]:
             SIZE = os.path.getsize(attachment)
             TOTAL += int(SIZE)
@@ -319,7 +297,6 @@ def attachment_work():
 
 def email_work():
     '''Check for valid email addresses.
-       Split 'From' e-mail address into name (if one is given) and email: "Example <example@example.com>" -> "Example", "example@example.com".
        Credit for a superior regex goes to Teal Dulcet.
     '''
     if not VARS["SUBJECT"]:

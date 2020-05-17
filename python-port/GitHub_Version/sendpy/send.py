@@ -214,12 +214,13 @@ def sendEmail(VARS, PORT=0):
     # print(message.as_string())
     # sys.exit()
 
+    # Thanks to Teal Dulcet for compacting the original logic that was here.
     try:
-        if VARS["TLS"] or PORT == 465:
+        if VARS["TLS"] or PORT == 465 or PORT == 0:
             port465(VARS, message, PORT)
         elif VARS["STARTTLS"] or PORT == 587:
             port587(VARS, message, PORT)
-        elif PORT == 0 or PORT == 25:
+        elif PORT == 25:
             port25(VARS, message, PORT)
         else:
             error_exit(
