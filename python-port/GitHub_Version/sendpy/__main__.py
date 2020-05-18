@@ -59,6 +59,7 @@ CONFIG_FILE = "~/.sendpy.ini"
 
 
 def zero_pad(match):
+    '''zero_pad escape characters (u and U and x) that are < 4, < 8, and < 2 numbers long respectively, since python doesn't support this on its own'''
     amatch = match.group(0)
     if amatch[1] == 'U':
         zero_pad = 8
@@ -71,11 +72,12 @@ def zero_pad(match):
 
 
 def zero_pad_w(message):
-    return re.sub(r'\\U[0-9a-fA-F]{4,8}|\\u[0-9a-fA-F]{2,4}|\\x[0-9a-fA-F]{1,2}', zero_pad, message)
+    '''Wrapper for the zero_pad function, this function uses re.sub to zero_pad escape sequences.'''
+    return re.sub(r'\\U[0-9a-fA-F]{1,8}|\\u[0-9a-fA-F]{1,4}|\\x[0-9a-fA-F]{1,2}', zero_pad, message)
 
 
 def decode_escapes(s):
-    # ESCAPE_SEQUENCE_RE and decode_escapes credit -- https://stackoverflow.com/a/24519338/8651748 and Teal Dulcet
+    '''ESCAPE_SEQUENCE_RE and decode_escapes credit -- https://stackoverflow.com/a/24519338/8651748 and Teal Dulcet'''
     ESCAPE_SEQUENCE_RE = re.compile(
         r'''(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])''')
 
