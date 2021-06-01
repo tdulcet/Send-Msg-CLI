@@ -171,7 +171,7 @@ Examples:
 " >&2
 }
 
-if [[ "$#" -eq 0 ]]; then
+if [[ $# -eq 0 ]]; then
 	usage "$0"
 	exit 1
 fi
@@ -235,7 +235,7 @@ while getopts "a:b:c:df:hk:lm:p:s:t:u:vz:C:P:S:UV" c; do
 		exit 0
 	;;
 	z )
-		ZIPFILE=$OPTARG
+		ZIPFILE="${OPTARG%.zip}.zip"
 	;;
 	C )
 		CERT=$OPTARG
@@ -260,7 +260,7 @@ while getopts "a:b:c:df:hk:lm:p:s:t:u:vz:C:P:S:UV" c; do
 done
 shift $((OPTIND - 1))
 
-if [[ "$#" -ne 0 ]]; then
+if [[ $# -ne 0 ]]; then
 	usage "$0"
 	exit 1
 fi
@@ -274,12 +274,12 @@ if [[ -n "$PRIORITY" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USE
 	echo -e "Warning: One or more of the options you set requires that you also provide an external SMTP server. Try '$0 -h' for more information.\n"
 fi
 
-if [[ "${#TOEMAILS[@]}" -eq 0 && "${#CCEMAILS[@]}" -eq 0 && "${#BCCEMAILS[@]}" -eq 0 ]]; then
+if [[ ${#TOEMAILS[@]} -eq 0 && ${#CCEMAILS[@]} -eq 0 && ${#BCCEMAILS[@]} -eq 0 ]]; then
 	echo "Error: One or more To, CC or BCC e-mail addresses are required." >&2
 	exit 1
 fi
 
-if [[ "${#ATTACHMENTS[@]}" -gt 0 ]]; then
+if [[ ${#ATTACHMENTS[@]} -gt 0 ]]; then
 	TOTAL=0
 	table=''
 	for i in "${ATTACHMENTS[@]}"; do
@@ -295,25 +295,25 @@ if [[ "${#ATTACHMENTS[@]}" -gt 0 ]]; then
 			exit 1
 		fi
 		
-		zip -q "$ZIPFILE" "${ATTACHMENTS[@]}"
-		trap 'rm "$ZIPFILE"' EXIT
+		zip -q "$ZIPFILE" -- "${ATTACHMENTS[@]}"
+		trap 'rm -- "$ZIPFILE"' EXIT
 		
 		ATTACHMENTS=( "$ZIPFILE" )
 	fi
 	
 	echo "Attachments:"
 	for i in "${ATTACHMENTS[@]}"; do
-		SIZE=$(du -b "$i" | awk '{ print $1 }')
+		SIZE=$(du -b -- "$i" | awk '{ print $1 }')
 		((TOTAL+=SIZE))
-		table+="$i\t$(numfmt --to=iec-i "$SIZE")B$([[ $SIZE -ge 1000 ]] && echo "\t($(numfmt --to=si "$SIZE")B)" || echo)\n"
+		table+=$(printf '%s\t%s\t%s\n' "$i" "$(numfmt --to=iec-i "$SIZE")B" "$([[ $SIZE -ge 1000 ]] && echo "($(numfmt --to=si "$SIZE")B)" || echo)")
 	done
-	echo -e "$table" | column -t -s $'\t'
+	echo "$table" | column -t -s $'\t'
 	
 	echo -e "\nTotal Size:\t$(numfmt --to=iec-i "$TOTAL")B$([[ $TOTAL -ge 1000 ]] && echo " ($(numfmt --to=si "$TOTAL")B)")\n"
-	# du -bch "${ATTACHMENTS[@]}"
+	# du -bch -- "${ATTACHMENTS[@]}"
 	
 	if [[ $TOTAL -ge 26214400 ]]; then
-		echo -e "Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Firefox Send: https://send.firefox.com or transfer.sh: https://transfer.sh\n"
+		echo -e "Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Send: https://send.vis.ee/ (formerly Firefox Send) or transfer.sh: https://transfer.sh\n"
 	fi
 fi
 
@@ -329,7 +329,7 @@ encoded-word() {
 	if [[ $1 =~ $RE ]]; then
 		echo "$1"
 	else
-		echo "=?utf-8?B?$(echo "$1" | base64 -w 0)?="
+		echo "=?utf-8?B?$(echo -e "$1" | base64 -w 0)?="
 	fi
 }
 
@@ -342,35 +342,37 @@ FROMADDRESS=$FROMEMAIL
 FROMNAME=$FROMEMAIL
 
 # Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
-RE='^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'
+RE='^(([[:print:]]{1,64}@[-.[:alnum:]]{4,254})|([[:print:]]*) *<([[:print:]]{1,64}@[-.[:alnum:]]{4,254})>)$'
 for i in "${!TOADDRESSES[@]}"; do
 	if [[ ${TOADDRESSES[i]} =~ $RE ]]; then
-		TOADDRESSES[i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
-		TONAMES[i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
+		TOADDRESSES[i]=${BASH_REMATCH[2]:-${BASH_REMATCH[4]}}
+		TONAMES[i]=${BASH_REMATCH[2]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 	fi
 done
 
 for i in "${!CCADDRESSES[@]}"; do
 	if [[ ${CCADDRESSES[i]} =~ $RE ]]; then
-		CCADDRESSES[i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
-		CCNAMES[i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
+		CCADDRESSES[i]=${BASH_REMATCH[2]:-${BASH_REMATCH[4]}}
+		CCNAMES[i]=${BASH_REMATCH[2]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 	fi
 done
 
 for i in "${!BCCADDRESSES[@]}"; do
 	if [[ ${BCCADDRESSES[i]} =~ $RE ]]; then
-		BCCADDRESSES[i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
+		BCCADDRESSES[i]=${BASH_REMATCH[2]:-${BASH_REMATCH[4]}}
 	fi
 done
 
 if [[ -n "$FROMADDRESS" ]] && [[ $FROMADDRESS =~ $RE ]]; then
-	FROMADDRESS=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
-	FROMNAME=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
+	FROMADDRESS=${BASH_REMATCH[2]:-${BASH_REMATCH[4]}}
+	FROMNAME=${BASH_REMATCH[2]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 fi
 
+# E-mail address regular expressions
 RE1='^.{6,254}$'
 RE2='^.{1,64}@'
-RE3='^[[:alnum:]!#\$%&'\''\*\+/=?^_\`{|}~-]+(\.[[:alnum:]!#\$%&'\''\*\+/=?^_\`{|}~-]+)*@((xn--)?[[:alnum:]][[:alnum:]\-]{0,61}[[:alnum:]]\.)+(xn--)?[a-zA-Z]{2,63}$'
+# RE3='^[[:alnum:]!#$%&'\''*+/=?^_`{|}~-]+(\.[[:alnum:]!#$%&'\''*+/=?^_`{|}~-]+)*@([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63})$'
+RE3='^(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63})$'
 for email in "${TOADDRESSES[@]}"; do
 	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
 		echo "Error: \"$email\" is not a valid e-mail address." >&2
@@ -403,7 +405,7 @@ if [[ -n "$CERT" ]]; then
 		exit 1
 	fi
 
-	if [[ ! -f "$CLIENTCERT" ]]; then
+	if [[ ! -s "$CLIENTCERT" ]]; then
 		echo -e "Saving the client certificate from \"$CERT\" to \"$CLIENTCERT\""
 		echo -e "Please enter the password when prompted.\n"
 		openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes
@@ -464,14 +466,15 @@ send() {
 	local headers message amessage lang=${LANG%.*}
 	if [[ -n "$SEND" ]]; then
 		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
-			headers="${PRIORITY:+X-Priority: $PRIORITY\n}From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(if [[ -n "$UTC" ]]; then date -Rud "@$(( ${EPOCHSECONDS:-$(date +%s)} / 60 * 60 ))"; else date -R; fi)\n"
-			if [[ "$#" -ge 3 ]]; then
-				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n${CONTENTLANG:+$([[ "${#lang}" -ge 2 ]] && echo "Content-Language: ${lang/_/-}\n")}\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
+			headers="${PRIORITY:+X-Priority: $PRIORITY\n}From: $FROMNAME\n$(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(if [[ -n "$UTC" ]]; then date -Rud "@$(( ${EPOCHSECONDS:-$(date +%s)} / 60 * 60 ))"; else date -R; fi)\n"
+			if [[ $# -ge 3 ]]; then
+				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}\n")}\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type -- "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename -- "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 -- "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
 			else
-				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n${CONTENTLANG:+$([[ "${#lang}" -ge 2 ]] && echo "Content-Language: ${lang/_/-}\n")}\n$2"
+				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}\n")}\n$2"
 			fi
 			if [[ -n "$CERT" ]]; then
-				echo -e "${headers}$(echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT")"
+				echo -e -n "${headers}"
+				echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT"
 			elif [[ -n "$PASSPHRASE" ]]; then
 				amessage=$(echo -e "$message")
 				echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"----MULTIPART-SIGNED-BOUNDARY\"\n\n------MULTIPART-SIGNED-BOUNDARY\n"
@@ -481,7 +484,7 @@ send() {
 				echo -e "${headers}MIME-Version: 1.0\n$message"
 			fi | eval curl -sS"${VERBOSE:+v}" "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
 		else
-			{ echo -e "$2"; [[ "$#" -ge 3 ]] && for i in "${@:3}"; do uuencode "$i" "$(basename "$i")"; done; } | eval mail ${FROMADDRESS:+-r "$FROMADDRESS"} $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ "${#TOADDRESSES[@]}" -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
+			{ echo -e "$2"; [[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done; } | eval mail ${FROMADDRESS:+-r "$FROMADDRESS"} $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
 		fi
 	fi
 }
