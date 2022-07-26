@@ -131,6 +131,7 @@ Options:
                         Uses value of LANG environment variable.
     -U              Sanitize the Date
                         Uses Coordinated Universal Time (UTC) and rounds date down to whole minute. Set the TZ environment variable to change time zone.
+    -T <seconds>    Time to delay sending of the e-mail
     -d              Dry run, do not send the e-mail
     -V              Verbose, show the client-server communication
                         Requires SMTP server.
@@ -188,7 +189,7 @@ if ! echo "$OSTYPE" | grep -iq "linux"; then
 	exit 1
 fi
 
-while getopts "a:b:c:df:hk:lm:p:s:t:u:vz:C:P:S:UV" c; do
+while getopts "a:b:c:df:hk:lm:p:s:t:u:vz:C:P:S:T:UV" c; do
 	case ${c} in
 	a )
 		ATTACHMENTS+=( "$OPTARG" )
@@ -246,6 +247,9 @@ while getopts "a:b:c:df:hk:lm:p:s:t:u:vz:C:P:S:UV" c; do
 	S )
 		SMTP=$OPTARG
 	;;
+	T )
+		TIME=$OPTARG
+	;;
 	U )
 		UTC=1
 	;;
@@ -284,14 +288,14 @@ if [[ ${#ATTACHMENTS[@]} -gt 0 ]]; then
 	table=''
 	for i in "${ATTACHMENTS[@]}"; do
 		if [[ -z "$i" || ! -r "$i" ]]; then
-			echo "Error: Cannot read \"$i\" file." >&2
+			echo "Error: Cannot read '$i' file." >&2
 			exit 1
 		fi
 	done
 	
 	if [[ -n "$ZIPFILE" ]]; then
 		if [[ -e "$ZIPFILE" ]]; then
-			echo "Error: File \"$ZIPFILE\" already exists." >&2
+			echo "Error: File '$ZIPFILE' already exists." >&2
 			exit 1
 		fi
 		
@@ -329,7 +333,7 @@ encoded-word() {
 	if [[ $1 =~ $RE ]]; then
 		echo "$1"
 	else
-		echo "=?utf-8?B?$(echo -e "$1" | base64 -w 0)?="
+		echo "=?utf-8?B?$(echo "${1@E}" | base64 -w 0)?="
 	fi
 }
 
@@ -375,38 +379,38 @@ RE2='^.{1,64}@'
 RE3='^(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63})$'
 for email in "${TOADDRESSES[@]}"; do
 	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
-		echo "Error: \"$email\" is not a valid e-mail address." >&2
+		echo "Error: '$email' is not a valid e-mail address." >&2
 		exit 1
 	fi
 done
 
 for email in "${CCADDRESSES[@]}"; do
 	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
-		echo "Error: \"$email\" is not a valid e-mail address." >&2
+		echo "Error: '$email' is not a valid e-mail address." >&2
 		exit 1
 	fi
 done
 
 for email in "${BCCADDRESSES[@]}"; do
 	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
-		echo "Error: \"$email\" is not a valid e-mail address." >&2
+		echo "Error: '$email' is not a valid e-mail address." >&2
 		exit 1
 	fi
 done
 
 if [[ -n "$FROMADDRESS" ]] && ! [[ $FROMADDRESS =~ $RE1 && $FROMADDRESS =~ $RE2 && $FROMADDRESS =~ $RE3 ]]; then
-	echo "Error: \"$FROMADDRESS\" is not a valid e-mail address." >&2
+	echo "Error: '$FROMADDRESS' is not a valid e-mail address." >&2
 	exit 1
 fi
 
 if [[ -n "$CERT" ]]; then
 	if [[ ! -r "$CERT" && ! -f "$CLIENTCERT" ]]; then
-		echo "Error: \"$CERT\" certificate file does not exist." >&2
+		echo "Error: '$CERT' certificate file does not exist." >&2
 		exit 1
 	fi
 
 	if [[ ! -s "$CLIENTCERT" ]]; then
-		echo -e "Saving the client certificate from \"$CERT\" to \"$CLIENTCERT\""
+		echo -e "Saving the client certificate from '$CERT' to '$CLIENTCERT'"
 		echo -e "Please enter the password when prompted.\n"
 		openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes
 	fi
@@ -417,7 +421,10 @@ if [[ -n "$CERT" ]]; then
 	# fi
 
 	if aissuer=$(openssl x509 -in "$CLIENTCERT" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq); then
-		issuer=$(echo "$aissuer" | awk -F'=' '/commonName=/ { print $2 }')
+		issuer=$(echo "$aissuer" | awk -F'=' '/organizationName=/ { print $2 }')
+		if [[ -z "$issuer" ]]; then
+			issuer=$(echo "$aissuer" | awk -F'=' '/commonName=/ { print $2 }')
+		fi
 	else
 		issuer=''
 	fi
@@ -435,7 +442,7 @@ fi
 
 if [[ -n "$PASSPHRASE" ]]; then
 	if ! echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo); then
-		echo "Error: A PGP key pair does not yet exist for \"$FROMADDRESS\" or the passphrase was incorrect." >&2
+		echo "Error: A PGP key pair does not yet exist for '$FROMADDRESS' or the passphrase was incorrect." >&2
 		exit 1
 	fi
 	
@@ -446,10 +453,10 @@ if [[ -n "$PASSPHRASE" ]]; then
 		fingerprint=$(gpg --fingerprint --with-colons "$FROMADDRESS" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)
 		if [[ $sec -gt 0 ]]; then
 			if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
-				echo -e "Warning: The PGP key pair for \"$FROMADDRESS\" with fingerprint $fingerprint expires in less than $WARNDAYS days ($(date -d "@$date")).\n"
+				echo -e "Warning: The PGP key pair for '$FROMADDRESS' with fingerprint $fingerprint expires in less than $WARNDAYS days ($(date -d "@$date")).\n"
 			fi
 		else
-			echo "Error: The PGP key pair for \"$FROMADDRESS\" with fingerprint $fingerprint expired $(date -d "@$date")." >&2
+			echo "Error: The PGP key pair for '$FROMADDRESS' with fingerprint $fingerprint expired $(date -d "@$date")." >&2
 			exit 1
 		fi
 	fi
@@ -465,6 +472,9 @@ fi
 send() {
 	local headers message amessage lang=${LANG%.*}
 	if [[ -n "$SEND" ]]; then
+		if [[ -n "$TIME" ]]; then
+			sleep -- "$TIME"
+		fi
 		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
 			headers="${PRIORITY:+X-Priority: $PRIORITY\n}From: $FROMNAME\n$(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(if [[ -n "$UTC" ]]; then date -Rud "@$(( ${EPOCHSECONDS:-$(date +%s)} / 60 * 60 ))"; else date -R; fi)\n"
 			if [[ $# -ge 3 ]]; then
@@ -476,15 +486,15 @@ send() {
 				echo -e -n "${headers}"
 				echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT"
 			elif [[ -n "$PASSPHRASE" ]]; then
-				amessage=$(echo -e "$message")
+				amessage=${message@E}
 				echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"----MULTIPART-SIGNED-BOUNDARY\"\n\n------MULTIPART-SIGNED-BOUNDARY\n"
 				echo -n "$amessage"
 				echo -e "\n------MULTIPART-SIGNED-BOUNDARY\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n------MULTIPART-SIGNED-BOUNDARY--"
 			else
 				echo -e "${headers}MIME-Version: 1.0\n$message"
-			fi | eval curl -sS"${VERBOSE:+v}" "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
+			fi | eval curl -sS${VERBOSE:+v} "${SMTP@Q}" --mail-from "${FROMADDRESS@Q}" $(printf -- '--mail-rcpt %s ' "${TOADDRESSES[@]@Q}" "${CCADDRESSES[@]@Q}" "${BCCADDRESSES[@]}") -T - -u "${USERNAME@Q}:${PASSWORD@Q}"
 		else
-			{ echo -e "$2"; [[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done; } | eval mail ${FROMADDRESS:+-r "$FROMADDRESS"} $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
+			{ echo -e "$2"; [[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done; } | eval mail ${FROMADDRESS:+-r ${FROMADDRESS@Q}} $([[ -n "$CCADDRESSES" ]] && printf -- '-c %s ' "${CCADDRESSES[@]@Q}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b %s ' "${BCCADDRESSES[@]@Q}" || echo) -s "${1@Q}" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo '"undisclosed-recipients: ;"' || printf -- '%s ' "${TOADDRESSES[@]@Q}")"
 		fi
 	fi
 }
