@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+title: Send E-mail Script
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Teal
+    family-names: Dulcet
+    orcid: 'https://orcid.org/0009-0008-6616-2631'
+repository-code: 'https://github.com/tdulcet/Send-Msg-CLI'
+abstract: >-
+  Send e-mail (and text messages), with optional message and
+  attachments, from the command line. Optionally use your
+  own e-mail address and an external SMTP server.
+license: GPL-3.0
+version: '1.0'

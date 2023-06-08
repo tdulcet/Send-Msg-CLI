@@ -1,5 +1,5 @@
 # Send Msg CLI
-Send E-mail Script
+Send e-mail (and text messages) from the command line
 
 Copyright © 2019 Teal Dulcet (Bash) and Daniel Connelly (Python)
 
@@ -11,7 +11,7 @@ Useful to know when a cron job failed, when a long running job (LRP) has finishe
 
 ## Usage
 
-Requires the curl and netcat commands, which are included on most Linux distributions.
+Requires Bash 4.4 and the curl and netcat commands, which are included on most Linux distributions.
 
 Optional [S/MIME](https://en.wikipedia.org/wiki/S/MIME) digital signatures require the openssl command.\
 Optional [PGP/MIME](https://en.wikipedia.org/wiki/Pretty_Good_Privacy#OpenPGP) digital signatures require the gpg command.
@@ -23,7 +23,7 @@ One or more To, CC or BCC e-mail addresses are required. Send text messages by u
 2. Download the script ([sendmsg.sh](sendmsg.sh)). Run: `wget https://raw.github.com/tdulcet/Send-Msg-CLI/master/sendmsg.sh`.
 3. At a minimum, you need to provide one To e-mail address. If the computer is on a residential network or if it does not have an SMTP server setup then you will also need to provide an external SMTP server. For security, any passwords/passphrases should be set in the script, instead of on the command line.
 4. Execute the script once to make sure there are no errors. For example, run: `chmod u+x sendmsg.sh` and `./sendmsg.sh -s "Test" -m "This is a test!" -t "Example <example@example.com>" -d`.
-5. If you want the script to be available for all users, install it. Run: `sudo mv sendmsg.sh /usr/local/bin/sendmsg` and `sudo chmod +x /usr/local/bin/sendmsg`.
+5. If you want the script to be available for all users, install it. Run: `sudo cp sendmsg.sh /usr/local/bin/sendmsg` and `sudo chmod +x /usr/local/bin/sendmsg`.
 
 ### Examples
 

@@ -51,6 +51,11 @@ BCCEMAILS=(
 # Uncomment this to enable
 # PRIORITY="Normal"
 
+# Request Return Receipt/Message Disposition Notification (MDN)
+# Requires SMTP server above
+# Uncomment this to enable
+# MDN=1
+
 # Optional Digitally sign the e-mails with an S/MIME Certificate
 # Requires SMTP server above
 
@@ -122,6 +127,8 @@ Options:
     -p <password>   SMTP server password
     -P <priority>   Priority
                         Supported priorities: \"5 (Lowest)\", \"4 (Low)\", \"Normal\", \"2 (High)\" and \"1 (Highest)\". Requires SMTP server.
+    -r              Request Return Receipt
+                        Requires SMTP server.
     -C <certificate>S/MIME Certificate filename for digitally signing the e-mails
                         It will ask you for the password the first time you run the script with this option. Requires SMTP server.
     -k <passphrase> PGP secret key passphrase for digitally signing the e-mails with PGP/MIME
@@ -177,7 +184,7 @@ if [[ $# -eq 0 ]]; then
 	exit 1
 fi
 
-NOW=$(date -u)
+NOW=${EPOCHSECONDS:-$(date +%s)}
 
 SUBJECT=''
 MESSAGE=''
@@ -189,7 +196,7 @@ if ! echo "$OSTYPE" | grep -iq "linux"; then
 	exit 1
 fi
 
-while getopts "a:b:c:df:hk:lm:p:s:t:u:vz:C:P:S:T:UV" c; do
+while getopts "a:b:c:df:hk:lm:p:rs:t:u:vz:C:P:S:T:UV" c; do
 	case ${c} in
 	a )
 		ATTACHMENTS+=( "$OPTARG" )
@@ -221,6 +228,9 @@ while getopts "a:b:c:df:hk:lm:p:s:t:u:vz:C:P:S:T:UV" c; do
 	;;
 	p )
 		PASSWORD=$OPTARG
+	;;
+	r )
+		MDN=1
 	;;
 	s )
 		SUBJECT=$OPTARG
@@ -274,7 +284,7 @@ if [[ -z "$SUBJECT" ]]; then
 	exit 1
 fi
 
-if [[ -n "$PRIORITY" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USERNAME" || -n "$PASSWORD" ]] && ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]]; then
+if [[ -n "$PRIORITY" || -n "$MDN" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USERNAME" || -n "$PASSWORD" ]] && ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]]; then
 	echo -e "Warning: One or more of the options you set requires that you also provide an external SMTP server. Try '$0 -h' for more information.\n"
 fi
 
@@ -299,8 +309,8 @@ if [[ ${#ATTACHMENTS[@]} -gt 0 ]]; then
 			exit 1
 		fi
 		
-		zip -q "$ZIPFILE" -- "${ATTACHMENTS[@]}"
 		trap 'rm -- "$ZIPFILE"' EXIT
+		zip -q "$ZIPFILE" -- "${ATTACHMENTS[@]}"
 		
 		ATTACHMENTS=( "$ZIPFILE" )
 	fi
@@ -421,16 +431,16 @@ if [[ -n "$CERT" ]]; then
 	# fi
 
 	if aissuer=$(openssl x509 -in "$CLIENTCERT" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq); then
-		issuer=$(echo "$aissuer" | awk -F'=' '/organizationName=/ { print $2 }')
+		issuer=$(echo "$aissuer" | awk -F= '/organizationName=/ { print $2 }')
 		if [[ -z "$issuer" ]]; then
-			issuer=$(echo "$aissuer" | awk -F'=' '/commonName=/ { print $2 }')
+			issuer=$(echo "$aissuer" | awk -F= '/commonName=/ { print $2 }')
 		fi
 	else
 		issuer=''
 	fi
-	date=$(openssl x509 -in "$CLIENTCERT" -noout -enddate | awk -F'=' '/notAfter=/ { print $2 }')
+	date=$(openssl x509 -in "$CLIENTCERT" -noout -enddate | awk -F= '/notAfter=/ { print $2 }')
 	if openssl x509 -in "$CLIENTCERT" -noout -checkend 0 > /dev/null; then
-		sec=$(( $(date -d "$date" +%s) - $(date -d "$NOW" +%s) ))
+		sec=$(( $(date -d "$date" +%s) - NOW ))
 		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
 			echo -e "Warning: The S/MIME Certificate ${issuer:+from “$issuer” }expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 		fi
@@ -446,11 +456,11 @@ if [[ -n "$PASSPHRASE" ]]; then
 		exit 1
 	fi
 	
-	date=$(gpg -k --with-colons "$FROMADDRESS" | awk -F':' '/^pub/ { print $7 }')
+	date=$(gpg -k --with-colons "$FROMADDRESS" | awk -F: '/^pub/ { print $7 }')
 	if [[ -n "$date" ]]; then
 		date=$(echo "$date" | head -n 1)
-		sec=$(( date - $(date -d "$NOW" +%s) ))
-		fingerprint=$(gpg --fingerprint --with-colons "$FROMADDRESS" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)
+		sec=$(( date - NOW ))
+		fingerprint=$(gpg --fingerprint --with-colons "$FROMADDRESS" | awk -F: '/^fpr/ { print $10 }' | head -n 1)
 		if [[ $sec -gt 0 ]]; then
 			if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
 				echo -e "Warning: The PGP key pair for '$FROMADDRESS' with fingerprint $fingerprint expires in less than $WARNDAYS days ($(date -d "@$date")).\n"
@@ -476,7 +486,7 @@ send() {
 			sleep -- "$TIME"
 		fi
 		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
-			headers="${PRIORITY:+X-Priority: $PRIORITY\n}From: $FROMNAME\n$(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(if [[ -n "$UTC" ]]; then date -Rud "@$(( ${EPOCHSECONDS:-$(date +%s)} / 60 * 60 ))"; else date -R; fi)\n"
+			headers="From: $FROMNAME\n$(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(if [[ -n "$UTC" ]]; then date -Rud "@$(( ${EPOCHSECONDS:-$(date +%s)} / 60 * 60 ))"; else date -R; fi)\n${PRIORITY:+X-Priority: $PRIORITY\n}${MDN:+Disposition-Notification-To: $FROMNAME\n}"
 			if [[ $# -ge 3 ]]; then
 				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}\n")}\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type -- "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename -- "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 -- "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
 			else
