@@ -23,14 +23,15 @@ from email.utils import localtime
 
 def set_main_headers(args, message):
     """Set common headers in every email."""
+    COMMASPACE = ", "
     message["User-Agent"] = "Send Msg CLI/SendPy"
     message["From"] = args.fromemail
-    message["To"] = "undisclosed-recipients:;" if not args.toemails and not args.ccemails else ", ".join(
+    message["To"] = "undisclosed-recipients:;" if not args.toemails and not args.ccemails else COMMASPACE.join(
         args.toemails)
     if args.ccemails:
-        message["Cc"] = ", ".join(args.ccemails)
+        message["Cc"] = COMMASPACE.join(args.ccemails)
     if args.bccemails:
-        message["Bcc"] = ", ".join(args.bccemails)
+        message["Bcc"] = COMMASPACE.join(args.bccemails)
     message["Subject"] = args.subject
     message["Date"] = datetime.fromtimestamp(int(datetime.now(
     ).timestamp()) // 60 * 60, timezone.utc) if args.utc else localtime()
@@ -127,7 +128,8 @@ def port465(args, message, port=0):
     with smtplib.SMTP_SSL(args.smtp, port, context=context, timeout=30) as server:
         if args.verbose:
             server.set_debuglevel(2)
-        server.login(args.username, args.password)
+        if args.username:
+            server.login(args.username, args.password)
         # send_message() annoymizes BCC, rather than sendmail().
         server.send_message(message)
         print("Message sent\n")
@@ -140,7 +142,8 @@ def port587(args, message, port=0):
         if args.verbose:
             server.set_debuglevel(2)
         server.starttls(context=context)
-        server.login(args.username, args.password)
+        if args.username:
+            server.login(args.username, args.password)
         # send_message() annoymizes BCC, rather than sendmail().
         server.send_message(message)
         print("Message sent\n")
@@ -151,7 +154,8 @@ def port25(args, message, port=0):
     with smtplib.SMTP(args.smtp, port, timeout=30) as server:
         if args.verbose:
             server.set_debuglevel(2)
-        server.login(args.username, args.password)
+        if args.username:
+            server.login(args.username, args.password)
         # send_message() annoymizes BCC, rather than sendmail().
         server.send_message(message)
         print("Message sent\n")

@@ -53,11 +53,11 @@ parser.add_argument("-b", "--bcc", dest="bccemails", action="append", default=[]
 parser.add_argument("-f", "--from", dest="fromemail",
                     help="From e-mail address")
 parser.add_argument("-S", "--smtp", dest="smtp",
-                    help='SMTP server. Optionally include a port with the "hostname:port" syntax. Use "localhost" if running a mail server on this device.')
+                    help='SMTP server. Optionally include a port with the "hostname:port" syntax. Defaults to port 465 with --ssl/--tls and port 25 otherwise. Use "localhost" if running a mail server on this device.')
 parser.add_argument("--ssl", "--tls", action="store_true",
-                    dest="tls", help="Use a secure connection with SSL/TLS.")
+                    dest="tls", help="Use a secure connection with SSL/TLS")
 parser.add_argument("--starttls", action="store_true", dest="starttls",
-                    help="Upgrade to a secure connection with StartTLS.")
+                    help="Upgrade to a secure connection with StartTLS")
 parser.add_argument("-u", "--username", dest="username",
                     help="SMTP server username")
 parser.add_argument("-p", "--password", dest="password",
@@ -277,24 +277,24 @@ def email_work():
         r'^(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$')
 
     # Check if the email is valid.
-    for email in args.toemails:
-        # result = RE.match(email)
-        _, address = parseaddr(email)
-        temp = address or email
+    for toemail in args.toemails:
+        # result = RE.match(toemail)
+        _, address = parseaddr(toemail)
+        temp = address or toemail
         if not (RE1.match(temp) and RE2.match(temp) and RE3.match(temp)):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
-    for email in args.ccemails:
-        # result = RE.match(email)
-        _, address = parseaddr(email)
-        temp = address or email
+    for ccemail in args.ccemails:
+        # result = RE.match(ccemail)
+        _, address = parseaddr(ccemail)
+        temp = address or ccemail
         if not (RE1.match(temp) and RE2.match(temp) and RE3.match(temp)):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
-    for email in args.bccemails:
-        # result = RE.match(email)
-        _, address = parseaddr(email)
-        temp = address or email
+    for bccemail in args.bccemails:
+        # result = RE.match(bccemail)
+        _, address = parseaddr(bccemail)
+        temp = address or bccemail
         if not (RE1.match(temp) and RE2.match(temp) and RE3.match(temp)):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
@@ -325,10 +325,12 @@ def cert_checks():
             print(
                 f"Saving the client certificate from {args.cert!r} to {CLIENTCERT!r}")
             print("Please enter the password when prompted.\n")
-            if subprocess.call(["openssl", "pkcs12", "-in", args.cert, "-out", CLIENTCERT, "-clcerts", "-nodes"]):
+            if subprocess.call(
+                    ["openssl", "pkcs12", "-in", args.cert, "-out", CLIENTCERT, "-clcerts", "-nodes"]):
                 print(
                     "Error saving the client certificate. Trying again in legacy mode.", file=sys.stderr)
-                if subprocess.call(["openssl", "pkcs12", "-in", args.cert, "-out", CLIENTCERT, "-clcerts", "-nodes", "-legacy"]):
+                if subprocess.call(["openssl", "pkcs12", "-in", args.cert,
+                                   "-out", CLIENTCERT, "-clcerts", "-nodes", "-legacy"]):
                     sys.exit(1)
 
         issuer = None
@@ -354,7 +356,8 @@ def cert_checks():
                 break
         date = datetime.strptime(date, "%b %d %H:%M:%S %Y %Z")
 
-        if not subprocess.call(["openssl", "x509", "-in", CLIENTCERT, "-noout", "-checkend", "0"], stdout=subprocess.DEVNULL):
+        if not subprocess.call(["openssl", "x509", "-in", CLIENTCERT,
+                               "-noout", "-checkend", "0"], stdout=subprocess.DEVNULL):
             delta = date - NOW
             warn = timedelta(days=WARNDAYS)
             if delta < warn:

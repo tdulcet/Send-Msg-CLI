@@ -1,6 +1,5 @@
 import configparser
 import getpass
-import locale
 import os
 import re
 import sys
@@ -15,8 +14,10 @@ parser = configparser.ConfigParser()
 CONFIG_FILE = os.path.expanduser("~/.sendpy.ini")
 parser.read([CONFIG_FILE])
 
-yes_regex = re.compile(locale.nl_langinfo(locale.YESEXPR))
-no_regex = re.compile(locale.nl_langinfo(locale.NOEXPR))
+# yes_regex = re.compile(locale.nl_langinfo(locale.YESEXPR))
+yes_regex = re.compile(r"^[yY]")
+# no_regex = re.compile(locale.nl_langinfo(locale.NOEXPR))
+no_regex = re.compile(r"^[nN]")
 
 
 def config_email(args):
@@ -49,8 +50,10 @@ def config_email(args):
         "Enter your password for this account: ")
 
     parser.set(section, "smtp", smtp_server)
-    parser.set(section, "tls", str(tls))
-    parser.set(section, "starttls", str(starttls))
+    if tls:
+        parser.set(section, "tls", str(tls))
+    if starttls:
+        parser.set(section, "starttls", str(starttls))
     parser.set(section, "fromemail", fromemail)
     parser.set(section, "username", username)
     parser.set(section, "password", password)
@@ -88,8 +91,10 @@ def return_config(args):
     tls = args.tls
     starttls = args.starttls
     if not (tls or starttls):
-        tls = parser.getboolean(section, "tls")
-        starttls = parser.getboolean(section, "starttls")
+        if parser.has_option(section, "tls"):
+            tls = parser.getboolean(section, "tls")
+        if parser.has_option(section, "starttls"):
+            starttls = parser.getboolean(section, "starttls")
     fromemail = args.fromemail or parser.get(section, "fromemail")
     username = args.username or parser.get(section, "username")
     password = args.password or parser.get(section, "password")
