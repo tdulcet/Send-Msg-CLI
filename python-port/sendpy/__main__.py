@@ -54,8 +54,8 @@ parser.add_argument("-f", "--from", dest="fromemail",
                     help="From e-mail address")
 parser.add_argument("-S", "--smtp", dest="smtp",
                     help='SMTP server. Optionally include a port with the "hostname:port" syntax. Defaults to port 465 with --ssl/--tls and port 25 otherwise. Use "localhost" if running a mail server on this device.')
-parser.add_argument("--ssl", "--tls", action="store_true",
-                    dest="tls", help="Use a secure connection with SSL/TLS")
+parser.add_argument("--tls", action="store_true",
+                    dest="tls", help="Use a secure connection with SSL/TLS (Secure Socket Layer/Transport Layer Security)")
 parser.add_argument("--starttls", action="store_true", dest="starttls",
                     help="Upgrade to a secure connection with StartTLS")
 parser.add_argument("-u", "--username", dest="username",
@@ -187,7 +187,7 @@ def parse_assign():
     if args.notify:
         with subprocess.Popen(args.notify, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True) as p:
             stdout, _ = p.communicate()
-            args.message += f"\n**OUTPUT**\n{stdout}\n**EXIT CODE**\n{p.returncode}\n"
+            args.message += f"\n**EXIT CODE**:\n{p.returncode}\n**OUTPUT**:\n{stdout}\n"
 
     args.subject = decode_escapes(args.subject)
 

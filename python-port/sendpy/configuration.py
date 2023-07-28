@@ -22,12 +22,14 @@ no_regex = re.compile(r"^[nN]")
 
 def config_email(args):
     """Configures or reconfigures settings for send-msg-cli then writes the change to file."""
-    section = "email"
+    section = "Email"
     if not parser.has_section(section):
         parser.add_section(section)
 
-    smtp_server = args.smtp or input(
-        "Enter the SMTP server (e.g., 'mail.example.com:465'): ")
+    smtp_server = args.smtp
+    while not smtp_server:
+        smtp_server = input(
+            "Enter the SMTP server (e.g., 'mail.example.com:465'): ")
     tls = args.tls
     starttls = args.starttls
     if not (tls or starttls):
@@ -42,8 +44,10 @@ def config_email(args):
                 accept = input(
                     "Do you want to upgrade to a secure connection with StartTLS? (y/n): ").strip()
             starttls = bool(yes_regex.search(accept))
-    fromemail = args.fromemail or input(
-        "Enter the From e-mail address (e.g., 'User <user@example.com>'): ")
+    fromemail = args.fromemail
+    while not fromemail:
+        fromemail = input(
+            "Enter the From e-mail address (e.g., 'User <user@example.com>'): ")
     username = args.username or input(
         "Enter your username for this account (e.g., 'user@example.com'): ")
     password = args.password or getpass.getpass(
@@ -64,7 +68,7 @@ def config_email(args):
 
 def config_pgp(args):
     """Set the pgp passphrase to avoid future typing of the passphrase on the commandline."""
-    section = "pgp"
+    section = "PGP"
     if not parser.has_section(section):
         parser.add_section(section)
 
@@ -82,7 +86,7 @@ def config_pgp(args):
 
 def return_config(args):
     """Pull (and check) variables in the .ini file."""
-    section = "email"
+    section = "Email"
     if not parser.has_section(section):
         print("The SMTP server and from e-mail address are not provided and not set in the config file. Please provide the --smtp and --from options or set the config file with the --config option.", file=sys.stderr)
         sys.exit(1)

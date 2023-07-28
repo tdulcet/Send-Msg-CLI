@@ -44,14 +44,14 @@ def set_main_headers(args, message):
 
 def attachments(message, aattachments):
     """Create a MIMEApplication method with our attachment as a payload and then attach it to our main message."""
-    for path in aattachments:
-        ctype, encoding = mimetypes.guess_type(path)
+    for file in aattachments:
+        ctype, encoding = mimetypes.guess_type(file)
         if ctype is None or encoding is not None:
             ctype = "application/octet-stream"
         maintype, subtype = ctype.split("/", 1)
-        with open(path, "rb") as f:
+        with open(file, "rb") as f:
             message.add_attachment(
-                f.read(), maintype=maintype, subtype=subtype, filename=os.path.basename(path))
+                f.read(), maintype=maintype, subtype=subtype, filename=os.path.basename(file))
 
 
 def smime(args, clientcert, lang):
@@ -132,7 +132,7 @@ def port465(args, message, port=0):
             server.login(args.username, args.password)
         # send_message() annoymizes BCC, rather than sendmail().
         server.send_message(message)
-        print("Message sent\n")
+        print("Message sent")
 
 
 def port587(args, message, port=0):
@@ -146,7 +146,7 @@ def port587(args, message, port=0):
             server.login(args.username, args.password)
         # send_message() annoymizes BCC, rather than sendmail().
         server.send_message(message)
-        print("Message sent\n")
+        print("Message sent")
 
 
 def port25(args, message, port=0):
@@ -158,7 +158,7 @@ def port25(args, message, port=0):
             server.login(args.username, args.password)
         # send_message() annoymizes BCC, rather than sendmail().
         server.send_message(message)
-        print("Message sent\n")
+        print("Message sent")
 
 
 def sendEmail(args, clientcert, fromaddress):
