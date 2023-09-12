@@ -105,14 +105,14 @@ ESCAPE_SEQUENCE_RE = re.compile(
 
 def zero_pad(match):
     """zero_pad escape characters (u and U and x) that are < 4, < 8, and < 2 numbers long respectively, since python doesn't support this on its own."""
-    amatch = match.group(0)
+    amatch = match.group()
     azero_pad = 8 if amatch[1] == "U" else 4 if amatch[1] == "u" else 2
     # the unicode character + amount of zeros + the original unicode typed in
     return amatch[:2] + ("0" * (azero_pad - (len(amatch) - 2))) + amatch[2:]
 
 
 def decode_match(match):
-    return codecs.decode(match.group(0), "unicode-escape")
+    return codecs.decode(match.group(), "unicode-escape")
 
 
 def decode_escapes(s):
@@ -133,10 +133,12 @@ def configuration_assignment():
     if args.tls and args.starttls:
         parser.error("Cannot use both SSL/TLS and StartTLS.")
 
+    host = args.smtp
     port = 0
-    res = args.smtp.rsplit(":", 1)
+    res = host.rsplit(":", 1)
     if len(res) == 2:
-        port = int(res[1])
+        host, port = res
+        port = int(port)
 
     if not args.tls and (not port or port == 25):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -144,6 +146,8 @@ def configuration_assignment():
             # testing connection as computer may not block port 25, but ISP/Cloud provider may.
             if sock.connect_ex(("aspmx.l.google.com", 25)):
                 print("Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to specify a port for the SMTP server in order to send e-mails.\n")
+
+    return host, port
 
 
 def parse_assign():
@@ -271,9 +275,9 @@ def attachment_work():
 def email_work():
     """Check for valid email addresses."""
     # RE = re.compile(r"^((.{1,64}@[\w.-]{4,254})|(.*) *<(.{1,64}@[\w.-]{4,254})>)$")
-    RE1 = re.compile(r"^.{6,254}$")
-    RE2 = re.compile(r"^.{1,64}@")
-    RE3 = re.compile(
+    re1 = re.compile(r"^.{6,254}$")
+    re2 = re.compile(r"^.{1,64}@")
+    re3 = re.compile(
         r'^(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$')
 
     # Check if the email is valid.
@@ -281,27 +285,27 @@ def email_work():
         # result = RE.match(toemail)
         _, address = parseaddr(toemail)
         temp = address or toemail
-        if not (RE1.match(temp) and RE2.match(temp) and RE3.match(temp)):
+        if not (re1.match(temp) and re2.match(temp) and re3.match(temp)):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
     for ccemail in args.ccemails:
         # result = RE.match(ccemail)
         _, address = parseaddr(ccemail)
         temp = address or ccemail
-        if not (RE1.match(temp) and RE2.match(temp) and RE3.match(temp)):
+        if not (re1.match(temp) and re2.match(temp) and re3.match(temp)):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
     for bccemail in args.bccemails:
         # result = RE.match(bccemail)
         _, address = parseaddr(bccemail)
         temp = address or bccemail
-        if not (RE1.match(temp) and RE2.match(temp) and RE3.match(temp)):
+        if not (re1.match(temp) and re2.match(temp) and re3.match(temp)):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
     # result = RE.match(args.fromemail)
     _, fromaddress = parseaddr(args.fromemail)
     temp = fromaddress or args.fromemail
-    if not (RE1.match(temp) and RE2.match(temp) and RE3.match(temp)):
+    if not (re1.match(temp) and re2.match(temp) and re3.match(temp)):
         parser.error(f"{temp!r} is not a valid e-mail address.")
 
     return fromaddress
@@ -427,7 +431,7 @@ def main():
     # parsing/assignment
     parse_assign()
     # use default configuration if nothing was put on the CMDline
-    configuration_assignment()
+    host, port = configuration_assignment()
 
     # email/email checks
     fromaddress = email_work()
@@ -438,7 +442,7 @@ def main():
     passphrase_checks(fromaddress)
 
     # sending
-    sendEmail(args, CLIENTCERT, fromaddress)
+    sendEmail(args, CLIENTCERT, fromaddress, host, port)
 
 
 if __name__ == "__main__":

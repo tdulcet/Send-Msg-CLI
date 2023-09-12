@@ -122,10 +122,10 @@ def send_normal(args, lang):
     return msg
 
 
-def port465(args, message, port=0):
+def port465(args, message, host, port):
     """Log in to server using secure context from the onset and send email. This uses SSL/TLS."""
     context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(args.smtp, port, context=context, timeout=30) as server:
+    with smtplib.SMTP_SSL(host, port, context=context, timeout=30) as server:
         if args.verbose:
             server.set_debuglevel(2)
         if args.username:
@@ -135,10 +135,10 @@ def port465(args, message, port=0):
         print("Message sent")
 
 
-def port587(args, message, port=0):
+def port587(args, message, host, port):
     """Create an unsecured connection, then secure it, and then send email. This uses startTLS."""
     context = ssl.create_default_context()
-    with smtplib.SMTP(args.smtp, port, timeout=30) as server:
+    with smtplib.SMTP(host, port, timeout=30) as server:
         if args.verbose:
             server.set_debuglevel(2)
         server.starttls(context=context)
@@ -149,9 +149,9 @@ def port587(args, message, port=0):
         print("Message sent")
 
 
-def port25(args, message, port=0):
+def port25(args, message, host, port):
     """Use a local SMTP server connection to send email."""
-    with smtplib.SMTP(args.smtp, port, timeout=30) as server:
+    with smtplib.SMTP(host, port, timeout=30) as server:
         if args.verbose:
             server.set_debuglevel(2)
         if args.username:
@@ -161,7 +161,7 @@ def port25(args, message, port=0):
         print("Message sent")
 
 
-def sendEmail(args, clientcert, fromaddress):
+def sendEmail(args, clientcert, fromaddress, host, port):
     """This function compiles our (optionally signed) message and calls the correct send function according to what port is entered."""
     if args.dryrun:
         return
@@ -185,11 +185,11 @@ def sendEmail(args, clientcert, fromaddress):
 
     try:
         if args.tls:
-            port465(args, message)
+            port465(args, message, host, port)
         elif args.starttls:
-            port587(args, message)
+            port587(args, message, host, port)
         else:
-            port25(args, message)
+            port25(args, message, host, port)
 
     except socket.timeout:
         print("Connection timed out when trying to connect. Please verify the server is up or you entered the correct port number for the SMTP server.")
