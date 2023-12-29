@@ -29,29 +29,35 @@ def config_email(args):
     smtp_server = args.smtp
     while not smtp_server:
         smtp_server = input(
-            "Enter the SMTP server (e.g., 'mail.example.com:465'): ")
+            "SMTP server (hostname and optional port), e.g., 'mail.example.com:465': ")
     tls = args.tls
     starttls = args.starttls
     if not (tls or starttls):
-        accept = ""
-        while not (yes_regex.search(accept) or no_regex.search(accept)):
+        while True:
             accept = input(
-                "Do you want to use a secure connection with SSL/TLS? (y/n): ").strip()
-        tls = bool(yes_regex.search(accept))
+                "Use a secure connection with SSL/TLS? (y/n): ").strip()
+            yes_res = yes_regex.match(accept)
+            no_res = no_regex.match(accept)
+            if yes_res or no_res:
+                break
+        tls = bool(yes_res)
         if not tls:
-            accept = ""
-            while not (yes_regex.search(accept) or no_regex.search(accept)):
+            while True:
                 accept = input(
-                    "Do you want to upgrade to a secure connection with StartTLS? (y/n): ").strip()
-            starttls = bool(yes_regex.search(accept))
+                    "Upgrade to a secure connection with StartTLS? (y/n): ").strip()
+                yes_res = yes_regex.match(accept)
+                no_res = no_regex.match(accept)
+                if yes_res or no_res:
+                    break
+            starttls = bool(yes_res)
     fromemail = args.fromemail
     while not fromemail:
         fromemail = input(
-            "Enter the From e-mail address (e.g., 'User <user@example.com>'): ")
+            "From e-mail address, e.g., 'User <user@example.com>': ")
     username = args.username or input(
-        "Enter your username for this account (e.g., 'user@example.com'): ")
+        "Optional username for this account, e.g., 'user@example.com': ")
     password = args.password or getpass.getpass(
-        "Enter your password for this account: ")
+        "Optional password for this account: ")
 
     parser.set(section, "smtp", smtp_server)
     if tls:
@@ -62,21 +68,21 @@ def config_email(args):
     parser.set(section, "username", username)
     parser.set(section, "password", password)
 
-    with open(CONFIG_FILE, "w") as configfile:
+    with open(CONFIG_FILE, "w", encoding="utf-8") as configfile:
         parser.write(configfile)
 
 
-def config_pgp(args):
+def config_pgp():
     """Set the pgp passphrase to avoid future typing of the passphrase on the commandline."""
     section = "PGP"
     if not parser.has_section(section):
         parser.add_section(section)
 
-        passphrase = getpass.getpass("Enter your PGP secret key passphrase: ")
+        passphrase = getpass.getpass("PGP secret key passphrase: ")
 
         parser.set(section, "passphrase", passphrase)
 
-        with open(CONFIG_FILE, "w") as configfile:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as configfile:
             parser.write(configfile)
 
         return passphrase

@@ -1,3 +1,5 @@
+from itertools import starmap
+
 """Copyright © Daniel Connelly and Teal Dulcet.
 
 Purpose: Deliver a variety of help commands to the user to explain usage of sendpy.
@@ -12,7 +14,7 @@ def format_attachment_output(rows):
     """
     lens = [max(len(v) for v in col) for col in zip(*rows)]
     aformat = "  ".join(f"{{:<{alen}}}" for alen in lens)
-    print("\n".join(aformat.format(*row) for row in rows))
+    print("\n".join(starmap(aformat.format, rows)))
 
 
 def examples(programname):

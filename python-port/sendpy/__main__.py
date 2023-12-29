@@ -382,9 +382,9 @@ def passphrase_checks(fromaddress):
 
         # Work from a config file
         if args.passphrase.lower() == "config":
-            args.passphrase = configuration.config_pgp(args)
+            args.passphrase = configuration.config_pgp()
 
-        with tempfile.NamedTemporaryFile("w") as f:
+        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as f:
             f.write("\n")
             # check if GPG key exists
             with subprocess.Popen(["gpg", "--pinentry-mode", "loopback", "--batch", "-o", os.devnull, "-ab", "-u", fromaddress, "--passphrase-fd", "0", f.name], stdin=subprocess.PIPE, universal_newlines=True) as p:
