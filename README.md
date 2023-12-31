@@ -1,17 +1,21 @@
+[![Actions Status](https://github.com/tdulcet/Send-Msg-CLI/workflows/CI/badge.svg?branch=master)](https://github.com/tdulcet/Send-Msg-CLI/actions)
+
 # Send Msg CLI
 Send e-mail (and text messages) from the command line
 
-Copyright © 2019 Teal Dulcet (Bash) and Daniel Connelly (Python)
+Copyright © 2019 Teal Dulcet (both) and Daniel Connelly (Python)
 
 Send [e-mail](https://en.wikipedia.org/wiki/Email) (and [text messages](https://en.wikipedia.org/wiki/SMS)), with optional message and attachments, from the command line. Supports [Unicode characters](https://en.wikipedia.org/wiki/Unicode_and_email) in subject, message and attachment filename ([MIME](https://en.wikipedia.org/wiki/MIME)). Optionally use your own e-mail address and an external [SMTP](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol) server.
 
 Useful to know when a cron job failed, when a long running job (LRP) has finished, to quickly backup/share a file or to send notifications as part of a larger script.
 
-❤️ Please visit [tealdulcet.com](https://www.tealdulcet.com/) to support these script and my other software development.
+See the [python-port](python-port) directory for SendPy, a Python port of the script.
+
+❤️ Please visit [tealdulcet.com](https://www.tealdulcet.com/) to support these scripts and my other software development.
 
 ## Usage
 
-Requires Bash 4.4 and the curl and netcat commands, which are included on most Linux distributions.
+Requires at least Bash 4.4 and the curl and netcat commands, which are included on most Linux distributions.
 
 Optional [S/MIME](https://en.wikipedia.org/wiki/S/MIME) digital signatures require the openssl command.\
 Optional [PGP/MIME](https://en.wikipedia.org/wiki/Pretty_Good_Privacy#OpenPGP) digital signatures require the gpg command.
@@ -51,9 +55,9 @@ Example adapted from the [Linux Remote Servers Status Monitoring Script](https:/
 <details>
   <summary>Instructions</summary>
 
-To send e-mail from a Gmail account, add these options to the command: `-f "Example <example@gmail.com>" -S "smtps://smtp.gmail.com" -u "example@gmail.com" -p "PASSWORD"`. Or, open the script in an editor and set these variables near the top, where listed:
+To send e-mail from a Gmail account, add these options to the command: `-f "User <example@gmail.com>" -S "smtps://smtp.gmail.com" -u "example@gmail.com" -p "PASSWORD"`. Or, open the script in an editor and set these variables near the top, where listed:
 ```bash
-FROMEMAIL="Example <example@gmail.com>"
+FROMEMAIL="User <example@gmail.com>"
 
 SMTP="smtps://smtp.gmail.com"
 USERNAME="example@gmail.com"
@@ -170,7 +174,7 @@ You will also need to either create an [App Password](https://support.google.com
   </tr>
   <tr>
     <th colspan="2">Supports International email addresses</th>
-    <td>✔^</td>
+    <td>✔†</td>
     <td>✔</td>
     <td>✔</td>
     <td></td>
@@ -242,8 +246,7 @@ You will also need to either create an [App Password](https://support.google.com
 </table>
 
 \* Optional\
-^ Only supported in Internationalizing Domain Names in Applications (IDNA) encoding\
-^^ Does not work with all mobile providers
+† Only supported in Internationalizing Domain Names in Applications (IDNA) encoding
 
 This is not a comprehensive list of the Send E-mail Script’s functionality.
 
@@ -278,6 +281,8 @@ Options:
     -p <password>   SMTP server password
     -P <priority>   Priority
                         Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)". Requires SMTP server.
+    -r              Request Return Receipt
+                        Requires SMTP server.
     -C <certificate>S/MIME Certificate filename for digitally signing the e-mails
                         It will ask you for the password the first time you run the script with this option. Requires SMTP server.
     -k <passphrase> PGP secret key passphrase for digitally signing the e-mails with PGP/MIME
@@ -287,6 +292,7 @@ Options:
                         Uses value of LANG environment variable.
     -U              Sanitize the Date
                         Uses Coordinated Universal Time (UTC) and rounds date down to whole minute. Set the TZ environment variable to change time zone.
+    -T <seconds>    Time to delay sending of the e-mail
     -d              Dry run, do not send the e-mail
     -V              Verbose, show the client-server communication
                         Requires SMTP server.
@@ -296,34 +302,34 @@ Options:
 
 Examples:
     Send e-mail
-    $ sendmsg -s "Example" -t "Example <example@example.com>"
+    $ sendmsg -s "Example" -t "User <user@example.com>"
 
     Send e-mail with message
-    $ sendmsg -s "Example" -m "This is an example!" -t "Example <example@example.com>"
+    $ sendmsg -s "Example" -m "This is an example!" -t "User <user@example.com>"
 
     Send e-mail with message and single attachment
-    $ sendmsg -s "Example" -m "This is an example!" -a example.txt -t "Example <example@example.com>"
+    $ sendmsg -s "Example" -m "This is an example!" -a example.txt -t "User <user@example.com>"
 
     Send e-mail with message and multiple attachments
-    $ sendmsg -s "Example" -m "This is an example!" -a example1.txt -a example2.txt -t "Example <example@example.com>"
+    $ sendmsg -s "Example" -m "This is an example!" -a example1.txt -a example2.txt -t "User <user@example.com>"
 
     Send e-mail to a CC address
-    $ sendmsg -s "Example" -t "Example 1 <example1@example.com>" -c "Example 2 <example2@example.com>"
+    $ sendmsg -s "Example" -t "User 1 <user1@example.com>" -c "User 2 <user2@example.com>"
 
     Send e-mail with a From address
-    $ sendmsg -s "Example" -f "Example <example@example.com>" -t "Example <example@example.com>"
+    $ sendmsg -s "Example" -f "Example <example@example.com>" -t "User <user@example.com>"
 
     Send e-mail with an external SMTP server
-    $ sendmsg -s "Example" -f "Example <example@example.com>" -S "smtps://mail.example.com" -u "example" -p "password" -t "Example <example@example.com>"
+    $ sendmsg -s "Example" -f "Example <example@example.com>" -S "smtps://mail.example.com" -u "example" -p "password" -t "User <user@example.com>"
 
     Send high priority e-mail
-    $ sendmsg -s "Example" -f "Example <example@example.com>" -S "smtps://mail.example.com" -u "example" -p "password" -P "1 (Highest)" -t "Example <example@example.com>"
+    $ sendmsg -s "Example" -f "Example <example@example.com>" -S "smtps://mail.example.com" -u "example" -p "password" -P "1 (Highest)" -t "User <user@example.com>"
 
     Send e-mail digitally signed with an S/MIME Certificate
-    $ sendmsg -s "Example" -f "Example <example@example.com>" -S "smtps://mail.example.com" -u "example" -p "password" -C "cert.p12" -t "Example <example@example.com>"
+    $ sendmsg -s "Example" -f "Example <example@example.com>" -S "smtps://mail.example.com" -u "example" -p "password" -C "cert.p12" -t "User <user@example.com>"
 
     Send e-mail digitally signed with PGP/MIME
-    $ sendmsg -s "Example" -f "Example <example@example.com>" -S "smtps://mail.example.com" -u "example" -p "password" -k "passphrase" -t "Example <example@example.com>"
+    $ sendmsg -s "Example" -f "Example <example@example.com>" -S "smtps://mail.example.com" -u "example" -p "password" -k "passphrase" -t "User <user@example.com>"
 
 ```
 
@@ -343,7 +349,6 @@ Bash:
 
 Python:
 * Do not create temporary files for performance and to reduce disk wear.
-* Support sanitizing the date.
 
 Both:
 * Improve the performance

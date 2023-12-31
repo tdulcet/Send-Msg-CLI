@@ -19,7 +19,7 @@ set -e
 SEND=1
 
 # To e-mail addresses
-# Send SMSs by using your mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients)
+# Send text messages by using your mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients)
 TOEMAILS=(
 
 )
@@ -148,34 +148,34 @@ Options:
 
 Examples:
     Send e-mail
-    $ $1 -s \"Example\" -t \"Example <example@example.com>\"
+    $ $1 -s \"Example\" -t \"User <user@example.com>\"
 
     Send e-mail with message
-    $ $1 -s \"Example\" -m \"This is an example"'!'"\" -t \"Example <example@example.com>\"
+    $ $1 -s \"Example\" -m \"This is an example"'!'"\" -t \"User <user@example.com>\"
 
     Send e-mail with message and single attachment
-    $ $1 -s \"Example\" -m \"This is an example"'!'"\" -a example.txt -t \"Example <example@example.com>\"
+    $ $1 -s \"Example\" -m \"This is an example"'!'"\" -a example.txt -t \"User <user@example.com>\"
 
     Send e-mail with message and multiple attachments
-    $ $1 -s \"Example\" -m \"This is an example"'!'"\" -a example1.txt -a example2.txt -t \"Example <example@example.com>\"
+    $ $1 -s \"Example\" -m \"This is an example"'!'"\" -a example1.txt -a example2.txt -t \"User <user@example.com>\"
 
     Send e-mail to a CC address
-    $ $1 -s \"Example\" -t \"Example 1 <example1@example.com>\" -c \"Example 2 <example2@example.com>\"
+    $ $1 -s \"Example\" -t \"User 1 <user1@example.com>\" -c \"User 2 <user2@example.com>\"
 
     Send e-mail with a From address
-    $ $1 -s \"Example\" -f \"Example <example@example.com>\" -t \"Example <example@example.com>\"
+    $ $1 -s \"Example\" -f \"Example <example@example.com>\" -t \"User <user@example.com>\"
 
     Send e-mail with an external SMTP server
-    $ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -t \"Example <example@example.com>\"
+    $ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -t \"User <user@example.com>\"
 
     Send high priority e-mail
-    $ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -P \"1 (Highest)\" -t \"Example <example@example.com>\"
+    $ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -P \"1 (Highest)\" -t \"User <user@example.com>\"
 
     Send e-mail digitally signed with an S/MIME Certificate
-    $ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -C \"cert.p12\" -t \"Example <example@example.com>\"
+    $ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -C \"cert.p12\" -t \"User <user@example.com>\"
 
     Send e-mail digitally signed with PGP/MIME
-    $ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -k \"passphrase\" -t \"Example <example@example.com>\"
+    $ $1 -s \"Example\" -f \"Example <example@example.com>\" -S \"smtps://mail.example.com\" -u \"example\" -p \"password\" -k \"passphrase\" -t \"User <user@example.com>\"
 " >&2
 }
 
@@ -343,7 +343,7 @@ encoded-word() {
 	if [[ $1 =~ $RE ]]; then
 		echo "$1"
 	else
-		echo "=?utf-8?B?$(echo "${1@E}" | base64 -w 0)?="
+		echo "=?utf-8?B?$(echo -n "${1@E}" | base64 -w 0)?="
 	fi
 }
 
@@ -414,6 +414,11 @@ if [[ -n "$FROMADDRESS" ]] && ! [[ $FROMADDRESS =~ $RE1 && $FROMADDRESS =~ $RE2 
 fi
 
 if [[ -n "$CERT" ]]; then
+	if ! command -v openssl >/dev/null; then
+		echo "Error: OpenSSL is not installed." >&2
+		exit 1
+	fi
+
 	if [[ ! -r "$CERT" && ! -f "$CLIENTCERT" ]]; then
 		echo "Error: '$CERT' certificate file does not exist." >&2
 		exit 1
@@ -422,7 +427,10 @@ if [[ -n "$CERT" ]]; then
 	if [[ ! -s "$CLIENTCERT" ]]; then
 		echo -e "Saving the client certificate from '$CERT' to '$CLIENTCERT'"
 		echo -e "Please enter the password when prompted.\n"
-		openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes
+		if ! openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes; then
+			echo "Error saving the client certificate. Trying again in legacy mode." >&2
+			openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes -legacy
+		fi
 	fi
 	
 	# if ! output=$(openssl verify -verify_email "$FROMADDRESS" "$CLIENTCERT" 2>/dev/null); then
@@ -451,6 +459,11 @@ if [[ -n "$CERT" ]]; then
 fi
 
 if [[ -n "$PASSPHRASE" ]]; then
+	if ! command -v gpg >/dev/null; then
+		echo "Error: GNU Privacy Guard is not installed." >&2
+		exit 1
+	fi
+
 	if ! echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo); then
 		echo "Error: A PGP key pair does not yet exist for '$FROMADDRESS' or the passphrase was incorrect." >&2
 		exit 1
