@@ -15,9 +15,17 @@ from datetime import datetime, timedelta
 from email.utils import parseaddr
 from shutil import which
 
-from . import configuration
-from . import usage
-from .send import sendEmail
+if __name__ == "__main__":
+    # The script is being run directly, use absolute imports
+    import configuration
+    import usage
+    from send import sendEmail
+else:
+    # The script is being run as part of a package, use relative imports
+    from . import configuration
+    from . import usage
+    from .send import sendEmail
+
 
 """Copyright © Daniel Connelly and Teal Dulcet
 
