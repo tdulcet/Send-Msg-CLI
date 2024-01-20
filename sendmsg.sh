@@ -242,7 +242,7 @@ while getopts "a:b:c:df:hk:lm:p:rs:t:u:vz:C:P:S:T:UV" c; do
 		USERNAME=$OPTARG
 	;;
 	v )
-		echo -e "Send Msg CLI 1.0\n"
+		echo -e "Send Msg CLI 1.0.1\n"
 		exit 0
 	;;
 	z )

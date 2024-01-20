@@ -15,9 +15,9 @@ from datetime import datetime, timedelta
 from email.utils import parseaddr
 from shutil import which
 
-import configuration
-import usage
-from send import sendEmail
+from . import configuration
+from . import usage
+from .send import sendEmail
 
 """Copyright © Daniel Connelly and Teal Dulcet
 
@@ -35,7 +35,7 @@ WARNDAYS = 3
 parser = argparse.ArgumentParser(
     description="One or more To, CC or BCC e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (see the --gateways option). See examples with the --examples option.")
 parser.add_argument("-v", "--version", action="version",
-                    version="%(prog)s 1.0")
+                    version="%(prog)s 1.0.1")
 parser.add_argument("-s", "--subject", dest="subject",
                     help="Subject. Escape sequences are expanded. Supports Unicode characters.")
 parser.add_argument("-m", "--message", dest="message", default="",
