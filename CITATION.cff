@@ -14,4 +14,4 @@ abstract: >-
   attachments, from the command line. Optionally use your
   own e-mail address and an external SMTP server.
 license: GPL-3.0
-version: '1.0'
+version: '1.0.1'

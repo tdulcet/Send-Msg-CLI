@@ -1,12 +1,12 @@
 import setuptools
-
+from setuptools import setup, find_packages
 
 def readme():
     with open("README.rst") as fh:
         return fh.read()
 
 setuptools.setup(name="sendpy",
-      version="1.0",
+      version="1.0.1",
       description="Email and text notification program",
       long_description=readme(),
       long_description_content_type="text/markdown",
@@ -14,7 +14,12 @@ setuptools.setup(name="sendpy",
       author="Daniel Connelly and Teal Dulcet",
       author_email="connellyd2050@gmail.com",
       license="GPL",
-      packages=["sendpy"],
+      entry_points={
+          'console_scripts': [
+              'sendpy=sendpy.__main__:main'
+          ]
+      },
+      packages=find_packages(),
       scripts=["bin/sendpy"],
       classifiers=[
           "Programming Language :: Python :: 3.6",
