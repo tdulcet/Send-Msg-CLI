@@ -214,78 +214,78 @@ fi
 
 while getopts "a:b:c:df:hk:lm:p:rs:t:u:vz:C:P:S:T:UV" c; do
 	case ${c} in
-	a )
-		ATTACHMENTS+=( "$OPTARG" )
-	;;
-	b )
-		BCCEMAILS+=( "$OPTARG" )
-	;;
-	c )
-		CCEMAILS+=( "$OPTARG" )
-	;;
-	d )
-		SEND=''
-	;;
-	f )
-		FROMEMAIL=$OPTARG
-	;;
-	h )
-		usage "$0"
-		exit 0
-	;;
-	k )
-		PASSPHRASE=$OPTARG
-	;;
-	l )
-		CONTENTLANG=1
-	;;
-	m )
-		MESSAGE=$OPTARG
-	;;
-	p )
-		PASSWORD=$OPTARG
-	;;
-	r )
-		MDN=1
-	;;
-	s )
-		SUBJECT=$OPTARG
-	;;
-	t )
-		TOEMAILS+=( "$OPTARG" )
-	;;
-	u )
-		USERNAME=$OPTARG
-	;;
-	v )
-		echo -e "Send Msg CLI 1.0.1\n"
-		exit 0
-	;;
-	z )
-		ZIPFILE="${OPTARG%.zip}.zip"
-	;;
-	C )
-		CERT=$OPTARG
-	;;
-	P )
-		PRIORITY=$OPTARG
-	;;
-	S )
-		SMTP=$OPTARG
-	;;
-	T )
-		TIME=$OPTARG
-	;;
-	U )
-		UTC=1
-	;;
-	V )
-		VERBOSE=1
-	;;
-	\? )
-		echo -e "Try '$0 -h' for more information.\n" >&2
-		exit 1
-	;;
+		a)
+			ATTACHMENTS+=("$OPTARG")
+			;;
+		b)
+			BCCEMAILS+=("$OPTARG")
+			;;
+		c)
+			CCEMAILS+=("$OPTARG")
+			;;
+		d)
+			SEND=''
+			;;
+		f)
+			FROMEMAIL=$OPTARG
+			;;
+		h)
+			usage "$0"
+			exit 0
+			;;
+		k)
+			PASSPHRASE=$OPTARG
+			;;
+		l)
+			CONTENTLANG=1
+			;;
+		m)
+			MESSAGE=$OPTARG
+			;;
+		p)
+			PASSWORD=$OPTARG
+			;;
+		r)
+			MDN=1
+			;;
+		s)
+			SUBJECT=$OPTARG
+			;;
+		t)
+			TOEMAILS+=("$OPTARG")
+			;;
+		u)
+			USERNAME=$OPTARG
+			;;
+		v)
+			echo -e "Send Msg CLI 1.0.1\n"
+			exit 0
+			;;
+		z)
+			ZIPFILE="${OPTARG%.zip}.zip"
+			;;
+		C)
+			CERT=$OPTARG
+			;;
+		P)
+			PRIORITY=$OPTARG
+			;;
+		S)
+			SMTP=$OPTARG
+			;;
+		T)
+			TIME=$OPTARG
+			;;
+		U)
+			UTC=1
+			;;
+		V)
+			VERBOSE=1
+			;;
+		\?)
+			echo -e "Try '$0 -h' for more information.\n" >&2
+			exit 1
+			;;
 	esac
 done
 shift $((OPTIND - 1))
@@ -295,12 +295,12 @@ if [[ $# -ne 0 ]]; then
 	exit 1
 fi
 
-if [[ -z "$SUBJECT" ]]; then
+if [[ -z $SUBJECT ]]; then
 	echo "Error: A subject is required." >&2
 	exit 1
 fi
 
-if [[ -n "$PRIORITY" || -n "$MDN" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USERNAME" || -n "$PASSWORD" || -n "$STARTTLS" ]] && ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]]; then
+if [[ -n $PRIORITY || -n $MDN || -n $CERT || -n $PASSPHRASE || -n $SMTP || -n $USERNAME || -n $PASSWORD || -n $STARTTLS ]] && ! [[ -n $FROMEMAIL && -n $SMTP ]]; then
 	echo -e "Warning: One or more of the options you set requires that you also provide an external SMTP server. Try '$0 -h' for more information.\n"
 fi
 
@@ -309,46 +309,46 @@ if [[ ${#TOEMAILS[@]} -eq 0 && ${#CCEMAILS[@]} -eq 0 && ${#BCCEMAILS[@]} -eq 0 ]
 	exit 1
 fi
 
-if (( ${#ATTACHMENTS[@]} )); then
+if ((${#ATTACHMENTS[@]})); then
 	TOTAL=0
 	table=''
 	for i in "${ATTACHMENTS[@]}"; do
-		if [[ -z "$i" || ! -r "$i" ]]; then
+		if [[ -z $i || ! -r $i ]]; then
 			echo "Error: Cannot read '$i' file." >&2
 			exit 1
 		fi
 	done
-	
-	if [[ -n "$ZIPFILE" ]]; then
-		if [[ -e "$ZIPFILE" ]]; then
+
+	if [[ -n $ZIPFILE ]]; then
+		if [[ -e $ZIPFILE ]]; then
 			echo "Error: File '$ZIPFILE' already exists." >&2
 			exit 1
 		fi
-		
+
 		trap 'rm -- "$ZIPFILE"' EXIT
 		zip -q "$ZIPFILE" -- "${ATTACHMENTS[@]}"
-		
-		ATTACHMENTS=( "$ZIPFILE" )
+
+		ATTACHMENTS=("$ZIPFILE")
 	fi
-	
+
 	echo "Attachments:"
 	for i in "${ATTACHMENTS[@]}"; do
 		SIZE=$(du -b -- "$i" | awk '{ print $1 }')
-		((TOTAL+=SIZE))
+		((TOTAL += SIZE))
 		table+=$(printf '%s\t%s\t%s\n' "$i" "$(numfmt --to=iec-i "$SIZE")B" "$([[ $SIZE -ge 1000 ]] && echo "($(numfmt --to=si "$SIZE")B)" || echo)")
 	done
 	echo "$table" | column -t -s $'\t'
-	
+
 	echo -e "\nTotal Size:\t$(numfmt --to=iec-i "$TOTAL")B\t$([[ $TOTAL -ge 1000 ]] && echo "($(numfmt --to=si "$TOTAL")B)")\n"
 	# du -bch -- "${ATTACHMENTS[@]}"
-	
+
 	if [[ $TOTAL -ge 26214400 ]]; then
 		echo -e "Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Send: https://send.vis.ee/ (formerly Firefox Send) or transfer.sh: https://transfer.sh\n"
 	fi
 fi
 
 # Adapted from: https://github.com/mail-in-a-box/mailinabox/blob/master/setup/network-checks.sh
-if ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]] && ! nc -z -w5 aspmx.l.google.com 25; then
+if ! [[ -n $FROMEMAIL && -n $SMTP ]] && ! nc -z -w5 aspmx.l.google.com 25; then
 	echo -e "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to provide an external SMTP server in order to send e-mails.\n"
 fi
 
@@ -363,11 +363,11 @@ encoded-word() {
 	fi
 }
 
-TOADDRESSES=( "${TOEMAILS[@]}" )
-TONAMES=( "${TOEMAILS[@]}" )
-CCADDRESSES=( "${CCEMAILS[@]}" )
-CCNAMES=( "${CCEMAILS[@]}" )
-BCCADDRESSES=( "${BCCEMAILS[@]}" )
+TOADDRESSES=("${TOEMAILS[@]}")
+TONAMES=("${TOEMAILS[@]}")
+CCADDRESSES=("${CCEMAILS[@]}")
+CCNAMES=("${CCEMAILS[@]}")
+BCCADDRESSES=("${BCCEMAILS[@]}")
 FROMADDRESS=$FROMEMAIL
 FROMNAME=$FROMEMAIL
 
@@ -393,7 +393,7 @@ for i in "${!BCCADDRESSES[@]}"; do
 	fi
 done
 
-if [[ -n "$FROMADDRESS" ]] && [[ $FROMADDRESS =~ $RE ]]; then
+if [[ -n $FROMADDRESS ]] && [[ $FROMADDRESS =~ $RE ]]; then
 	FROMADDRESS=${BASH_REMATCH[2]:-${BASH_REMATCH[4]}}
 	FROMNAME=${BASH_REMATCH[2]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 fi
@@ -424,23 +424,23 @@ for email in "${BCCADDRESSES[@]}"; do
 	fi
 done
 
-if [[ -n "$FROMADDRESS" ]] && ! [[ $FROMADDRESS =~ $RE1 && $FROMADDRESS =~ $RE2 && $FROMADDRESS =~ $RE3 ]]; then
+if [[ -n $FROMADDRESS ]] && ! [[ $FROMADDRESS =~ $RE1 && $FROMADDRESS =~ $RE2 && $FROMADDRESS =~ $RE3 ]]; then
 	echo "Error: '$FROMADDRESS' is not a valid e-mail address." >&2
 	exit 1
 fi
 
-if [[ -n "$CERT" ]]; then
+if [[ -n $CERT ]]; then
 	if ! command -v openssl >/dev/null; then
 		echo "Error: OpenSSL is not installed." >&2
 		exit 1
 	fi
 
-	if [[ ! -r "$CERT" && ! -f "$CLIENTCERT" ]]; then
+	if [[ ! -r $CERT && ! -f $CLIENTCERT ]]; then
 		echo "Error: '$CERT' certificate file does not exist." >&2
 		exit 1
 	fi
 
-	if [[ ! -s "$CLIENTCERT" ]]; then
+	if [[ ! -s $CLIENTCERT ]]; then
 		echo -e "Saving the client certificate from '$CERT' to '$CLIENTCERT'"
 		echo -e "Please enter the password when prompted.\n"
 		if ! openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes; then
@@ -448,7 +448,7 @@ if [[ -n "$CERT" ]]; then
 			openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes -legacy
 		fi
 	fi
-	
+
 	# if ! output=$(openssl verify -verify_email "$FROMADDRESS" "$CLIENTCERT" 2>/dev/null); then
 		# echo "Error verifying the S/MIME Certificate: $output" >&2
 		# exit 1
@@ -456,16 +456,16 @@ if [[ -n "$CERT" ]]; then
 
 	if aissuer=$(openssl x509 -in "$CLIENTCERT" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq); then
 		issuer=$(echo "$aissuer" | awk -F= '/organizationName=/ { print $2 }')
-		if [[ -z "$issuer" ]]; then
+		if [[ -z $issuer ]]; then
 			issuer=$(echo "$aissuer" | awk -F= '/commonName=/ { print $2 }')
 		fi
 	else
 		issuer=''
 	fi
 	date=$(openssl x509 -in "$CLIENTCERT" -noout -enddate | awk -F= '/notAfter=/ { print $2 }')
-	if openssl x509 -in "$CLIENTCERT" -noout -checkend 0 > /dev/null; then
-		sec=$(( $(date -d "$date" +%s) - NOW ))
-		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
+	if openssl x509 -in "$CLIENTCERT" -noout -checkend 0 >/dev/null; then
+		sec=$(($(date -d "$date" +%s) - NOW))
+		if [[ $((sec / 86400)) -lt $WARNDAYS ]]; then
 			echo -e "Warning: The S/MIME Certificate ${issuer:+from “$issuer” }expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 		fi
 	else
@@ -474,7 +474,7 @@ if [[ -n "$CERT" ]]; then
 	fi
 fi
 
-if [[ -n "$PASSPHRASE" ]]; then
+if [[ -n $PASSPHRASE ]]; then
 	if ! command -v gpg >/dev/null; then
 		echo "Error: GNU Privacy Guard is not installed." >&2
 		exit 1
@@ -484,14 +484,14 @@ if [[ -n "$PASSPHRASE" ]]; then
 		echo "Error: A PGP key pair does not yet exist for '$FROMADDRESS' or the passphrase was incorrect." >&2
 		exit 1
 	fi
-	
+
 	date=$(gpg -k --with-colons "$FROMADDRESS" | awk -F: '/^pub/ { print $7 }')
-	if [[ -n "$date" ]]; then
+	if [[ -n $date ]]; then
 		date=$(echo "$date" | head -n 1)
-		sec=$(( date - NOW ))
+		sec=$((date - NOW))
 		fingerprint=$(gpg --fingerprint --with-colons "$FROMADDRESS" | awk -F: '/^fpr/ { print $10 }' | head -n 1)
 		if [[ $sec -gt 0 ]]; then
-			if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
+			if [[ $((sec / 86400)) -lt $WARNDAYS ]]; then
 				echo -e "Warning: The PGP key pair for '$FROMADDRESS' with fingerprint $fingerprint expires in less than $WARNDAYS days ($(date -d "@$date")).\n"
 			fi
 		else
@@ -501,7 +501,7 @@ if [[ -n "$PASSPHRASE" ]]; then
 	fi
 fi
 
-if [[ -n "$CERT" && -n "$PASSPHRASE" ]]; then
+if [[ -n $CERT && -n $PASSPHRASE ]]; then
 	echo -e "Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n"
 fi
 
@@ -510,19 +510,19 @@ fi
 # send <subject> [message] [attachment(s)]...
 send() {
 	local boundary signature lang=${LANG%.*}
-	if [[ -n "$SEND" ]]; then
-		if [[ -n "$TIME" ]]; then
+	if [[ -n $SEND ]]; then
+		if [[ -n $TIME ]]; then
 			sleep -- "$TIME"
 		fi
-		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
+		if [[ -n $FROMADDRESS && -n $SMTP ]]; then
 			{
 				echo -n "User-Agent: Send Msg CLI
 From: $FROMNAME
 $(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;
-"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")
-"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")
+"; else [[ -n $TONAMES ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")
+"; fi)$([[ -n $CCNAMES ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")
 ")Subject: $(encoded-word "${1@E}")
-Date: $(if [[ -n "$UTC" ]]; then date -Rud "@$(( ${EPOCHSECONDS:-$(date +%s)} / 60 * 60 ))"; else date -R; fi)
+Date: $(if [[ -n $UTC ]]; then date -Rud "@$((${EPOCHSECONDS:-$(date +%s)} / 60 * 60))"; else date -R; fi)
 ${PRIORITY:+X-Priority: $PRIORITY
 }${MDN:+Disposition-Notification-To: $FROMNAME
 }"
@@ -533,9 +533,9 @@ ${PRIORITY:+X-Priority: $PRIORITY
 --${boundary}
 Content-Type: text/plain; charset=UTF-8
 ${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
-")}Content-Transfer-Encoding: $(if [[ -n "$BODY8BITMIME" ]]; then echo "8bit"; else echo "base64"; fi)
+")}Content-Transfer-Encoding: $(if [[ -n $BODY8BITMIME ]]; then echo "8bit"; else echo "base64"; fi)
 "
-					if [[ -n "$BODY8BITMIME" ]]; then
+					if [[ -n $BODY8BITMIME ]]; then
 						echo -e "$2"
 					else
 						echo -e -n "$2" | base64
@@ -555,16 +555,16 @@ Content-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective
 				else
 					echo "Content-Type: text/plain; charset=UTF-8
 ${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
-")}Content-Transfer-Encoding: $(if [[ -n "$BODY8BITMIME" ]]; then echo "8bit"; else echo "base64"; fi)
+")}Content-Transfer-Encoding: $(if [[ -n $BODY8BITMIME ]]; then echo "8bit"; else echo "base64"; fi)
 "
-					if [[ -n "$BODY8BITMIME" ]]; then
+					if [[ -n $BODY8BITMIME ]]; then
 						echo -e "$2"
 					else
 						echo -e -n "$2" | base64
 					fi
-				fi | if [[ -n "$CERT" ]]; then
+				fi | if [[ -n $CERT ]]; then
 					openssl cms -sign -signer "$CLIENTCERT"
-				elif [[ -n "$PASSPHRASE" ]]; then
+				elif [[ -n $PASSPHRASE ]]; then
 					boundary="----MULTIPART-SIGNED-BOUNDARY"
 					echo "MIME-Version: 1.0
 Content-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"${boundary}\"
@@ -591,7 +591,7 @@ $signature
 			{
 				echo -e "$2"
 				[[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done
-			} | eval mail ${FROMADDRESS:+-r ${FROMADDRESS@Q}} $([[ -n "$CCADDRESSES" ]] && printf -- '-c %s ' "${CCADDRESSES[@]@Q}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b %s ' "${BCCADDRESSES[@]@Q}" || echo) -s "${1@Q}" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo '"undisclosed-recipients: ;"' || printf -- '%s ' "${TOADDRESSES[@]@Q}")"
+			} | eval mail ${FROMADDRESS:+-r ${FROMADDRESS@Q}} $([[ -n $CCADDRESSES ]] && printf -- '-c %s ' "${CCADDRESSES[@]@Q}" || echo) $([[ -n $BCCADDRESSES ]] && printf -- '-b %s ' "${BCCADDRESSES[@]@Q}" || echo) -s "${1@Q}" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo '"undisclosed-recipients: ;"' || printf -- '%s ' "${TOADDRESSES[@]@Q}")"
 		fi
 	fi
 }
