@@ -1,4 +1,4 @@
-[![Actions Status](https://github.com/tdulcet/Send-Msg-CLI/workflows/CI/badge.svg?branch=master)](https://github.com/tdulcet/Send-Msg-CLI/actions)
+[![Actions Status](https://github.com/tdulcet/Send-Msg-CLI/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/tdulcet/Send-Msg-CLI/actions/workflows/ci.yml)
 
 # Send Msg CLI
 Send e-mail (and text messages) from the command line
@@ -23,7 +23,7 @@ Optional [PGP/MIME](https://en.wikipedia.org/wiki/Pretty_Good_Privacy#OpenPGP) d
 Run: `./sendmsg.sh <OPTION(S)>... -s <subject>`\
 One or more To, CC or BCC e-mail addresses are required. Send text messages by using the mobile providers [e-mail to SMS or MMS gateway](https://en.wikipedia.org/wiki/SMS_gateway#Email_clients). All the options can also be set by opening the script in an editor and setting the variables at the top. See [Help](#help) below for full usage information.
 
-1. Make sure the required commands above are installed.
+1. Verify that the required commands above are installed.
 2. Download the script ([sendmsg.sh](sendmsg.sh)). Run: `wget https://raw.github.com/tdulcet/Send-Msg-CLI/master/sendmsg.sh`.
 3. At a minimum, you need to provide one To e-mail address. If the computer is on a residential network or if it does not have an SMTP server setup then you will also need to provide an external SMTP server. For security, any passwords/passphrases should be set in the script, instead of on the command line.
 4. Execute the script once to make sure there are no errors. For example, run: `chmod u+x sendmsg.sh` and `./sendmsg.sh -s "Test" -m "This is a test!" -t "Example <example@example.com>" -d`.
