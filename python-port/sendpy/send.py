@@ -26,15 +26,13 @@ def set_main_headers(args, message):
     COMMASPACE = ", "
     message["User-Agent"] = "Send Msg CLI/SendPy"
     message["From"] = args.fromemail
-    message["To"] = "undisclosed-recipients:;" if not args.toemails and not args.ccemails else COMMASPACE.join(
-        args.toemails)
+    message["To"] = "undisclosed-recipients:;" if not args.toemails and not args.ccemails else COMMASPACE.join(args.toemails)
     if args.ccemails:
         message["Cc"] = COMMASPACE.join(args.ccemails)
     if args.bccemails:
         message["Bcc"] = COMMASPACE.join(args.bccemails)
     message["Subject"] = args.subject
-    message["Date"] = datetime.fromtimestamp(int(datetime.now(
-    ).timestamp()) // 60 * 60, timezone.utc) if args.utc else localtime()
+    message["Date"] = datetime.fromtimestamp(int(datetime.now().timestamp()) // 60 * 60, timezone.utc) if args.utc else localtime()
     if args.priority:
         message["X-Priority"] = args.priority
     if args.mdn:
@@ -50,8 +48,7 @@ def attachments(message, aattachments):
             ctype = "application/octet-stream"
         maintype, subtype = ctype.split("/", 1)
         with open(file, "rb") as f:
-            message.add_attachment(
-                f.read(), maintype=maintype, subtype=subtype, filename=os.path.basename(file))
+            message.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=os.path.basename(file))
 
 
 def smime(args, clientcert, lang):
@@ -65,8 +62,7 @@ def smime(args, clientcert, lang):
     if args.attachments:
         attachments(msg, args.attachments)
 
-    cert_sig = subprocess.check_output(
-        ["openssl", "cms", "-sign", "-signer", clientcert], input=msg.as_bytes(policy=SMTP))
+    cert_sig = subprocess.check_output(["openssl", "cms", "-sign", "-signer", clientcert], input=msg.as_bytes(policy=SMTP))
 
     message = email.message_from_bytes(cert_sig, policy=default)
 
@@ -90,16 +86,16 @@ def pgp(args, fromaddress, lang):
         f.write(msg.as_bytes(policy=SMTP))
         # f.flush()
 
-        pgp_sig = subprocess.check_output(["gpg", "--pinentry-mode", "loopback", "--batch", "-o", "-",
-                                          "-ab", "-u", fromaddress, "--passphrase-fd", "0", f.name], input=args.passphrase.encode())
+        pgp_sig = subprocess.check_output(
+            ["gpg", "--pinentry-mode", "loopback", "--batch", "-o", "-", "-ab", "-u", fromaddress, "--passphrase-fd", "0", f.name],
+            input=args.passphrase.encode(),
+        )
 
     signmsg = EmailMessage()
     signmsg.make_mixed()
     signmsg.attach(msg)
-    signmsg.add_attachment(pgp_sig, maintype="application",
-                           subtype="pgp-signature", filename="signature.asc")
-    signmsg.replace_header(
-        "Content-Type", 'multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1')
+    signmsg.add_attachment(pgp_sig, maintype="application", subtype="pgp-signature", filename="signature.asc")
+    signmsg.replace_header("Content-Type", 'multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1')
 
     set_main_headers(args, signmsg)
 
@@ -192,13 +188,17 @@ def sendEmail(args, clientcert, fromaddress, host, port):
             port25(args, message, host, port)
 
     except socket.timeout:
-        print("Connection timed out when trying to connect. Please verify the server is up or you entered the correct port number for the SMTP server.")
+        print(
+            "Connection timed out when trying to connect. Please verify the server is up or you entered the correct port number for the SMTP server."
+        )
     except smtplib.SMTPHeloError:
         print("Server did not reply. You may have Port 25 blocked on your host machine.")
         sys.exit(2)
     except smtplib.SMTPAuthenticationError as e:
         print(e)
-        print("Incorrect username/password combination or, if you are using Gmail, you may need to lower the security settings or login from this computer (see the README.md for more information).")
+        print(
+            "Incorrect username/password combination or, if you are using Gmail, you may need to lower the security settings or login from this computer (see the README.md for more information)."
+        )
         sys.exit(2)
     except smtplib.SMTPException as e:
         print(e)

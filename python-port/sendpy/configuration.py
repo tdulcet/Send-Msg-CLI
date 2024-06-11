@@ -28,14 +28,12 @@ def config_email(args):
 
     smtp_server = args.smtp
     while not smtp_server:
-        smtp_server = input(
-            "SMTP server (hostname and optional port), e.g., 'mail.example.com:465': ")
+        smtp_server = input("SMTP server (hostname and optional port), e.g., 'mail.example.com:465': ")
     tls = args.tls
     starttls = args.starttls
     if not (tls or starttls):
         while True:
-            accept = input(
-                "Use a secure connection with SSL/TLS? (y/n): ").strip()
+            accept = input("Use a secure connection with SSL/TLS? (y/n): ").strip()
             yes_res = yes_regex.match(accept)
             no_res = no_regex.match(accept)
             if yes_res or no_res:
@@ -43,8 +41,7 @@ def config_email(args):
         tls = bool(yes_res)
         if not tls:
             while True:
-                accept = input(
-                    "Upgrade to a secure connection with StartTLS? (y/n): ").strip()
+                accept = input("Upgrade to a secure connection with StartTLS? (y/n): ").strip()
                 yes_res = yes_regex.match(accept)
                 no_res = no_regex.match(accept)
                 if yes_res or no_res:
@@ -52,12 +49,9 @@ def config_email(args):
             starttls = bool(yes_res)
     fromemail = args.fromemail
     while not fromemail:
-        fromemail = input(
-            "From e-mail address, e.g., 'User <user@example.com>': ")
-    username = args.username or input(
-        "Optional username for this account, e.g., 'user@example.com': ")
-    password = args.password or getpass.getpass(
-        "Optional password for this account: ")
+        fromemail = input("From e-mail address, e.g., 'User <user@example.com>': ")
+    username = args.username or input("Optional username for this account, e.g., 'user@example.com': ")
+    password = args.password or getpass.getpass("Optional password for this account: ")
 
     parser.set(section, "smtp", smtp_server)
     if tls:
@@ -94,7 +88,10 @@ def return_config(args):
     """Pull (and check) variables in the .ini file."""
     section = "Email"
     if not parser.has_section(section):
-        print("The SMTP server and from e-mail address are not provided and not set in the config file. Please provide the --smtp and --from options or set the config file with the --config option.", file=sys.stderr)
+        print(
+            "The SMTP server and from e-mail address are not provided and not set in the config file. Please provide the --smtp and --from options or set the config file with the --config option.",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     smtp_server = args.smtp or parser.get(section, "smtp")

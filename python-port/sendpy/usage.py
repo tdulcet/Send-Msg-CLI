@@ -70,7 +70,8 @@ def carriers():
         ("T-Mobile", "tmomail.net", "tmomail.net"),
         ("U.S. Cellular", "email.uscc.net", "mms.uscc.net"),
         ("Verizon Wireless", "vtext.com", "vzwpix.com"),
-        ("Virgin Mobile", "vmobl.com", "vmpix.com")])
+        ("Virgin Mobile", "vmobl.com", "vmpix.com"),
+    ])
     print("\nCanadian Carriers\n")
     format_attachment_output([
         ("Mobile carrier", "SMS gateway domain"),
@@ -83,7 +84,8 @@ def carriers():
         ("PC Mobile", "mobiletxt.ca"),
         ("Rogers Comm", "pcs.rogers.com"),
         ("SaskTel", "sms.sasktel.com"),
-        ("Telus", "msg.telus.com")])
+        ("Telus", "msg.telus.com"),
+    ])
 
 
 def servers():
@@ -105,4 +107,5 @@ def servers():
         ("Hotmail", "smtp.live.com:465 "),
         ("Comcast", "smtp.comcast.net:587"),
         ("Verizon", "outgoing.verizon.net:587"),
-        ("Mail.com", "smtp.mail.com:465")])
+        ("Mail.com", "smtp.mail.com:465"),
+    ])

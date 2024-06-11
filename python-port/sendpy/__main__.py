@@ -22,8 +22,7 @@ if __name__ == "__main__":
     from send import sendEmail
 else:
     # The script is being run as part of a package, use relative imports
-    from . import configuration
-    from . import usage
+    from . import configuration, usage
     from .send import sendEmail
 
 
@@ -41,74 +40,133 @@ CLIENTCERT = "cert.pem"
 WARNDAYS = 3
 
 parser = argparse.ArgumentParser(
-    description="One or more To, CC or BCC e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (see the --gateways option). See examples with the --examples option.")
-parser.add_argument("-v", "--version", action="version",
-                    version="%(prog)s 1.0.1")
-parser.add_argument("-s", "--subject", dest="subject",
-                    help="Subject. Escape sequences are expanded. Supports Unicode characters.")
-parser.add_argument("-m", "--message", dest="message", default="",
-                    help="Message body. Escape sequences are expanded. Supports Unicode characters.")
-parser.add_argument("--message-file", dest="message_file",
-                    help="Message body from a file or standard input if the filename is '-'.")
-parser.add_argument("-a", "--attachment", dest="attachments", action="append", default=[],
-                    help="Attachment filename. Use multiple times for multiple attachments. Supports Unicode characters in filename.")
-parser.add_argument("-t", "--to", dest="toemails", action="append", default=[],
-                    help="To e-mail address. Use multiple times for multiple To e-mail addresses.")
-parser.add_argument("-c", "--cc", dest="ccemails", action="append", default=[],
-                    help="CC e-mail address. Use multiple times for multiple CC e-mail addresses.")
-parser.add_argument("-b", "--bcc", dest="bccemails", action="append", default=[],
-                    help="BCC e-mail address. Use multiple times for multiple BCC e-mail addresses.")
-parser.add_argument("-f", "--from", dest="fromemail",
-                    help="From e-mail address")
-parser.add_argument("-S", "--smtp", dest="smtp",
-                    help='SMTP server. Optionally include a port with the "hostname:port" syntax. Defaults to port 465 with --ssl/--tls and port 25 otherwise. Use "localhost" if running a mail server on this device.')
-parser.add_argument("--tls", action="store_true",
-                    dest="tls", help="Use a secure connection with SSL/TLS (Secure Socket Layer/Transport Layer Security)")
-parser.add_argument("--starttls", action="store_true", dest="starttls",
-                    help="Upgrade to a secure connection with StartTLS")
-parser.add_argument("-u", "--username", dest="username",
-                    help="SMTP server username")
-parser.add_argument("-p", "--password", dest="password",
-                    help="SMTP server password. For security, use the --config option instead for it to prompt you for the password and then store in the configuration file.")
-parser.add_argument("-P", "--priority", dest="priority", choices=["5 (Lowest)", "4 (Low)", "Normal", "2 (High)", "1 (Highest)"],
-                    help='Priority. Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"')
-parser.add_argument("-r", "--receipt", action="store_true",
-                    dest="mdn", help="Request Return Receipt")
-parser.add_argument("-C", "--certificate", dest="cert",
-                    help="S/MIME Certificate filename for digitally signing the e-mails. It will ask you for the password the first time you run the script with this option.")
-parser.add_argument("-k", "--passphrase", dest="passphrase",
-                    help="PGP secret key passphrase for digitally signing the e-mails with PGP/MIME. For security, use 'config' for it to prompt you for the passphrase and then store in the configuration file.")
-parser.add_argument("-z", "--zip", dest="zipfile",
-                    help="Compress attachment(s) with zip")
-parser.add_argument("-l", "--language", action="store_true", dest="language",
-                    help="Set Content-Language. Uses value of LANG environment variable on Linux.")
-parser.add_argument("-U", "--sanitize-date", action="store_true", dest="utc",
-                    help="Uses Coordinated Universal Time (UTC) and rounds date down to whole minute.")
-parser.add_argument("-T", "--time", dest="time", type=float,
-                    help="Time to delay sending of the e-mail")
-parser.add_argument("-d", "--dry-run", action="store_true",
-                    dest="dryrun", help="Dry run, do not send the e-mail")
-parser.add_argument("-n", "--notify", dest="notify",
-                    help="Run provided command and then send an e-mail with resulting output and exit code.")
-parser.add_argument("-V", "--verbose", dest="verbose", action="count",
-                    help="Verbose, show the client-server communication")
-parser.add_argument("--config", action="store_true",
-                    help="Store the --from, --smtp, --tls, --starttls, --username and --password option values in a '.sendpy.ini' configuration file as defaults for future use. It will prompt for any values that are not provided.")
-parser.add_argument("--examples", action="store_true",
-                    help="Show example usages of this script and exit")
-parser.add_argument("--smtp-servers", action="store_true",
-                    help="Show a list of the SMTP servers for common e-mail services, then exit")
-parser.add_argument("--gateways", action="store_true",
-                    help="Show a list the of SMS and MMS Gateways for common mobile providers in the United States and Canada, then exit")
+    description="One or more To, CC or BCC e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (see the --gateways option). See examples with the --examples option."
+)
+parser.add_argument("-v", "--version", action="version", version="%(prog)s 1.0.1")
+parser.add_argument("-s", "--subject", dest="subject", help="Subject. Escape sequences are expanded. Supports Unicode characters.")
+parser.add_argument(
+    "-m", "--message", dest="message", default="", help="Message body. Escape sequences are expanded. Supports Unicode characters."
+)
+parser.add_argument(
+    "--message-file", dest="message_file", help="Message body from a file or standard input if the filename is '-'."
+)
+parser.add_argument(
+    "-a",
+    "--attachment",
+    dest="attachments",
+    action="append",
+    default=[],
+    help="Attachment filename. Use multiple times for multiple attachments. Supports Unicode characters in filename.",
+)
+parser.add_argument(
+    "-t",
+    "--to",
+    dest="toemails",
+    action="append",
+    default=[],
+    help="To e-mail address. Use multiple times for multiple To e-mail addresses.",
+)
+parser.add_argument(
+    "-c",
+    "--cc",
+    dest="ccemails",
+    action="append",
+    default=[],
+    help="CC e-mail address. Use multiple times for multiple CC e-mail addresses.",
+)
+parser.add_argument(
+    "-b",
+    "--bcc",
+    dest="bccemails",
+    action="append",
+    default=[],
+    help="BCC e-mail address. Use multiple times for multiple BCC e-mail addresses.",
+)
+parser.add_argument("-f", "--from", dest="fromemail", help="From e-mail address")
+parser.add_argument(
+    "-S",
+    "--smtp",
+    dest="smtp",
+    help='SMTP server. Optionally include a port with the "hostname:port" syntax. Defaults to port 465 with --ssl/--tls and port 25 otherwise. Use "localhost" if running a mail server on this device.',
+)
+parser.add_argument(
+    "--tls",
+    action="store_true",
+    dest="tls",
+    help="Use a secure connection with SSL/TLS (Secure Socket Layer/Transport Layer Security)",
+)
+parser.add_argument("--starttls", action="store_true", dest="starttls", help="Upgrade to a secure connection with StartTLS")
+parser.add_argument("-u", "--username", dest="username", help="SMTP server username")
+parser.add_argument(
+    "-p",
+    "--password",
+    dest="password",
+    help="SMTP server password. For security, use the --config option instead for it to prompt you for the password and then store in the configuration file.",
+)
+parser.add_argument(
+    "-P",
+    "--priority",
+    dest="priority",
+    choices=["5 (Lowest)", "4 (Low)", "Normal", "2 (High)", "1 (Highest)"],
+    help='Priority. Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"',
+)
+parser.add_argument("-r", "--receipt", action="store_true", dest="mdn", help="Request Return Receipt")
+parser.add_argument(
+    "-C",
+    "--certificate",
+    dest="cert",
+    help="S/MIME Certificate filename for digitally signing the e-mails. It will ask you for the password the first time you run the script with this option.",
+)
+parser.add_argument(
+    "-k",
+    "--passphrase",
+    dest="passphrase",
+    help="PGP secret key passphrase for digitally signing the e-mails with PGP/MIME. For security, use 'config' for it to prompt you for the passphrase and then store in the configuration file.",
+)
+parser.add_argument("-z", "--zip", dest="zipfile", help="Compress attachment(s) with zip")
+parser.add_argument(
+    "-l",
+    "--language",
+    action="store_true",
+    dest="language",
+    help="Set Content-Language. Uses value of LANG environment variable on Linux.",
+)
+parser.add_argument(
+    "-U",
+    "--sanitize-date",
+    action="store_true",
+    dest="utc",
+    help="Uses Coordinated Universal Time (UTC) and rounds date down to whole minute.",
+)
+parser.add_argument("-T", "--time", dest="time", type=float, help="Time to delay sending of the e-mail")
+parser.add_argument("-d", "--dry-run", action="store_true", dest="dryrun", help="Dry run, do not send the e-mail")
+parser.add_argument(
+    "-n", "--notify", dest="notify", help="Run provided command and then send an e-mail with resulting output and exit code."
+)
+parser.add_argument("-V", "--verbose", dest="verbose", action="count", help="Verbose, show the client-server communication")
+parser.add_argument(
+    "--config",
+    action="store_true",
+    help="Store the --from, --smtp, --tls, --starttls, --username and --password option values in a '.sendpy.ini' configuration file as defaults for future use. It will prompt for any values that are not provided.",
+)
+parser.add_argument("--examples", action="store_true", help="Show example usages of this script and exit")
+parser.add_argument(
+    "--smtp-servers", action="store_true", help="Show a list of the SMTP servers for common e-mail services, then exit"
+)
+parser.add_argument(
+    "--gateways",
+    action="store_true",
+    help="Show a list the of SMS and MMS Gateways for common mobile providers in the United States and Canada, then exit",
+)
 
 args = parser.parse_args()
 
 NOW = datetime.now()
 
-escape_sequence_re = re.compile(
-    r"\\U[0-9a-fA-F]{1,8}|\\u[0-9a-fA-F]{1,4}|\\x[0-9a-fA-F]{1,2}")
+escape_sequence_re = re.compile(r"\\U[0-9a-fA-F]{1,8}|\\u[0-9a-fA-F]{1,4}|\\x[0-9a-fA-F]{1,2}")
 ESCAPE_SEQUENCE_RE = re.compile(
-    r"""(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])""")
+    r"""(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])"""
+)
 
 
 def zero_pad(match):
@@ -125,8 +183,7 @@ def decode_match(match):
 
 def decode_escapes(s):
     """ESCAPE_SEQUENCE_RE and decode_escapes."""
-    return ESCAPE_SEQUENCE_RE.sub(
-        decode_match, escape_sequence_re.sub(zero_pad, s))
+    return ESCAPE_SEQUENCE_RE.sub(decode_match, escape_sequence_re.sub(zero_pad, s))
 
 
 def configuration_assignment():
@@ -135,8 +192,7 @@ def configuration_assignment():
     """
     # make file with appropriate fields if file does not exist
     if not args.smtp or not args.fromemail:
-        args.smtp, args.tls, args.starttls, args.fromemail, args.username, args.password = configuration.return_config(
-            args)
+        args.smtp, args.tls, args.starttls, args.fromemail, args.username, args.password = configuration.return_config(args)
 
     if args.tls and args.starttls:
         parser.error("Cannot use both SSL/TLS and StartTLS.")
@@ -153,7 +209,9 @@ def configuration_assignment():
             sock.settimeout(5)
             # testing connection as computer may not block port 25, but ISP/Cloud provider may.
             if sock.connect_ex(("aspmx.l.google.com", 25)):
-                print("Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to specify a port for the SMTP server in order to send e-mails.\n")
+                print(
+                    "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to specify a port for the SMTP server in order to send e-mails.\n"
+                )
 
     return host, port
 
@@ -197,7 +255,9 @@ def parse_assign():
             parser.error(f"{expanded_file!r} file does not exist.")
 
     if args.notify:
-        with subprocess.Popen(args.notify, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True) as p:
+        with subprocess.Popen(
+            args.notify, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True
+        ) as p:
             stdout, _ = p.communicate()
             args.message += f"\n**EXIT CODE**:\n{p.returncode}\n**OUTPUT**:\n{stdout}\n"
 
@@ -231,8 +291,7 @@ def convert_bytes(number, scale=False):
             strm = f"{number:.{prec}f}"
     else:
         strm = f"{number:.0f}"
-    strm += suffix_power_char[power] if power < len(
-        suffix_power_char) else "(error)"
+    strm += suffix_power_char[power] if power < len(suffix_power_char) else "(error)"
 
     if not scale and power > 0:
         strm += "i"
@@ -269,15 +328,15 @@ def attachment_work():
         for attachment in args.attachments:
             size = os.path.getsize(attachment)
             total += size
-            rows.append((attachment, convert_bytes(size, False),
-                        f"({convert_bytes(size, True)})" if size >= 1000 else ""))
+            rows.append((attachment, convert_bytes(size, False), f"({convert_bytes(size, True)})" if size >= 1000 else ""))
         usage.format_attachment_output(rows)
 
-        print(
-            f"\nTotal Size:\t{convert_bytes(total, False)}\t{f'({convert_bytes(total, True)})' if total >= 1000 else ''}\n")
+        print(f"\nTotal Size:\t{convert_bytes(total, False)}\t{f'({convert_bytes(total, True)})' if total >= 1000 else ''}\n")
 
         if total >= 25 * 1024 * 1024:
-            print("Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Send: https://send.vis.ee/ (formerly Firefox Send) or transfer.sh: https://transfer.sh\n")
+            print(
+                "Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Send: https://send.vis.ee/ (formerly Firefox Send) or transfer.sh: https://transfer.sh\n"
+            )
 
 
 def email_work():
@@ -286,7 +345,8 @@ def email_work():
     re1 = re.compile(r"^.{6,254}$")
     re2 = re.compile(r"^.{1,64}@")
     re3 = re.compile(
-        r'^(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$')
+        r'^(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$'
+    )
 
     # Check if the email is valid.
     for toemail in args.toemails:
@@ -329,24 +389,23 @@ def cert_checks():
             sys.exit(1)
 
         if not os.path.exists(args.cert) and not os.path.exists(CLIENTCERT):
-            print(
-                f"Error: {args.cert!r} certificate file does not exist.", file=sys.stderr)
+            print(f"Error: {args.cert!r} certificate file does not exist.", file=sys.stderr)
             sys.exit(1)
 
         if not (os.path.exists(CLIENTCERT) and os.path.getsize(CLIENTCERT)):
-            print(
-                f"Saving the client certificate from {args.cert!r} to {CLIENTCERT!r}")
+            print(f"Saving the client certificate from {args.cert!r} to {CLIENTCERT!r}")
             print("Please enter the password when prompted.\n")
-            if subprocess.call(
-                    ["openssl", "pkcs12", "-in", args.cert, "-out", CLIENTCERT, "-clcerts", "-nodes"]):
-                print(
-                    "Error saving the client certificate. Trying again in legacy mode.", file=sys.stderr)
-                if subprocess.call(["openssl", "pkcs12", "-in", args.cert,
-                                   "-out", CLIENTCERT, "-clcerts", "-nodes", "-legacy"]):
+            if subprocess.call(["openssl", "pkcs12", "-in", args.cert, "-out", CLIENTCERT, "-clcerts", "-nodes"]):
+                print("Error saving the client certificate. Trying again in legacy mode.", file=sys.stderr)
+                if subprocess.call(["openssl", "pkcs12", "-in", args.cert, "-out", CLIENTCERT, "-clcerts", "-nodes", "-legacy"]):
                     sys.exit(1)
 
         issuer = None
-        with subprocess.Popen(["openssl", "x509", "-in", CLIENTCERT, "-noout", "-issuer", "-nameopt", "multiline,-align,-esc_msb,utf8,-space_eq"], stdout=subprocess.PIPE, universal_newlines=True) as p:
+        with subprocess.Popen(
+            ["openssl", "x509", "-in", CLIENTCERT, "-noout", "-issuer", "-nameopt", "multiline,-align,-esc_msb,utf8,-space_eq"],
+            stdout=subprocess.PIPE,
+            universal_newlines=True,
+        ) as p:
             aissuer, _ = p.communicate()
             if p.returncode:
                 aissuer = aissuer.splitlines()
@@ -361,23 +420,23 @@ def cert_checks():
                             break
 
         adate = subprocess.check_output(
-            ["openssl", "x509", "-in", CLIENTCERT, "-noout", "-enddate"], universal_newlines=True).splitlines()
+            ["openssl", "x509", "-in", CLIENTCERT, "-noout", "-enddate"], universal_newlines=True
+        ).splitlines()
         for line in adate:
             if "notAfter=" in line:
                 date = line.split("=", 1)[1]
                 break
         date = datetime.strptime(date, "%b %d %H:%M:%S %Y %Z")
 
-        if not subprocess.call(["openssl", "x509", "-in", CLIENTCERT,
-                               "-noout", "-checkend", "0"], stdout=subprocess.DEVNULL):
+        if not subprocess.call(["openssl", "x509", "-in", CLIENTCERT, "-noout", "-checkend", "0"], stdout=subprocess.DEVNULL):
             delta = date - NOW
             warn = timedelta(days=WARNDAYS)
             if delta < warn:
                 print(
-                    f"Warning: The S/MIME Certificate {f'from “{issuer}” ' if issuer else ''}expires in less than {WARNDAYS} days ({date:%c}).\n")
+                    f"Warning: The S/MIME Certificate {f'from “{issuer}” ' if issuer else ''}expires in less than {WARNDAYS} days ({date:%c}).\n"
+                )
         else:
-            print(
-                f"Error: The S/MIME Certificate {f'from “{issuer}” ' if issuer else ''}expired {date:%c}.", file=sys.stderr)
+            print(f"Error: The S/MIME Certificate {f'from “{issuer}” ' if issuer else ''}expired {date:%c}.", file=sys.stderr)
             sys.exit(1)
 
 
@@ -395,16 +454,34 @@ def passphrase_checks(fromaddress):
         with tempfile.NamedTemporaryFile("w", encoding="utf-8") as f:
             f.write("\n")
             # check if GPG key exists
-            with subprocess.Popen(["gpg", "--pinentry-mode", "loopback", "--batch", "-o", os.devnull, "-ab", "-u", fromaddress, "--passphrase-fd", "0", f.name], stdin=subprocess.PIPE, universal_newlines=True) as p:
+            with subprocess.Popen(
+                [
+                    "gpg",
+                    "--pinentry-mode",
+                    "loopback",
+                    "--batch",
+                    "-o",
+                    os.devnull,
+                    "-ab",
+                    "-u",
+                    fromaddress,
+                    "--passphrase-fd",
+                    "0",
+                    f.name,
+                ],
+                stdin=subprocess.PIPE,
+                universal_newlines=True,
+            ) as p:
                 p.communicate(args.passphrase)
                 if p.returncode:
                     print(
-                        f"Error: A PGP key pair does not yet exist for {fromaddress!r} or the passphrase was incorrect.", file=sys.stderr)
+                        f"Error: A PGP key pair does not yet exist for {fromaddress!r} or the passphrase was incorrect.",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
 
         # check if GPG key will expire soon or has expired
-        adate = subprocess.check_output(
-            ["gpg", "-k", "--with-colons", fromaddress], universal_newlines=True).splitlines()
+        adate = subprocess.check_output(["gpg", "-k", "--with-colons", fromaddress], universal_newlines=True).splitlines()
         date = None
         for line in adate:
             if line.startswith("pub"):
@@ -414,7 +491,8 @@ def passphrase_checks(fromaddress):
         if date:
             date = datetime.fromtimestamp(int(date))
             afingerprint = subprocess.check_output(
-                ["gpg", "--fingerprint", "--with-colons", fromaddress], universal_newlines=True).splitlines()
+                ["gpg", "--fingerprint", "--with-colons", fromaddress], universal_newlines=True
+            ).splitlines()
             for line in afingerprint:
                 if line.startswith("fpr"):
                     fingerprint = line.split(":")[9]
@@ -425,10 +503,13 @@ def passphrase_checks(fromaddress):
                 warn = timedelta(days=WARNDAYS)
                 if delta < warn:
                     print(
-                        f"Warning: The PGP key pair for {fromaddress!r} with fingerprint {fingerprint} expires in less than {WARNDAYS} days {date:%c}.\n")
+                        f"Warning: The PGP key pair for {fromaddress!r} with fingerprint {fingerprint} expires in less than {WARNDAYS} days {date:%c}.\n"
+                    )
             else:
                 print(
-                    f"Error: The PGP key pair for {fromaddress!r} with fingerprint {fingerprint} expired {date:%c}.", file=sys.stderr)
+                    f"Error: The PGP key pair for {fromaddress!r} with fingerprint {fingerprint} expired {date:%c}.",
+                    file=sys.stderr,
+                )
                 sys.exit(1)
 
     if args.cert and args.passphrase:
