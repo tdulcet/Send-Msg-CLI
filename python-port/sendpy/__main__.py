@@ -9,20 +9,20 @@ import re
 import socket
 import subprocess
 import sys
-import tempfile
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from email.utils import parseaddr
-from shutil import which
 
 if __name__ == "__main__":
     # The script is being run directly, use absolute imports
     import configuration
+    import pgp
+    import smime
     import usage
     from send import sendEmail
 else:
     # The script is being run as part of a package, use relative imports
-    from . import configuration, usage
+    from . import configuration, pgp, smime, usage
     from .send import sendEmail
 
 
@@ -35,9 +35,6 @@ else:
 """
 
 locale.setlocale(locale.LC_ALL, "")
-
-CLIENTCERT = "cert.pem"
-WARNDAYS = 3
 
 parser = argparse.ArgumentParser(
     description="One or more To, CC or BCC e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (see the --gateways option). See examples with the --examples option."
@@ -267,7 +264,7 @@ def parse_assign():
         args.zipfile += ".zip"
 
 
-suffix_power_char = ["", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q"]
+suffix_power_char = ("", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q")
 
 
 def convert_bytes(number, scale=False):
@@ -291,6 +288,8 @@ def convert_bytes(number, scale=False):
             strm = f"{number:.{prec}f}"
     else:
         strm = f"{number:.0f}"
+
+    # "k" if power == 1 and scale else
     strm += suffix_power_char[power] if power < len(suffix_power_char) else "(error)"
 
     if not scale and power > 0:
@@ -342,10 +341,8 @@ def attachment_work():
 def email_work():
     """Check for valid email addresses."""
     # RE = re.compile(r"^((.{1,64}@[\w.-]{4,254})|(.*) *<(.{1,64}@[\w.-]{4,254})>)$")
-    re1 = re.compile(r"^.{6,254}$")
-    re2 = re.compile(r"^.{1,64}@")
-    re3 = re.compile(
-        r'^(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$'
+    EMAILRE = re.compile(
+        r'^(?=.{6,254}$)(?=.{1,64}@)(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$'
     )
 
     # Check if the email is valid.
@@ -353,167 +350,30 @@ def email_work():
         # result = RE.match(toemail)
         _, address = parseaddr(toemail)
         temp = address or toemail
-        if not (re1.match(temp) and re2.match(temp) and re3.match(temp)):
+        if not EMAILRE.match(temp):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
     for ccemail in args.ccemails:
         # result = RE.match(ccemail)
         _, address = parseaddr(ccemail)
         temp = address or ccemail
-        if not (re1.match(temp) and re2.match(temp) and re3.match(temp)):
+        if not EMAILRE.match(temp):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
     for bccemail in args.bccemails:
         # result = RE.match(bccemail)
         _, address = parseaddr(bccemail)
         temp = address or bccemail
-        if not (re1.match(temp) and re2.match(temp) and re3.match(temp)):
+        if not EMAILRE.match(temp):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
     # result = RE.match(args.fromemail)
     _, fromaddress = parseaddr(args.fromemail)
     temp = fromaddress or args.fromemail
-    if not (re1.match(temp) and re2.match(temp) and re3.match(temp)):
+    if not EMAILRE.match(temp):
         parser.error(f"{temp!r} is not a valid e-mail address.")
 
     return fromaddress
-
-
-def cert_checks():
-    """Creates the .pem certificate (defined in CLIENTCERT; e.g., cert.pem) with certificate \
-       located in args.cert (read in from CMDLINE using -C, or --cert).
-    """
-    if args.cert:
-        if which("openssl") is None:
-            print("Error: OpenSSL is not installed.", file=sys.stderr)
-            sys.exit(1)
-
-        if not os.path.exists(args.cert) and not os.path.exists(CLIENTCERT):
-            print(f"Error: {args.cert!r} certificate file does not exist.", file=sys.stderr)
-            sys.exit(1)
-
-        if not (os.path.exists(CLIENTCERT) and os.path.getsize(CLIENTCERT)):
-            print(f"Saving the client certificate from {args.cert!r} to {CLIENTCERT!r}")
-            print("Please enter the password when prompted.\n")
-            if subprocess.call(["openssl", "pkcs12", "-in", args.cert, "-out", CLIENTCERT, "-clcerts", "-nodes"]):
-                print("Error saving the client certificate. Trying again in legacy mode.", file=sys.stderr)
-                if subprocess.call(["openssl", "pkcs12", "-in", args.cert, "-out", CLIENTCERT, "-clcerts", "-nodes", "-legacy"]):
-                    sys.exit(1)
-
-        issuer = None
-        with subprocess.Popen(
-            ["openssl", "x509", "-in", CLIENTCERT, "-noout", "-issuer", "-nameopt", "multiline,-align,-esc_msb,utf8,-space_eq"],
-            stdout=subprocess.PIPE,
-            universal_newlines=True,
-        ) as p:
-            aissuer, _ = p.communicate()
-            if p.returncode:
-                aissuer = aissuer.splitlines()
-                for line in aissuer:
-                    if "organizationName=" in line:
-                        issuer = line.split("=", 1)[1]
-                        break
-                else:
-                    for line in aissuer:
-                        if "commonName=" in line:
-                            issuer = line.split("=", 1)[1]
-                            break
-
-        adate = subprocess.check_output(
-            ["openssl", "x509", "-in", CLIENTCERT, "-noout", "-enddate"], universal_newlines=True
-        ).splitlines()
-        for line in adate:
-            if "notAfter=" in line:
-                date = line.split("=", 1)[1]
-                break
-        date = datetime.strptime(date, "%b %d %H:%M:%S %Y %Z")
-
-        if not subprocess.call(["openssl", "x509", "-in", CLIENTCERT, "-noout", "-checkend", "0"], stdout=subprocess.DEVNULL):
-            delta = date - NOW
-            warn = timedelta(days=WARNDAYS)
-            if delta < warn:
-                print(
-                    f"Warning: The S/MIME Certificate {f'from “{issuer}” ' if issuer else ''}expires in less than {WARNDAYS} days ({date:%c}).\n"
-                )
-        else:
-            print(f"Error: The S/MIME Certificate {f'from “{issuer}” ' if issuer else ''}expired {date:%c}.", file=sys.stderr)
-            sys.exit(1)
-
-
-def passphrase_checks(fromaddress):
-    """Does a number of checks if a user indicated they watn to sign with a GPG key to utilize PGP/MIME."""
-    if args.passphrase:
-        if which("gpg") is None:
-            print("Error: GNU Privacy Guard is not installed.", file=sys.stderr)
-            sys.exit(1)
-
-        # Work from a config file
-        if args.passphrase.lower() == "config":
-            args.passphrase = configuration.config_pgp()
-
-        with tempfile.NamedTemporaryFile("w", encoding="utf-8") as f:
-            f.write("\n")
-            # check if GPG key exists
-            with subprocess.Popen(
-                [
-                    "gpg",
-                    "--pinentry-mode",
-                    "loopback",
-                    "--batch",
-                    "-o",
-                    os.devnull,
-                    "-ab",
-                    "-u",
-                    fromaddress,
-                    "--passphrase-fd",
-                    "0",
-                    f.name,
-                ],
-                stdin=subprocess.PIPE,
-                universal_newlines=True,
-            ) as p:
-                p.communicate(args.passphrase)
-                if p.returncode:
-                    print(
-                        f"Error: A PGP key pair does not yet exist for {fromaddress!r} or the passphrase was incorrect.",
-                        file=sys.stderr,
-                    )
-                    sys.exit(1)
-
-        # check if GPG key will expire soon or has expired
-        adate = subprocess.check_output(["gpg", "-k", "--with-colons", fromaddress], universal_newlines=True).splitlines()
-        date = None
-        for line in adate:
-            if line.startswith("pub"):
-                date = line.split(":")[6]
-                break
-
-        if date:
-            date = datetime.fromtimestamp(int(date))
-            afingerprint = subprocess.check_output(
-                ["gpg", "--fingerprint", "--with-colons", fromaddress], universal_newlines=True
-            ).splitlines()
-            for line in afingerprint:
-                if line.startswith("fpr"):
-                    fingerprint = line.split(":")[9]
-                    break
-
-            if date > NOW:
-                delta = date - NOW
-                warn = timedelta(days=WARNDAYS)
-                if delta < warn:
-                    print(
-                        f"Warning: The PGP key pair for {fromaddress!r} with fingerprint {fingerprint} expires in less than {WARNDAYS} days {date:%c}.\n"
-                    )
-            else:
-                print(
-                    f"Error: The PGP key pair for {fromaddress!r} with fingerprint {fingerprint} expired {date:%c}.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-
-    if args.cert and args.passphrase:
-        print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
 
 
 def main():
@@ -527,11 +387,17 @@ def main():
     attachment_work()
 
     # signing/signing checks
-    cert_checks()
-    passphrase_checks(fromaddress)
+    if args.cert:
+        smime.cert_checks(args, NOW)
+
+    if args.passphrase:
+        pgp.passphrase_checks(args, NOW, fromaddress)
+
+    if args.cert and args.passphrase:
+        print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
 
     # sending
-    sendEmail(args, CLIENTCERT, fromaddress, host, port)
+    sendEmail(args, fromaddress, host, port)
 
 
 if __name__ == "__main__":

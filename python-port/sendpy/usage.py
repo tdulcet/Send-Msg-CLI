@@ -12,7 +12,7 @@ def format_attachment_output(rows):
     """Spaces the printing of attachments based on largest length. A replacement for the column cmd.
     Also used for printing out our help menus found in usage.py.
     """
-    lens = [max(len(v) for v in col) for col in zip(*rows)]
+    lens = [max(map(len, col)) for col in zip(*rows)]
     aformat = "  ".join(f"{{:<{alen}}}" for alen in lens)
     print("\n".join(starmap(aformat.format, rows)))
 
@@ -55,7 +55,7 @@ def carriers():
     print("Use the relevant SMS gateway to send text messages or the MMS gateway to send messages with attachments")
 
     print("\nUnited States Carriers\n")
-    format_attachment_output([
+    format_attachment_output((
         ("Mobile carrier", "SMS gateway domain", "MMS gateway domain"),
         ("", "", ""),
         ("Alltel", "sms.alltelwireless.com", "mms.alltelwireless.com"),
@@ -71,9 +71,9 @@ def carriers():
         ("U.S. Cellular", "email.uscc.net", "mms.uscc.net"),
         ("Verizon Wireless", "vtext.com", "vzwpix.com"),
         ("Virgin Mobile", "vmobl.com", "vmpix.com"),
-    ])
+    ))
     print("\nCanadian Carriers\n")
-    format_attachment_output([
+    format_attachment_output((
         ("Mobile carrier", "SMS gateway domain"),
         ("", ""),
         ("Bell Canada", "txt.bell.ca"),
@@ -85,7 +85,7 @@ def carriers():
         ("Rogers Comm", "pcs.rogers.com"),
         ("SaskTel", "sms.sasktel.com"),
         ("Telus", "msg.telus.com"),
-    ])
+    ))
 
 
 def servers():
@@ -94,7 +94,7 @@ def servers():
     https://www.arclab.com/en/kb/email/list-of-smtp-and-pop3-servers-mailserver-list.html.
     """
     print("SMTP Servers\nPort 465 typically means SSL/TLS, while Port 587 means StartTLS\n")
-    format_attachment_output([
+    format_attachment_output((
         ("Email Provider", "SMTP Server"),
         ("", ""),
         ("Gmail", "smtp.gmail.com:465"),
@@ -108,4 +108,4 @@ def servers():
         ("Comcast", "smtp.comcast.net:587"),
         ("Verizon", "outgoing.verizon.net:587"),
         ("Mail.com", "smtp.mail.com:465"),
-    ])
+    ))

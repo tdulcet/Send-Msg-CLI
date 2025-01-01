@@ -1,18 +1,17 @@
-import email
 import locale
 import mimetypes
 import os
 import smtplib
 import socket
 import ssl
-import subprocess
 import sys
-import tempfile
 import time
 from datetime import datetime, timezone
-from email.message import EmailMessage, MIMEPart
-from email.policy import SMTP, default
+from email.message import EmailMessage
 from email.utils import localtime
+
+import pgp
+import smime
 
 """Copyright © Daniel Connelly and Teal Dulcet
 
@@ -43,63 +42,12 @@ def set_main_headers(args, message):
 def attachments(message, aattachments):
     """Create a MIMEApplication method with our attachment as a payload and then attach it to our main message."""
     for file in aattachments:
-        ctype, encoding = mimetypes.guess_type(file)
+        ctype, encoding = mimetypes.guess_type(file)  # guess_file_type(file)
         if ctype is None or encoding is not None:
             ctype = "application/octet-stream"
         maintype, subtype = ctype.split("/", 1)
         with open(file, "rb") as f:
             message.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=os.path.basename(file))
-
-
-def smime(args, clientcert, lang):
-    """Signs message + attachments with S/MIME protocol."""
-    msg = MIMEPart()
-    if args.message:
-        msg.set_content(args.message, cte="quoted-printable")
-    if args.language and lang:
-        msg["Content-Language"] = lang.replace("_", "-")
-
-    if args.attachments:
-        attachments(msg, args.attachments)
-
-    cert_sig = subprocess.check_output(["openssl", "cms", "-sign", "-signer", clientcert], input=msg.as_bytes(policy=SMTP))
-
-    message = email.message_from_bytes(cert_sig, policy=default)
-
-    set_main_headers(args, message)
-
-    return message
-
-
-def pgp(args, fromaddress, lang):
-    """Signs message + attachments with PGP key."""
-    msg = MIMEPart()
-    if args.message:
-        msg.set_content(args.message, cte="quoted-printable")
-    if args.language and lang:
-        msg["Content-Language"] = lang.replace("_", "-")
-
-    if args.attachments:
-        attachments(msg, args.attachments)
-
-    with tempfile.NamedTemporaryFile("wb") as f:
-        f.write(msg.as_bytes(policy=SMTP))
-        # f.flush()
-
-        pgp_sig = subprocess.check_output(
-            ["gpg", "--pinentry-mode", "loopback", "--batch", "-o", "-", "-ab", "-u", fromaddress, "--passphrase-fd", "0", f.name],
-            input=args.passphrase.encode(),
-        )
-
-    signmsg = EmailMessage()
-    signmsg.make_mixed()
-    signmsg.attach(msg)
-    signmsg.add_attachment(pgp_sig, maintype="application", subtype="pgp-signature", filename="signature.asc")
-    signmsg.replace_header("Content-Type", 'multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1')
-
-    set_main_headers(args, signmsg)
-
-    return signmsg
 
 
 def send_normal(args, lang):
@@ -157,7 +105,7 @@ def port25(args, message, host, port):
         print("Message sent")
 
 
-def sendEmail(args, clientcert, fromaddress, host, port):
+def sendEmail(args, fromaddress, host, port):
     """This function compiles our (optionally signed) message and calls the correct send function according to what port is entered."""
     if args.dryrun:
         return
@@ -166,10 +114,10 @@ def sendEmail(args, clientcert, fromaddress, host, port):
     lang, _ = locale.getlocale()
     # S/MIME
     if args.cert:
-        message = smime(args, clientcert, lang)
+        message = smime.smime(args, lang)
     # PGP
     elif args.passphrase:
-        message = pgp(args, fromaddress, lang)
+        message = pgp.pgp(args, fromaddress, lang)
     # No signing of message
     else:
         message = send_normal(args, lang)
@@ -187,11 +135,13 @@ def sendEmail(args, clientcert, fromaddress, host, port):
         else:
             port25(args, message, host, port)
 
-    except socket.timeout:
+    except socket.timeout as e:
+        print(e)
         print(
             "Connection timed out when trying to connect. Please verify the server is up or you entered the correct port number for the SMTP server."
         )
-    except smtplib.SMTPHeloError:
+    except smtplib.SMTPHeloError as e:
+        print(e)
         print("Server did not reply. You may have Port 25 blocked on your host machine.")
         sys.exit(2)
     except smtplib.SMTPAuthenticationError as e:
