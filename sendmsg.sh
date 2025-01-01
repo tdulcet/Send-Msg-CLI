@@ -207,7 +207,7 @@ MESSAGE=''
 ATTACHMENTS=()
 
 # Check if on Linux
-if ! echo "$OSTYPE" | grep -iq '^linux'; then
+if [[ $OSTYPE != linux* ]]; then
 	echo "Error: This script must be run on Linux." >&2
 	exit 1
 fi
@@ -304,12 +304,12 @@ if [[ -n $PRIORITY || -n $MDN || -n $CERT || -n $PASSPHRASE || -n $SMTP || -n $U
 	echo -e "Warning: One or more of the options you set requires that you also provide an external SMTP server. Try '$0 -h' for more information.\n"
 fi
 
-if [[ ${#TOEMAILS[@]} -eq 0 && ${#CCEMAILS[@]} -eq 0 && ${#BCCEMAILS[@]} -eq 0 ]]; then
+if ((!${#TOEMAILS[@]} && !${#CCEMAILS[@]} && !${#BCCEMAILS[@]})); then
 	echo "Error: One or more To, CC or BCC e-mail addresses are required." >&2
 	exit 1
 fi
 
-if ((${#ATTACHMENTS[@]})); then
+if ((${#ATTACHMENTS[*]})); then
 	TOTAL=0
 	table=''
 	for i in "${ATTACHMENTS[@]}"; do
@@ -399,32 +399,32 @@ if [[ -n $FROMADDRESS ]] && [[ $FROMADDRESS =~ $RE ]]; then
 fi
 
 # E-mail address regular expressions
-RE1='^.{6,254}$'
-RE2='^.{1,64}@'
+EMAILRE1='^.{6,254}$'
+EMAILRE2='^.{1,64}@'
 # RE3='^[[:alnum:]!#$%&'\''*+/=?^_`{|}~-]+(\.[[:alnum:]!#$%&'\''*+/=?^_`{|}~-]+)*@([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63})$'
-RE3='^(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63})$'
+EMAILRE3='^(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63})$'
 for email in "${TOADDRESSES[@]}"; do
-	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
+	if ! [[ $email =~ $EMAILRE1 && $email =~ $EMAILRE2 && $email =~ $EMAILRE3 ]]; then
 		echo "Error: '$email' is not a valid e-mail address." >&2
 		exit 1
 	fi
 done
 
 for email in "${CCADDRESSES[@]}"; do
-	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
+	if ! [[ $email =~ $EMAILRE1 && $email =~ $EMAILRE2 && $email =~ $EMAILRE3 ]]; then
 		echo "Error: '$email' is not a valid e-mail address." >&2
 		exit 1
 	fi
 done
 
 for email in "${BCCADDRESSES[@]}"; do
-	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
+	if ! [[ $email =~ $EMAILRE1 && $email =~ $EMAILRE2 && $email =~ $EMAILRE3 ]]; then
 		echo "Error: '$email' is not a valid e-mail address." >&2
 		exit 1
 	fi
 done
 
-if [[ -n $FROMADDRESS ]] && ! [[ $FROMADDRESS =~ $RE1 && $FROMADDRESS =~ $RE2 && $FROMADDRESS =~ $RE3 ]]; then
+if [[ -n $FROMADDRESS ]] && ! [[ $FROMADDRESS =~ $EMAILRE1 && $FROMADDRESS =~ $EMAILRE2 && $FROMADDRESS =~ $EMAILRE3 ]]; then
 	echo "Error: '$FROMADDRESS' is not a valid e-mail address." >&2
 	exit 1
 fi
@@ -489,6 +489,7 @@ if [[ -n $PASSPHRASE ]]; then
 	if [[ -n $date ]]; then
 		date=$(echo "$date" | head -n 1)
 		sec=$((date - NOW))
+		# keyid=$(gpg -k --with-colons "$FROMADDRESS" | awk -F: '/^pub/ { print $5 }')
 		fingerprint=$(gpg --fingerprint --with-colons "$FROMADDRESS" | awk -F: '/^fpr/ { print $10 }' | head -n 1)
 		if [[ $sec -gt 0 ]]; then
 			if [[ $((sec / 86400)) -lt $WARNDAYS ]]; then
@@ -509,16 +510,19 @@ fi
 # Supports Unicode characters in subject, message and attachment filename
 # send <subject> [message] [attachment(s)]...
 send() {
-	local boundary signature lang=${LANG%.*}
+	local boundary signature lang=${LANG%.*} addresses=() toaddresses=()
 	if [[ -n $SEND ]]; then
 		if [[ -n $TIME ]]; then
 			sleep -- "$TIME"
 		fi
 		if [[ -n $FROMADDRESS && -n $SMTP ]]; then
+			for address in "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}"; do
+				addresses+=(--mail-rcpt "$address")
+			done
 			{
 				echo -n "User-Agent: Send Msg CLI
 From: $FROMNAME
-$(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;
+$(if ((!${#TONAMES[@]} && !${#CCNAMES[@]})); then echo "To: undisclosed-recipients: ;
 "; else [[ -n $TONAMES ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")
 "; fi)$([[ -n $CCNAMES ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")
 ")Subject: $(encoded-word "${1@E}")
@@ -586,12 +590,22 @@ $signature
 					echo "MIME-Version: 1.0"
 					cat
 				fi
-			} | eval curl -sS${VERBOSE:+v} ${STARTTLS:+--ssl-reqd} "${SMTP@Q}" --mail-from "${FROMADDRESS@Q}" $(printf -- '--mail-rcpt %s ' "${TOADDRESSES[@]@Q}" "${CCADDRESSES[@]@Q}" "${BCCADDRESSES[@]}") -T - -u "${USERNAME@Q}:${PASSWORD@Q}"
+			} | curl -sS${VERBOSE:+v} ${STARTTLS:+--ssl-reqd} "$SMTP" --mail-from "$FROMADDRESS" "${addresses[@]}" -T - -u "${USERNAME}:${PASSWORD}"
 		else
+			for address in "${CCADDRESSES[@]}"; do
+				addresses+=(-c "$address")
+			done
+			for address in "${BCCADDRESSES[@]}"; do
+				addresses+=(-b "$address")
+			done
+			toaddresses=("${TOADDRESSES[@]}")
+			if ((!${#toaddresses[*]})); then
+				toaddresses=('undisclosed-recipients: ;')
+			fi
 			{
 				echo -e "$2"
 				[[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done
-			} | eval mail ${FROMADDRESS:+-r ${FROMADDRESS@Q}} $([[ -n $CCADDRESSES ]] && printf -- '-c %s ' "${CCADDRESSES[@]@Q}" || echo) $([[ -n $BCCADDRESSES ]] && printf -- '-b %s ' "${BCCADDRESSES[@]@Q}" || echo) -s "${1@Q}" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo '"undisclosed-recipients: ;"' || printf -- '%s ' "${TOADDRESSES[@]@Q}")"
+			} | mail ${FROMADDRESS:+-r "$FROMADDRESS"} "${addresses[@]}" -s "$1" -- "${toaddresses[@]}"
 		fi
 	fi
 }
