@@ -9,7 +9,7 @@ Send [e-mail](https://en.wikipedia.org/wiki/Email) (and [text messages](https://
 
 Useful to know when a cron job failed, when a long running job (LRP) has finished, to quickly backup/share a file or to send notifications as part of a larger script.
 
-See the [python-port](python-port) directory for SendPy, a Python port of the script.
+See the [python](python) directory for SendPy, a Python port of the script.
 
 ❤️ Please visit [tealdulcet.com](https://www.tealdulcet.com/) to support these scripts and my other software development.
 
