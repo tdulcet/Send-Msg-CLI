@@ -1,8 +1,11 @@
+import concurrent.futures
 import configparser
 import getpass
 import operator
 import os
 import re
+import smtplib
+import ssl
 import sys
 import time
 import xml.etree.ElementTree as ET
@@ -36,10 +39,16 @@ parser = configparser.ConfigParser()
 CONFIG_FILE = os.path.expanduser("~/.sendpy.ini")
 parser.read([CONFIG_FILE])
 
-# yes_regex = re.compile(locale.nl_langinfo(locale.YESEXPR))
-yes_regex = re.compile(r"^[yY]")
-# no_regex = re.compile(locale.nl_langinfo(locale.NOEXPR))
-no_regex = re.compile(r"^[nN]")
+context = ssl.create_default_context()
+
+NONE = "plain"
+STARTTLS = "STARTTLS"
+SSL = "SSL"
+
+# YES_REGEX = re.compile(locale.nl_langinfo(locale.YESEXPR))
+YES_REGEX = re.compile(r"^[yY]")
+# NO_REGEX = re.compile(locale.nl_langinfo(locale.NOEXPR))
+NO_REGEX = re.compile(r"^[nN]")
 
 
 def dns_lookup(domain, atype):
@@ -102,7 +111,7 @@ def create_tree(arr):
     for s in arr:
         node = tree
 
-        for char in reversed(punycode(s)):
+        for char in reversed(".".join(punycode(label) if label != "*" else label for label in s.split("."))):
             # for char in punycode(s):
             node = node.setdefault(char, {})
 
@@ -198,6 +207,10 @@ def parse_autoconfig(xml_data, email, local_part, email_domain):
         # print(e)
         return None
 
+    if root.tag != "clientConfig":
+        print(f"Error: Unexpected config root element tag {root.tag!r}")
+        return None
+
     replacements = {"EMAILADDRESS": email, "EMAILLOCALPART": local_part, "EMAILDOMAIN": email_domain}
 
     def replacer(match):
@@ -205,7 +218,8 @@ def parse_autoconfig(xml_data, email, local_part, email_domain):
 
     for provider in root.findall("./emailProvider"):
         display_name = provider.findtext("displayName")
-        display_name = PLACEHOLDER_RE.sub(replacer, display_name) if display_name else provider["id"]
+        display_name = PLACEHOLDER_RE.sub(replacer, display_name) if display_name else provider.get("id")
+        # domains = [domain.text for domain in provider.findall("domain")]
 
         for server in provider.findall("./outgoingServer[@type='smtp']"):
             hostname = server.findtext("hostname")
@@ -265,6 +279,58 @@ def get_email_config(domain, email, local_part, email_domain, https_only=False, 
         if smtp_config is not None:
             # print("Configuration found in Mozilla ISP database")
             return smtp_config
+    return None
+
+
+def get_dns_config(domain, aemail_domain):
+    """Retrieve the hostname and port from DNS SRV records for a given domain."""
+    result = dns_lookup(domain, "SRV")
+    if result is not None and not result["Status"] and "Answer" in result:
+        records = []
+        (question,) = result["Question"]
+        for answer in result["Answer"]:
+            if question["type"] == answer["type"]:
+                fields = answer["data"].split()
+                if len(fields) == 4:
+                    priority, weight, port, target = fields
+                    records.append((int(priority), int(weight), int(port), target))
+                else:
+                    print(f"Error parsing DNS SRV Record for the {domain!r} domain: {answer['data']!r}")
+
+        for _, _, port, target in sorted(records, key=lambda x: (x[0], -x[1])):
+            if target != ".":
+                # print("Configuration found from DNS SRV Records")
+                hostname = target.rstrip(".")
+                if not result["AD"] and not hostname.endswith(aemail_domain):
+                    print(
+                        "Warning: The DNS SRV record used to lookup the configuration was not signed with DNS Security Extensions (DNSSEC)."
+                    )
+                return hostname, port
+
+    return None
+
+
+def test_server(hostname, port, socket_type):
+    """Tests the connectivity and handshake of an SMTP server with the specified configuration."""
+    cmd = "we-guess.mozilla.org"
+
+    try:
+        if socket_type == SSL:
+            with smtplib.SMTP_SSL(hostname, port, context=context, timeout=5) as server:
+                if not 200 <= server.ehlo(cmd)[0] < 300:
+                    return False
+        elif socket_type in {STARTTLS, NONE}:
+            with smtplib.SMTP(hostname, port, timeout=5) as server:
+                if socket_type == STARTTLS:
+                    server.ehlo(cmd)
+                    server.starttls(context=context)
+                if not 200 <= server.ehlo(cmd)[0] < 300:
+                    return False
+    except (OSError, ssl.CertificateError, smtplib.SMTPException):
+        # print(e)
+        return False
+
+    return True
 
 
 # RE = re.compile(r"^((.{1,64}@[\w.-]{4,254})|(.*) *<(.{1,64}@[\w.-]{4,254})>)$")
@@ -292,13 +358,15 @@ def email_autoconfig(email):
     result = dns_lookup(aemail_domain, "MX")
     if result is not None and not result["Status"] and "Answer" in result:
         records = []
+        (question,) = result["Question"]
         for answer in result["Answer"]:
-            fields = answer["data"].split()
-            if len(fields) == 2:
-                priority, target = fields
-                records.append((int(priority), target))
-            else:
-                print(f"Error parsing DNS MX Record: {answer['data']!r}")
+            if question["type"] == answer["type"]:
+                fields = answer["data"].split()
+                if len(fields) == 2:
+                    priority, target = fields
+                    records.append((int(priority), target))
+                else:
+                    print(f"Error parsing DNS MX Record for the {email_domain!r} domain: {answer['data']!r}")
 
         for _, target in sorted(records, key=operator.itemgetter(0)):
             mx_hostname = target.rstrip(".").lower()
@@ -323,27 +391,25 @@ def email_autoconfig(email):
     # https://datatracker.ietf.org/doc/html/rfc6186
     # https://datatracker.ietf.org/doc/html/rfc8314#section-5.1
     print("Looking up DNS SRV Records for configuration…")
-    for label, security in (("_submissions._tcp.", "SSL"), ("_submission._tcp.", "STARTTLS")):
-        result = dns_lookup(label + aemail_domain, "SRV")
-        if result is not None and not result["Status"] and "Answer" in result:
-            records = []
-            for answer in result["Answer"]:
-                fields = answer["data"].split()
-                if len(fields) == 4:
-                    priority, weight, port, target = fields
-                    records.append((int(priority), int(weight), int(port), target))
-                else:
-                    print(f"Error parsing DNS SRV Record: {answer['data']!r}")
+    for label, security in (("_submissions._tcp.", SSL), ("_submission._tcp.", STARTTLS)):
+        smtp_config = get_dns_config(label + aemail_domain, aemail_domain)
+        if smtp_config is not None:
+            hostname, port = smtp_config
+            return hostname, hostname, port, security, None
 
-            for _, _, port, target in sorted(records, key=lambda x: (x[0], -x[1])):
-                if target != ".":
-                    # print("Configuration found from DNS SRV Records")
-                    hostname = target.rstrip(".")
-                    if not result["AD"] and not hostname.endswith(aemail_domain):
-                        print(
-                            "Warning: The DNS SRV record used to lookup the configuration was not signed with DNS Security Extensions (DNSSEC)."
-                        )
-                    return hostname, hostname, port, security, None
+    print("Trying common server names…")
+    configs = []
+    for hostname in ("smtp." + email_domain, "mail." + email_domain, email_domain):
+        for socket_type, port in ((SSL, 465), (STARTTLS, 587), (STARTTLS, 25), (NONE, 587), (NONE, 25)):
+            configs.append((hostname, port, socket_type))
+
+    with concurrent.futures.ThreadPoolExecutor(len(configs)) as executor:
+        futures = [executor.submit(test_server, *config) for config in configs]
+
+    for future, (hostname, port, socket_type) in zip(futures, configs):
+        if future.result():
+            # print("Configuration found by trying common server names.")
+            return email_domain, hostname, port, socket_type, None
 
     return None
 
@@ -366,14 +432,14 @@ def config_email(args):
         smtp_server = f"{hostname}:{port}"
         security = None
         if socket_type:
-            if socket_type == "SSL":
+            if socket_type == SSL:
                 tls = True
                 security = "SSL/TLS"
-            elif socket_type == "STARTTLS":
+            elif socket_type == STARTTLS:
                 starttls = True
                 security = "StartTLS"
-            elif socket_type == "plain":
-                security = "None"
+            elif socket_type == NONE:
+                security = "No Encryption"
             else:
                 security = f"Unknown ({socket_type!r})"
         print(
@@ -394,16 +460,16 @@ def config_email(args):
     if not (tls or starttls):
         while True:
             accept = input("Use a secure connection with SSL/TLS? (y/n): ").strip()
-            yes_res = yes_regex.match(accept)
-            no_res = no_regex.match(accept)
+            yes_res = YES_REGEX.match(accept)
+            no_res = NO_REGEX.match(accept)
             if yes_res or no_res:
                 break
         tls = bool(yes_res)
         if not tls:
             while True:
                 accept = input("Upgrade to a secure connection with StartTLS? (y/n): ").strip()
-                yes_res = yes_regex.match(accept)
-                no_res = no_regex.match(accept)
+                yes_res = YES_REGEX.match(accept)
+                no_res = NO_REGEX.match(accept)
                 if yes_res or no_res:
                     break
             starttls = bool(yes_res)
