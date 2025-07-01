@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Teal Dulcet
+# Copyright © Teal Dulcet
 # Send e-mail, with optional message and attachments
 
 # Requires the curl and netcat commands

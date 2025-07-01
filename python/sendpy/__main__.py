@@ -19,10 +19,12 @@ if __name__ == "__main__":
     import pgp
     import smime
     import usage
+    from configuration import EMAILRE
     from send import sendEmail
 else:
     # The script is being run as part of a package, use relative imports
     from . import configuration, pgp, smime, usage
+    from .configuration import EMAILRE
     from .send import sendEmail
 
 
@@ -92,7 +94,9 @@ parser.add_argument(
     dest="tls",
     help="Use a secure connection with SSL/TLS (Secure Socket Layer/Transport Layer Security)",
 )
+parser.add_argument("--no-tls", action="store_false", dest="tls")
 parser.add_argument("--starttls", action="store_true", dest="starttls", help="Upgrade to a secure connection with StartTLS")
+parser.add_argument("--no-starttls", action="store_false", dest="starttls")
 parser.add_argument("-u", "--username", dest="username", help="SMTP server username")
 parser.add_argument(
     "-p",
@@ -147,9 +151,6 @@ parser.add_argument(
     help="Store the --from, --smtp, --tls, --starttls, --username and --password option values in a '.sendpy.ini' configuration file as defaults for future use. It will prompt for any values that are not provided.",
 )
 parser.add_argument("--examples", action="store_true", help="Show example usages of this script and exit")
-parser.add_argument(
-    "--smtp-servers", action="store_true", help="Show a list of the SMTP servers for common e-mail services, then exit"
-)
 parser.add_argument(
     "--gateways",
     action="store_true",
@@ -222,10 +223,6 @@ def parse_assign():
 
     if args.examples:
         usage.examples(os.path.basename(sys.argv[0]))
-        sys.exit(0)
-
-    if args.smtp_servers:
-        usage.servers()
         sys.exit(0)
 
     if args.gateways:
@@ -340,11 +337,6 @@ def attachment_work():
 
 def email_work():
     """Check for valid email addresses."""
-    # RE = re.compile(r"^((.{1,64}@[\w.-]{4,254})|(.*) *<(.{1,64}@[\w.-]{4,254})>)$")
-    EMAILRE = re.compile(
-        r'^(?=.{6,254}$)(?=.{1,64}@)(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[^\W_]([\w-]{0,61}[^\W_])?\.)+(xn--)?[^\W\d_]{2,63}$'
-    )
-
     # Check if the email is valid.
     for toemail in args.toemails:
         # result = RE.match(toemail)

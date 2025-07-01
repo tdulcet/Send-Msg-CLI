@@ -86,26 +86,3 @@ def carriers():
         ("SaskTel", "sms.sasktel.com"),
         ("Telus", "msg.telus.com"),
     ))
-
-
-def servers():
-    """Print out common emails and how to use the SMTP servers to send messages from.
-    This information may be outdated. Information is gained from:
-    https://www.arclab.com/en/kb/email/list-of-smtp-and-pop3-servers-mailserver-list.html.
-    """
-    print("SMTP Servers\nPort 465 typically means SSL/TLS, while Port 587 means StartTLS\n")
-    format_attachment_output((
-        ("Email Provider", "SMTP Server"),
-        ("", ""),
-        ("Gmail", "smtp.gmail.com:465"),
-        ("Outlook", "smtp.live.com:465"),
-        ("Office365", "smtp.office365.com:465"),
-        ("Yahoo Mail", "smtp.mail.yahoo.com:465"),
-        ("Yahoo UK", "smtp.mail.yahoo.co.uk:465"),
-        ("AOL", "smtp.aol.com:587"),
-        ("AT&T", "smtp.att.yahoo.com:587"),
-        ("Hotmail", "smtp.live.com:465 "),
-        ("Comcast", "smtp.comcast.net:587"),
-        ("Verizon", "outgoing.verizon.net:587"),
-        ("Mail.com", "smtp.mail.com:465"),
-    ))

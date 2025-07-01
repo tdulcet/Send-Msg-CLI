@@ -19,6 +19,8 @@ import smime
    values/attachments/keys to send the message requested by the user.
 """
 
+context = ssl.create_default_context()
+
 
 def set_main_headers(args, message):
     """Set common headers in every email."""
@@ -68,7 +70,6 @@ def send_normal(args, lang):
 
 def port465(args, message, host, port):
     """Log in to server using secure context from the onset and send email. This uses SSL/TLS."""
-    context = ssl.create_default_context()
     with smtplib.SMTP_SSL(host, port, context=context, timeout=30) as server:
         if args.verbose:
             server.set_debuglevel(2)
@@ -79,25 +80,13 @@ def port465(args, message, host, port):
         print("Message sent")
 
 
-def port587(args, message, host, port):
-    """Create an unsecured connection, then secure it, and then send email. This uses startTLS."""
-    context = ssl.create_default_context()
-    with smtplib.SMTP(host, port, timeout=30) as server:
-        if args.verbose:
-            server.set_debuglevel(2)
-        server.starttls(context=context)
-        if args.username:
-            server.login(args.username, args.password)
-        # send_message() annoymizes BCC, rather than sendmail().
-        server.send_message(message)
-        print("Message sent")
-
-
 def port25(args, message, host, port):
-    """Use a local SMTP server connection to send email."""
+    """Create an unsecured connection, then secure it, and then send email. This uses startTLS."""
     with smtplib.SMTP(host, port, timeout=30) as server:
         if args.verbose:
             server.set_debuglevel(2)
+        if args.starttls:
+            server.starttls(context=context)
         if args.username:
             server.login(args.username, args.password)
         # send_message() annoymizes BCC, rather than sendmail().
@@ -130,8 +119,6 @@ def sendEmail(args, fromaddress, host, port):
     try:
         if args.tls:
             port465(args, message, host, port)
-        elif args.starttls:
-            port587(args, message, host, port)
         else:
             port25(args, message, host, port)
 
@@ -140,6 +127,7 @@ def sendEmail(args, fromaddress, host, port):
         print(
             "Connection timed out when trying to connect. Please verify the server is up or you entered the correct port number for the SMTP server."
         )
+        sys.exit(2)
     except smtplib.SMTPHeloError as e:
         print(e)
         print("Server did not reply. You may have Port 25 blocked on your host machine.")
@@ -150,7 +138,6 @@ def sendEmail(args, fromaddress, host, port):
             "Incorrect username/password combination or, if you are using Gmail, you may need to lower the security settings or login from this computer (see the README.md for more information)."
         )
         sys.exit(2)
-    except smtplib.SMTPException as e:
+    except (OSError, ssl.CertificateError, smtplib.SMTPException) as e:
         print(e)
-        print("Authentication failed.")
         sys.exit(2)

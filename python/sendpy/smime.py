@@ -18,7 +18,7 @@ WARNDAYS = 3
 libcrypto = find_library("libcrypto" if sys.platform == "win32" else "crypto")
 crypto = None
 if libcrypto:
-    crypto = ctypes.CDLL(libcrypto)
+    crypto = ctypes.CDLL("libcrypto" if sys.platform == "win32" else libcrypto)
 
     crypto.BIO_s_mem.restype = ctypes.c_void_p
     crypto.BIO_new.argtypes = (ctypes.c_void_p,)

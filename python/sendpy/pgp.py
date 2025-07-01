@@ -13,7 +13,7 @@ WARNDAYS = 3
 libgpgme = find_library("gpgme")
 gpgme = None
 if libgpgme:
-    gpgme = ctypes.CDLL(libgpgme)
+    gpgme = ctypes.CDLL("gpgme" if sys.platform == "win32" else libgpgme)
 
     # gpgme.gpgme_strerror.restype = ctypes.c_char_p
     # gpgme.gpgme_strsource.restype = ctypes.c_char_p
