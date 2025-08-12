@@ -5,7 +5,7 @@ Send e-mail (and text messages) from the command line
 
 Copyright © 2019 Teal Dulcet (both) and Daniel Connelly (Python)
 
-Send [e-mail](https://en.wikipedia.org/wiki/Email) (and [text messages](https://en.wikipedia.org/wiki/SMS)), with optional message and attachments, from the command line. Supports [Unicode characters](https://en.wikipedia.org/wiki/Unicode_and_email) in subject, message and attachment filename ([MIME](https://en.wikipedia.org/wiki/MIME)). Optionally use your own e-mail address and an external [SMTP](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol) server.
+Send [e-mail](https://en.wikipedia.org/wiki/Email) (and [text messages](https://en.wikipedia.org/wiki/SMS)), with optional message and attachments, from the command line. Supports [Unicode characters](https://en.wikipedia.org/wiki/Unicode_and_email) in the display names, subject, message and attachment filenames ([MIME](https://en.wikipedia.org/wiki/MIME)). Wrapper around cURL and the `mail` command to easily send e-mails from the command line. Optionally use your own e-mail address and an external [SMTP](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol) server.
 
 Useful to know when a cron job failed, when a long running job (LRP) has finished, to quickly backup/share a file or to send notifications as part of a larger script.
 
@@ -15,10 +15,11 @@ See the [python](python) directory for SendPy, a Python port of the script.
 
 ## Usage
 
-Requires at least Bash 4.4 and the curl and netcat commands, which are included on most Linux distributions.
+Supports Unix, including both Linux and macOS. Requires at least Bash 4.4 and cURL, which are included on most Linux distributions.
 
-Optional [S/MIME](https://en.wikipedia.org/wiki/S/MIME) digital signatures require the openssl command.\
-Optional [PGP/MIME](https://en.wikipedia.org/wiki/Pretty_Good_Privacy#OpenPGP) digital signatures require the gpg command.
+Optional [S/MIME](https://en.wikipedia.org/wiki/S/MIME) digital signatures require OpenSSL.\
+Optional [PGP/MIME](https://en.wikipedia.org/wiki/Pretty_Good_Privacy#OpenPGP) digital signatures require GNU Privacy Guard (GPG).\
+Optional attachment compression requires the `zip` command.
 
 Run: `./sendmsg.sh <OPTION(S)>... -s <subject>`\
 One or more To, CC or BCC e-mail addresses are required. Send text messages by using the mobile providers [e-mail to SMS or MMS gateway](https://en.wikipedia.org/wiki/SMS_gateway#Email_clients). All the options can also be set by opening the script in an editor and setting the variables at the top. See [Help](#help) below for full usage information.
@@ -193,7 +194,7 @@ You will also need to either create an [App Password](https://support.google.com
     <td></td>
   </tr>
   <tr>
-    <th rowspan="2">Digitally sign the e-mails</th>
+    <th rowspan="2">Digitally sign e-mails</th>
     <td>S/MIME certificate</td>
     <td>✔</td>
     <td>✔</td>

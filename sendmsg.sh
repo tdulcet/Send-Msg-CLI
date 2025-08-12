@@ -3,10 +3,11 @@
 # Copyright © Teal Dulcet
 # Send e-mail, with optional message and attachments
 
-# Requires the curl and netcat commands
+# Requires the curl command
 
 # Optional S/MIME digital signatures require the openssl command
 # Optional PGP/MIME digital signatures require the gpg command
+# Optional attachment compression requires the zip command
 
 # Run: ./sendmsg.sh <OPTION(S)>... -s <subject>
 
@@ -206,12 +207,6 @@ SUBJECT=''
 MESSAGE=''
 ATTACHMENTS=()
 
-# Check if on Linux
-if [[ $OSTYPE != linux* ]]; then
-	echo "Error: This script must be run on Linux." >&2
-	exit 1
-fi
-
 while getopts "a:b:c:df:hk:lm:p:rs:t:u:vz:C:P:S:T:UV" c; do
 	case ${c} in
 		a)
@@ -348,7 +343,7 @@ if ((${#ATTACHMENTS[*]})); then
 fi
 
 # Adapted from: https://github.com/mail-in-a-box/mailinabox/blob/master/setup/network-checks.sh
-if ! [[ -n $FROMEMAIL && -n $SMTP ]] && ! nc -z -w5 aspmx.l.google.com 25; then
+if ! [[ -n $FROMEMAIL && -n $SMTP ]] && ! timeout 5 bash -c 'exec >/dev/tcp/aspmx.l.google.com/25' 2>/dev/null; then
 	echo -e "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to provide an external SMTP server in order to send e-mails.\n"
 fi
 
@@ -549,8 +544,7 @@ ${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
 						echo "--${boundary}
 Content-Type: $(file --mime-type -- "$i" | sed -n 's/^.\+: //p')
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}
-' --data-urlencode "$(basename -- "$i")" "" | sed -n 's/\/?//p')
+Content-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename -- "$i")" "" | sed -n 's/\/?//p')
 "
 						base64 -- "$i"
 						echo
