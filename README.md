@@ -17,7 +17,7 @@ See the [python](python) directory for SendPy, a Python port of the script.
 
 Supports Unix, including both Linux and macOS. Requires at least Bash 4.4 and cURL, which are included on most Linux distributions.
 
-Optional [S/MIME](https://en.wikipedia.org/wiki/S/MIME) digital signatures require OpenSSL.\
+Optional [S/MIME](https://en.wikipedia.org/wiki/S/MIME) digital signatures requires at least OpenSSL 1.0.2.\
 Optional [PGP/MIME](https://en.wikipedia.org/wiki/Pretty_Good_Privacy#OpenPGP) digital signatures require GNU Privacy Guard (GPG).\
 Optional attachment compression requires the `zip` command.
 
@@ -343,10 +343,11 @@ Examples:
 Pull requests welcome! Ideas for contributions:
 
 Bash:
-* Send e-mails with very long subjects or many e-mail addresses
+* Send e-mails with long headers, including very long subjects or many e-mail addresses
 * Support [International email](https://en.wikipedia.org/wiki/International_email) addresses
 	* Currently they are only supported in Internationalizing Domain Names in Applications (IDNA) encoding.
 * Support inputting the message body from standard input (stdin)
+* Generate random boundary strings for multipart messages
 
 Python:
 * Do not create temporary files for performance and to reduce disk wear.
@@ -356,6 +357,7 @@ Both:
 * Support HTML formatted messages
 * Provide an option to automatically upload large files to an external storage service, such as [Send](https://send.vis.ee/) (provided by @timvisee, formerly Firefox Send) or [transfer.sh](https://transfer.sh)
 * Add tests
+* Support sending encrypted messages with S/MIME and PGP/MIME
 * Automatically renew the S/MIME certificate, as [certbot](https://certbot.eff.org/) does for [Let's Encrypt](https://letsencrypt.org/) certificates
 
 Thanks to [Daniel Connelly](https://github.com/Danc2050) for helping create the Feature comparison and test the Bash script!

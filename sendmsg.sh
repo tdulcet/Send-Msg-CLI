@@ -330,7 +330,7 @@ if ((${#ATTACHMENTS[*]})); then
 	for i in "${ATTACHMENTS[@]}"; do
 		SIZE=$(du -b -- "$i" | awk '{ print $1 }')
 		((TOTAL += SIZE))
-		table+=$(printf '%s\t%s\t%s\n' "$i" "$(numfmt --to=iec-i "$SIZE")B" "$([[ $SIZE -ge 1000 ]] && echo "($(numfmt --to=si "$SIZE")B)" || echo)")
+		table+=$(printf '%s\t%s\t%s\n' "$i" "$(numfmt --to=iec-i "$SIZE")B" "$([[ $SIZE -ge 1000 ]] && echo "($(numfmt --to=si "$SIZE")B)" || echo)")$'\n'
 	done
 	echo "$table" | column -t -s $'\t'
 
@@ -505,72 +505,86 @@ fi
 # Supports Unicode characters in subject, message and attachment filename
 # send <subject> [message] [attachment(s)]...
 send() {
-	local boundary signature lang=${LANG%.*} addresses=() toaddresses=()
+	local headers=() boundary signature lang=${LANG%.*} addresses=() args=() toaddresses=()
 	if [[ -n $SEND ]]; then
 		if [[ -n $TIME ]]; then
 			sleep -- "$TIME"
 		fi
 		if [[ -n $FROMADDRESS && -n $SMTP ]]; then
+			headers+=(
+				"User-Agent: Send Msg CLI"
+				"From: $FROMNAME"
+			)
+			if ((!${#TONAMES[@]} && !${#CCNAMES[@]})); then
+				headers+=("To: undisclosed-recipients: ;")
+			elif ((${#TONAMES[@]})); then
+				headers+=("To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}" || echo)")
+			fi
+			if ((${#CCNAMES[@]})); then
+				headers+=("Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}" || echo)")
+			fi
+			headers+=(
+				"Subject: $(encoded-word "${1@E}")"
+				"Date: $(if [[ -n $UTC ]]; then date -Rud "@$((${EPOCHSECONDS:-$(date +%s)} / 60 * 60))"; else date -R; fi)"
+			)
+			if [[ -n $PRIORITY ]]; then
+				headers+=("X-Priority: $PRIORITY")
+			fi
+			if [[ -n $MDN ]]; then
+				headers+=("Disposition-Notification-To: $FROMNAME")
+			fi
 			for address in "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}"; do
 				addresses+=(--mail-rcpt "$address")
 			done
-			{
-				echo -n "User-Agent: Send Msg CLI
-From: $FROMNAME
-$(if ((!${#TONAMES[@]} && !${#CCNAMES[@]})); then echo "To: undisclosed-recipients: ;
-"; else [[ -n $TONAMES ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")
-"; fi)$([[ -n $CCNAMES ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")
-")Subject: $(encoded-word "${1@E}")
-Date: $(if [[ -n $UTC ]]; then date -Rud "@$((${EPOCHSECONDS:-$(date +%s)} / 60 * 60))"; else date -R; fi)
-${PRIORITY:+X-Priority: $PRIORITY
-}${MDN:+Disposition-Notification-To: $FROMNAME
-}"
-				if [[ $# -ge 3 ]]; then
-					boundary="MULTIPART-MIXED-BOUNDARY"
-					echo "Content-Type: multipart/mixed; boundary=\"${boundary}\"
+			if [[ -n $CERT || -n $PASSPHRASE ]]; then
+				{
+					printf '%s\n' "${headers[@]}"
+					if [[ $# -ge 3 ]]; then
+						boundary="MULTIPART-MIXED-BOUNDARY"
+						echo "Content-Type: multipart/mixed; boundary=\"${boundary}\"
 
 --${boundary}
 Content-Type: text/plain; charset=UTF-8
 ${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
 ")}Content-Transfer-Encoding: $(if [[ -n $BODY8BITMIME ]]; then echo "8bit"; else echo "base64"; fi)
 "
-					if [[ -n $BODY8BITMIME ]]; then
-						echo -e "$2"
-					else
-						echo -e -n "$2" | base64
-					fi
-					echo
-					for i in "${@:3}"; do
-						echo "--${boundary}
-Content-Type: $(file --mime-type -- "$i" | sed -n 's/^.\+: //p')
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename -- "$i")" "" | sed -n 's/\/?//p')
-"
-						base64 -- "$i"
+						if [[ -n $BODY8BITMIME ]]; then
+							echo -e "$2"
+						else
+							echo -e -n "$2" | base64
+						fi
 						echo
-					done
-					echo "--${boundary}--"
-				else
-					echo "Content-Type: text/plain; charset=UTF-8
+						for file in "${@:3}"; do
+							echo "--${boundary}
+Content-Type: $(file --mime-type -- "$file" | sed -n 's/^.\+: //p')
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename -- "$file")" "" | sed -n 's/\/?//p')
+"
+							base64 -- "$file"
+							echo
+						done
+						echo "--${boundary}--"
+					else
+						echo "Content-Type: text/plain; charset=UTF-8
 ${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
 ")}Content-Transfer-Encoding: $(if [[ -n $BODY8BITMIME ]]; then echo "8bit"; else echo "base64"; fi)
 "
-					if [[ -n $BODY8BITMIME ]]; then
-						echo -e "$2"
-					else
-						echo -e -n "$2" | base64
-					fi
-				fi | if [[ -n $CERT ]]; then
-					openssl cms -sign -signer "$CLIENTCERT"
-				elif [[ -n $PASSPHRASE ]]; then
-					boundary="----MULTIPART-SIGNED-BOUNDARY"
-					echo "MIME-Version: 1.0
+						if [[ -n $BODY8BITMIME ]]; then
+							echo -e "$2"
+						else
+							echo -e -n "$2" | base64
+						fi
+					fi | if [[ -n $CERT ]]; then
+						openssl cms -sign -signer "$CLIENTCERT"
+					elif [[ -n $PASSPHRASE ]]; then
+						boundary="----MULTIPART-SIGNED-BOUNDARY"
+						echo "MIME-Version: 1.0
 Content-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"${boundary}\"
 
 --${boundary}"
-					tee >(
-						signature=$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(sed 's/$/\r/'))
-						echo "
+						tee >(
+							signature=$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(sed 's/$/\r/'))
+							echo "
 --${boundary}
 Content-Type: application/pgp-signature; name=\"signature.asc\"
 Content-Disposition: attachment; filename=\"signature.asc\"
@@ -578,13 +592,23 @@ Content-Disposition: attachment; filename=\"signature.asc\"
 $signature
 
 --${boundary}--"
-					)
-					wait
-				else
-					echo "MIME-Version: 1.0"
-					cat
-				fi
-			} | curl -sS${VERBOSE:+v} ${STARTTLS:+--ssl-reqd} "$SMTP" --mail-from "$FROMADDRESS" "${addresses[@]}" -T - -u "${USERNAME}:${PASSWORD}"
+						)
+						wait
+					else
+						echo "MIME-Version: 1.0"
+						cat
+					fi
+				} | curl ${VERBOSE:+-v} ${STARTTLS:+--ssl-reqd} --mail-from "$FROMADDRESS" "${addresses[@]}" -T - -u "${USERNAME}:${PASSWORD}" "$SMTP"
+			else
+				for header in "${headers[@]}"; do
+					args+=(-H "$header")
+				done
+				args+=(-F "=\"${2@E}\";type=text/plain; charset=UTF-8;encoder=$(if [[ -n $BODY8BITMIME ]]; then echo "8bit"; else echo "quoted-printable"; fi)${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo ";headers=Content-Language: ${lang/_/-}" || echo)}")
+				for file in "${@:3}"; do
+					args+=(-F "=@\"$file\";type=$(file --mime-type -- "$file" | sed -n 's/^.\+: //p');encoder=base64;headers=\"Content-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename -- "$file")" "" | sed -n 's/\/?//p')\"")
+				done
+				curl ${VERBOSE:+-v} ${STARTTLS:+--ssl-reqd} --mail-from "$FROMADDRESS" "${addresses[@]}" "${args[@]}" -u "${USERNAME}:${PASSWORD}" "$SMTP"
+			fi
 		else
 			for address in "${CCADDRESSES[@]}"; do
 				addresses+=(-c "$address")
@@ -598,7 +622,7 @@ $signature
 			fi
 			{
 				echo -e "$2"
-				[[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done
+				[[ $# -ge 3 ]] && for file in "${@:3}"; do uuencode -- "$file" "$(basename -- "$file")"; done
 			} | mail ${FROMADDRESS:+-r "$FROMADDRESS"} "${addresses[@]}" -s "$1" -- "${toaddresses[@]}"
 		fi
 	fi
