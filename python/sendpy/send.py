@@ -123,21 +123,21 @@ def sendEmail(args, fromaddress, host, port):
             port25(args, message, host, port)
 
     except socket.timeout as e:
-        print(e)
+        print(f"{type(e).__name__}: {e}")
         print(
             "Connection timed out when trying to connect. Please verify the server is up or you entered the correct port number for the SMTP server."
         )
         sys.exit(2)
     except smtplib.SMTPHeloError as e:
-        print(e)
+        print(f"{type(e).__name__}: {e}")
         print("Server did not reply. You may have Port 25 blocked on your host machine.")
         sys.exit(2)
     except smtplib.SMTPAuthenticationError as e:
-        print(e)
+        print(f"{type(e).__name__}: {e}")
         print(
             "Incorrect username/password combination or, if you are using Gmail, you may need to lower the security settings or login from this computer (see the README.md for more information)."
         )
         sys.exit(2)
     except (OSError, ssl.CertificateError, smtplib.SMTPException) as e:
-        print(e)
+        print(f"{type(e).__name__}: {e}")
         sys.exit(2)

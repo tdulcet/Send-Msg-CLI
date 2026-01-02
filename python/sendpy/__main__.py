@@ -19,12 +19,12 @@ if __name__ == "__main__":
     import pgp
     import smime
     import usage
-    from configuration import EMAILRE
+    from configuration import EMAIL_RE
     from send import sendEmail
 else:
     # The script is being run as part of a package, use relative imports
     from . import configuration, pgp, smime, usage
-    from .configuration import EMAILRE
+    from .configuration import EMAIL_RE
     from .send import sendEmail
 
 
@@ -41,14 +41,11 @@ locale.setlocale(locale.LC_ALL, "")
 parser = argparse.ArgumentParser(
     description="One or more To, CC or BCC e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (see the --gateways option). See examples with the --examples option."
 )
+parser.suggest_on_error = True  # Python 3.14+
 parser.add_argument("-v", "--version", action="version", version="%(prog)s 1.0.1")
-parser.add_argument("-s", "--subject", dest="subject", help="Subject. Escape sequences are expanded. Supports Unicode characters.")
-parser.add_argument(
-    "-m", "--message", dest="message", default="", help="Message body. Escape sequences are expanded. Supports Unicode characters."
-)
-parser.add_argument(
-    "--message-file", dest="message_file", help="Message body from a file or standard input if the filename is '-'."
-)
+parser.add_argument("-s", "--subject", help="Subject. Escape sequences are expanded. Supports Unicode characters.")
+parser.add_argument("-m", "--message", default="", help="Message body. Escape sequences are expanded. Supports Unicode characters.")
+parser.add_argument("--message-file", help="Message body from a file or standard input if the filename is '-'.")
 parser.add_argument(
     "-a",
     "--attachment",
@@ -85,29 +82,23 @@ parser.add_argument("-f", "--from", dest="fromemail", help="From e-mail address"
 parser.add_argument(
     "-S",
     "--smtp",
-    dest="smtp",
     help='SMTP server. Optionally include a port with the "hostname:port" syntax. Defaults to port 465 with --ssl/--tls and port 25 otherwise. Use "localhost" if running a mail server on this device.',
 )
 parser.add_argument(
-    "--tls",
-    action="store_true",
-    dest="tls",
-    help="Use a secure connection with SSL/TLS (Secure Socket Layer/Transport Layer Security)",
+    "--tls", action="store_true", help="Use a secure connection with SSL/TLS (Secure Socket Layer/Transport Layer Security)"
 )
 parser.add_argument("--no-tls", action="store_false", dest="tls")
-parser.add_argument("--starttls", action="store_true", dest="starttls", help="Upgrade to a secure connection with StartTLS")
+parser.add_argument("--starttls", action="store_true", help="Upgrade to a secure connection with StartTLS")
 parser.add_argument("--no-starttls", action="store_false", dest="starttls")
-parser.add_argument("-u", "--username", dest="username", help="SMTP server username")
+parser.add_argument("-u", "--username", help="SMTP server username")
 parser.add_argument(
     "-p",
     "--password",
-    dest="password",
     help="SMTP server password. For security, use the --config option instead for it to prompt you for the password and then store in the configuration file.",
 )
 parser.add_argument(
     "-P",
     "--priority",
-    dest="priority",
     choices=["5 (Lowest)", "4 (Low)", "Normal", "2 (High)", "1 (Highest)"],
     help='Priority. Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"',
 )
@@ -121,16 +112,11 @@ parser.add_argument(
 parser.add_argument(
     "-k",
     "--passphrase",
-    dest="passphrase",
     help="PGP secret key passphrase for digitally signing the e-mails with PGP/MIME. For security, use 'config' for it to prompt you for the passphrase and then store in the configuration file.",
 )
 parser.add_argument("-z", "--zip", dest="zipfile", help="Compress attachment(s) with zip")
 parser.add_argument(
-    "-l",
-    "--language",
-    action="store_true",
-    dest="language",
-    help="Set Content-Language. Uses value of LANG environment variable on Linux.",
+    "-l", "--language", action="store_true", help="Set Content-Language. Uses value of LANG environment variable on Linux."
 )
 parser.add_argument(
     "-U",
@@ -139,12 +125,10 @@ parser.add_argument(
     dest="utc",
     help="Uses Coordinated Universal Time (UTC) and rounds date down to whole minute.",
 )
-parser.add_argument("-T", "--time", dest="time", type=float, help="Time to delay sending of the e-mail")
+parser.add_argument("-T", "--time", type=float, help="Time to delay sending of the e-mail")
 parser.add_argument("-d", "--dry-run", action="store_true", dest="dryrun", help="Dry run, do not send the e-mail")
-parser.add_argument(
-    "-n", "--notify", dest="notify", help="Run provided command and then send an e-mail with resulting output and exit code."
-)
-parser.add_argument("-V", "--verbose", dest="verbose", action="count", help="Verbose, show the client-server communication")
+parser.add_argument("-n", "--notify", help="Run provided command and then send an e-mail with resulting output and exit code.")
+parser.add_argument("-V", "--verbose", action="count", help="Verbose, show the client-server communication")
 parser.add_argument(
     "--config",
     action="store_true",
@@ -342,27 +326,27 @@ def email_work():
         # result = RE.match(toemail)
         _, address = parseaddr(toemail)
         temp = address or toemail
-        if not EMAILRE.match(temp):
+        if not EMAIL_RE.match(temp):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
     for ccemail in args.ccemails:
         # result = RE.match(ccemail)
         _, address = parseaddr(ccemail)
         temp = address or ccemail
-        if not EMAILRE.match(temp):
+        if not EMAIL_RE.match(temp):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
     for bccemail in args.bccemails:
         # result = RE.match(bccemail)
         _, address = parseaddr(bccemail)
         temp = address or bccemail
-        if not EMAILRE.match(temp):
+        if not EMAIL_RE.match(temp):
             parser.error(f"{temp!r} is not a valid e-mail address.")
 
     # result = RE.match(args.fromemail)
     _, fromaddress = parseaddr(args.fromemail)
     temp = fromaddress or args.fromemail
-    if not EMAILRE.match(temp):
+    if not EMAIL_RE.match(temp):
         parser.error(f"{temp!r} is not a valid e-mail address.")
 
     return fromaddress

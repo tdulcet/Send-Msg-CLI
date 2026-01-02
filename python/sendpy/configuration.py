@@ -1,6 +1,7 @@
 import concurrent.futures
 import configparser
 import getpass
+import http.client
 import operator
 import os
 import re
@@ -9,8 +10,9 @@ import ssl
 import sys
 import time
 import xml.etree.ElementTree as ET
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr
+from json.decoder import JSONDecodeError
 
 import requests
 from requests.exceptions import HTTPError, RequestException
@@ -37,7 +39,7 @@ else:
 """
 
 parser = configparser.ConfigParser()
-CONFIG_FILE = os.path.expanduser("~/.sendpy.ini")
+CONFIG_FILE = os.path.expanduser(os.path.join("~", ".sendpy.ini"))
 parser.read([CONFIG_FILE])
 
 context = ssl.create_default_context()
@@ -60,16 +62,16 @@ def dns_lookup(domain, atype):
             # "https://dns.google/resolve", # Google Public DNS
             "https://mozilla.cloudflare-dns.com/dns-query",
             params={"name": domain, "type": atype},
-            headers={"accept": "application/dns-json"},
+            headers={"Accept": "application/dns-json"},
             timeout=5,
         )
         result = r.json()
         r.raise_for_status()
     except HTTPError as e:
-        print(f"{result.get('error', result)}: {e}")
+        print(f"{result.get('error', result)}: {type(e).__name__}: {e}")
         return None
-    except RequestException as e:
-        print(e)
+    except (RequestException, JSONDecodeError) as e:
+        print(f"{type(e).__name__}: {e}")
         return None
 
     return result
@@ -107,7 +109,7 @@ def create_tree(arr):
     """Creates a regex pattern from a list of domain names."""
     tree = {}
 
-    arr.sort(key=len, reverse=True)
+    arr.sort(key=lambda x: tuple(reversed(x.split("."))), reverse=True)
 
     for s in arr:
         node = tree
@@ -124,7 +126,7 @@ def create_tree(arr):
 
 def parse_psl(file):
     """Parses a Public Suffix List (PSL) file and returns compiled regex patterns for suffixes and exceptions."""
-    starttime = time.perf_counter()
+    start = time.perf_counter()
     suffixes = []
     exceptions = []
 
@@ -142,8 +144,8 @@ def parse_psl(file):
     suffixes_pattern = re.compile(rf"(?:^|\.)({suffixes_re})$")
     exceptions_pattern = re.compile(rf"(?:^|\.)({exceptions_re})$")
 
-    endtime = time.perf_counter()
-    print(f"Parsed PSL in {1000 * (endtime - starttime):n} ms.")
+    end = time.perf_counter()
+    print(f"Parsed PSL in {1000 * (end - start):n} ms.")
 
     return suffixes_pattern, exceptions_pattern
 
@@ -153,24 +155,33 @@ def get_psl():
     file = "public_suffix_list.dat"
     if not os.path.isfile(file) or datetime.now() - datetime.fromtimestamp(os.path.getmtime(file)) >= timedelta(30):
         print(f"Downloading Mozilla's Public Suffix List (PSL) to {file!r}")
-        starttime = time.perf_counter()
+        start = time.perf_counter()
+        headers = {}
+        if os.path.isfile(file):
+            headers["If-Modified-Since"] = (
+                f"{datetime.fromtimestamp(os.path.getmtime(file), timezone.utc):%a, %d %b %Y %H:%M:%S GMT}"
+            )
         try:
-            r = requests.get("https://publicsuffix.org/list/public_suffix_list.dat", timeout=5, stream=True)
-            r.raise_for_status()
-            with open(file, "wb") as f:
-                length = int(r.headers["Content-Length"])
-                if hasattr(os, "posix_fallocate"):  # Linux
-                    os.posix_fallocate(f.fileno(), 0, length)
-                for chunk in r.iter_content(chunk_size=None):
-                    if chunk:
-                        f.write(chunk)
+            with requests.get("https://publicsuffix.org/list/public_suffix_list.dat", headers=headers, timeout=5, stream=True) as r:
+                r.raise_for_status()
+                if r.status_code != http.client.NOT_MODIFIED:
+                    with open(file, "wb") as f:
+                        length = int(r.headers["Content-Length"])
+                        if hasattr(os, "posix_fallocate"):  # Linux
+                            os.posix_fallocate(f.fileno(), 0, length)
+                        # shutil.copyfileobj(r.raw, f)
+                        for chunk in r.iter_content(chunk_size=None):
+                            if chunk:
+                                f.write(chunk)
+                    timestamp = datetime.strptime(r.headers["Last-Modified"], "%a, %d %b %Y %H:%M:%S %Z").timestamp()
+                    os.utime(file, (timestamp, timestamp))
         except RequestException as e:
-            print(e)
+            print(f"{type(e).__name__}: {e}")
             return None
-        endtime = time.perf_counter()
-        print(f"Downloaded PSL in {1000 * (endtime - starttime):n} ms.")
+        end = time.perf_counter()
+        print(f"Downloaded PSL in {1000 * (end - start):n} ms.")
     else:
-        print("Mozilla's Public Suffix List (PSL) is already downloaded")
+        print("Mozilla's Public Suffix List (PSL) was already downloaded in the last 30 days")
 
     return parse_psl(file)
 
@@ -205,7 +216,7 @@ def parse_autoconfig(xml_data, email, local_part, email_domain):
     try:
         root = ET.fromstring(xml_data)
     except ET.ParseError:
-        # print(e)
+        # print(f"{type(e).__name__}: {e}")
         return None
 
     if root.tag != "clientConfig":
@@ -247,15 +258,15 @@ def get_email_config(domain, email, local_part, email_domain, https_only=False, 
     adomain = punycode(domain)
     print(f"Looking up configuration at e-mail provider {domain!r}…")
     for scheme in ("https://",) + (() if https_only else ("http://",)):
-        for url, args in ((f"autoconfig.{domain}/mail/config-v1.1.xml", {"emailaddress": email}),) + (
+        for url, params in ((f"autoconfig.{domain}/mail/config-v1.1.xml", {"emailaddress": email}),) + (
             ((f"{domain}/.well-known/autoconfig/mail/config-v1.1.xml", None),) if use_optional_url else ()
         ):
             try:
-                r = requests.get(scheme + url, params=args, timeout=5)
+                r = requests.get(scheme + url, params=params, timeout=5)
                 r.raise_for_status()
                 result = r.content
             except RequestException:
-                # print(e)
+                # print(f"{type(e).__name__}: {e}")
                 pass
             else:
                 smtp_config = parse_autoconfig(result, email, local_part, email_domain)
@@ -273,7 +284,7 @@ def get_email_config(domain, email, local_part, email_domain, https_only=False, 
         r.raise_for_status()
         result = r.content
     except RequestException:
-        # print(e)
+        # print(f"{type(e).__name__}: {e}")
         pass
     else:
         smtp_config = parse_autoconfig(result, email, local_part, email_domain)
@@ -328,22 +339,34 @@ def test_server(hostname, port, socket_type):
                 if not 200 <= server.ehlo(cmd)[0] < 300:
                     return False
     except (OSError, ssl.CertificateError, smtplib.SMTPException):
-        # print(e)
+        # print(f"{type(e).__name__}: {e}")
         return False
 
     return True
 
 
 # RE = re.compile(r"^((.{1,64}@[\w.-]{4,254})|(.*) *<(.{1,64}@[\w.-]{4,254})>)$")
-EMAILRE = re.compile(
-    r'^(?=.{6,254}$)(?=.{1,64}@)((?:(?:[^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"(?:[^"\\]|\\.)+")(?:\.(?:(?:[^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"(?:[^"\\]|\\.)+"))*)@((?:(?:xn--)?[^\W_](?:[\w-]{0,61}[^\W_])?\.)+(?:xn--)?[^\W\d_]{2,63})$',
-    re.U,
+
+# [^\p{ASCII}\p{Cc}\p{Cs}\p{Co}\p{NChar}]
+ucschar = r"(?:[\xA0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]|[\uD800-\uD83E\uD840-\uD87E\uD880-\uD8BE\uD8C0-\uD8FE\uD900-\uD93E\uD940-\uD97E\uD980-\uD9BE\uD9C0-\uD9FE\uDA00-\uDA3E\uDA40-\uDA7E\uDA80-\uDABE\uDAC0-\uDAFE\uDB00-\uDB3E\uDB40-\uDB7E][\uDC00-\uDFFF]|[\uD83F\uD87F\uD8BF\uD8FF\uD93F\uD97F\uD9BF\uD9FF\uDA3F\uDA7F\uDABF\uDAFF\uDB3F\uDB7F][\uDC00-\uDFFD])"
+
+EMAIL_RE = re.compile(
+    r'^(?=.{6,254}$)(?=.{1,64}@)((?:(?:[^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"(?:[^"\\]|\\.)+")(?:\.(?:(?:[^@"(),:;<>\[\\\].\s]|\\[^():;<>.])+|"(?:[^"\\]|\\.)+"))*)@((?:(?:[a-z0-9]|'
+    + ucschar
+    + r")(?:(?:[a-z0-9-]|"
+    + ucschar
+    + r"){0,61}(?:[a-z0-9]|"
+    + ucschar
+    + r"))?\.)+(?:xn--[a-z0-9-]{0,58}[a-z0-9]|(?:[a-z]|"
+    + ucschar
+    + r"){2,63}))$",
+    re.I,
 )
 
 
 def email_autoconfig(email):
     """Automatically configures email settings based on the provided email address."""
-    aemail = EMAILRE.match(email)
+    aemail = EMAIL_RE.match(email)
     if not aemail:
         print(f"Error: Could not parse e-mail address {email!r}")
         return None
