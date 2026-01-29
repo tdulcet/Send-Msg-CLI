@@ -8,17 +8,55 @@ on:
 
 jobs:
   Linux:
-    name: Linux Bash
+    name: Linux
 
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+      fail-fast: false
     steps:
     - uses: actions/checkout@v6
     - name: Script
       run: |
         bash -e -o pipefail -- sendmsg.sh -h
+        python3 -X dev python/sendpy/ --help
+        python3 -X dev python/sendpy/ --examples
+        # python3 -X dev python/sendpy/ --smtp-servers
+        python3 -X dev python/sendpy/ --gateways
     - name: ShellCheck
       run: shopt -s globstar; shellcheck -o avoid-nullary-conditions,check-extra-masked-returns,check-set-e-suppressed,deprecate-which,quote-safe-variables,require-double-brackets -s bash **/*.sh
       continue-on-error: true
+
+  Linux-old:
+    name: Linux old
+
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        container: ["ubuntu:18.04", "ubuntu:20.04"]
+      fail-fast: false
+    steps:
+    # - uses: actions/checkout@v6
+    - name: Install
+      run: |
+        apt-get update
+        apt-get install -y wget python3 python3-requests
+        python3 --version
+    - name: Download
+      run: |
+        wget "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/archive/$GITHUB_SHA.tar.gz"
+        tar -xzvf "$GITHUB_SHA.tar.gz" --strip-components=1
+    - name: Script
+      run: |
+        set -x
+        bash -e -o pipefail -- sendmsg.sh -h
+        python3 -X dev python/sendpy/ --help
+        python3 -X dev python/sendpy/ --examples
+        # python3 -X dev python/sendpy/ --smtp-servers
+        python3 -X dev python/sendpy/ --gateways
 
   Pylint:
     name: Pylint
