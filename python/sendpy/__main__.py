@@ -14,18 +14,18 @@ from datetime import datetime
 from email.utils import parseaddr
 
 if __name__ == "__main__":
-    # The script is being run directly, use absolute imports
-    import configuration
-    import pgp
-    import smime
-    import usage
-    from configuration import EMAIL_RE
-    from send import sendEmail
+	# The script is being run directly, use absolute imports
+	import configuration
+	import pgp
+	import smime
+	import usage
+	from configuration import EMAIL_RE
+	from send import sendEmail
 else:
-    # The script is being run as part of a package, use relative imports
-    from . import configuration, pgp, smime, usage
-    from .configuration import EMAIL_RE
-    from .send import sendEmail
+	# The script is being run as part of a package, use relative imports
+	from . import configuration, pgp, smime, usage
+	from .configuration import EMAIL_RE
+	from .send import sendEmail
 
 
 """Copyright © Daniel Connelly and Teal Dulcet
@@ -39,7 +39,7 @@ else:
 locale.setlocale(locale.LC_ALL, "")
 
 parser = argparse.ArgumentParser(
-    description="One or more To, CC or BCC e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (see the --gateways option). See examples with the --examples option."
+	description="One or more To, CC or BCC e-mail addresses are required. Send text messages by using the mobile providers e-mail to SMS or MMS gateway (see the --gateways option). See examples with the --examples option."
 )
 parser.suggest_on_error = True  # Python 3.14+
 parser.add_argument("-v", "--version", action="version", version="%(prog)s 1.0.1")
@@ -47,98 +47,98 @@ parser.add_argument("-s", "--subject", help="Subject. Escape sequences are expan
 parser.add_argument("-m", "--message", default="", help="Message body. Escape sequences are expanded. Supports Unicode characters.")
 parser.add_argument("--message-file", help="Message body from a file or standard input if the filename is '-'.")
 parser.add_argument(
-    "-a",
-    "--attachment",
-    dest="attachments",
-    action="append",
-    default=[],
-    help="Attachment filename. Use multiple times for multiple attachments. Supports Unicode characters in filename.",
+	"-a",
+	"--attachment",
+	dest="attachments",
+	action="append",
+	default=[],
+	help="Attachment filename. Use multiple times for multiple attachments. Supports Unicode characters in filename.",
 )
 parser.add_argument(
-    "-t",
-    "--to",
-    dest="toemails",
-    action="append",
-    default=[],
-    help="To e-mail address. Use multiple times for multiple To e-mail addresses.",
+	"-t",
+	"--to",
+	dest="toemails",
+	action="append",
+	default=[],
+	help="To e-mail address. Use multiple times for multiple To e-mail addresses.",
 )
 parser.add_argument(
-    "-c",
-    "--cc",
-    dest="ccemails",
-    action="append",
-    default=[],
-    help="CC e-mail address. Use multiple times for multiple CC e-mail addresses.",
+	"-c",
+	"--cc",
+	dest="ccemails",
+	action="append",
+	default=[],
+	help="CC e-mail address. Use multiple times for multiple CC e-mail addresses.",
 )
 parser.add_argument(
-    "-b",
-    "--bcc",
-    dest="bccemails",
-    action="append",
-    default=[],
-    help="BCC e-mail address. Use multiple times for multiple BCC e-mail addresses.",
+	"-b",
+	"--bcc",
+	dest="bccemails",
+	action="append",
+	default=[],
+	help="BCC e-mail address. Use multiple times for multiple BCC e-mail addresses.",
 )
 parser.add_argument("-f", "--from", dest="fromemail", help="From e-mail address")
 parser.add_argument(
-    "-S",
-    "--smtp",
-    help='SMTP server. Optionally include a port with the "hostname:port" syntax. Defaults to port 465 with --ssl/--tls and port 25 otherwise. Use "localhost" if running a mail server on this device.',
+	"-S",
+	"--smtp",
+	help='SMTP server. Optionally include a port with the "hostname:port" syntax. Defaults to port 465 with --ssl/--tls and port 25 otherwise. Use "localhost" if running a mail server on this device.',
 )
 parser.add_argument(
-    "--tls", action="store_true", help="Use a secure connection with SSL/TLS (Secure Socket Layer/Transport Layer Security)"
+	"--tls", action="store_true", help="Use a secure connection with SSL/TLS (Secure Socket Layer/Transport Layer Security)"
 )
 parser.add_argument("--no-tls", action="store_false", dest="tls")
 parser.add_argument("--starttls", action="store_true", help="Upgrade to a secure connection with StartTLS")
 parser.add_argument("--no-starttls", action="store_false", dest="starttls")
 parser.add_argument("-u", "--username", help="SMTP server username")
 parser.add_argument(
-    "-p",
-    "--password",
-    help="SMTP server password. For security, use the --config option instead for it to prompt you for the password and then store in the configuration file.",
+	"-p",
+	"--password",
+	help="SMTP server password. For security, use the --config option instead for it to prompt you for the password and then store in the configuration file.",
 )
 parser.add_argument(
-    "-P",
-    "--priority",
-    choices=["5 (Lowest)", "4 (Low)", "Normal", "2 (High)", "1 (Highest)"],
-    help='Priority. Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"',
+	"-P",
+	"--priority",
+	choices=["5 (Lowest)", "4 (Low)", "Normal", "2 (High)", "1 (Highest)"],
+	help='Priority. Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"',
 )
 parser.add_argument("-r", "--receipt", action="store_true", dest="mdn", help="Request Return Receipt")
 parser.add_argument(
-    "-C",
-    "--certificate",
-    dest="cert",
-    help="S/MIME Certificate filename for digitally signing the e-mails. It will ask you for the password the first time you run the script with this option.",
+	"-C",
+	"--certificate",
+	dest="cert",
+	help="S/MIME Certificate filename for digitally signing the e-mails. It will ask you for the password the first time you run the script with this option.",
 )
 parser.add_argument(
-    "-k",
-    "--passphrase",
-    help="PGP secret key passphrase for digitally signing the e-mails with PGP/MIME. For security, use 'config' for it to prompt you for the passphrase and then store in the configuration file.",
+	"-k",
+	"--passphrase",
+	help="PGP secret key passphrase for digitally signing the e-mails with PGP/MIME. For security, use 'config' for it to prompt you for the passphrase and then store in the configuration file.",
 )
 parser.add_argument("-z", "--zip", dest="zipfile", help="Compress attachment(s) with zip")
 parser.add_argument(
-    "-l", "--language", action="store_true", help="Set Content-Language. Uses value of LANG environment variable on Linux."
+	"-l", "--language", action="store_true", help="Set Content-Language. Uses value of LANG environment variable on Linux."
 )
 parser.add_argument(
-    "-U",
-    "--sanitize-date",
-    action="store_true",
-    dest="utc",
-    help="Uses Coordinated Universal Time (UTC) and rounds date down to whole minute.",
+	"-U",
+	"--sanitize-date",
+	action="store_true",
+	dest="utc",
+	help="Uses Coordinated Universal Time (UTC) and rounds date down to whole minute.",
 )
 parser.add_argument("-T", "--time", type=float, help="Time to delay sending of the e-mail")
 parser.add_argument("-d", "--dry-run", action="store_true", dest="dryrun", help="Dry run, do not send the e-mail")
 parser.add_argument("-n", "--notify", help="Run provided command and then send an e-mail with resulting output and exit code.")
 parser.add_argument("-V", "--verbose", action="count", help="Verbose, show the client-server communication")
 parser.add_argument(
-    "--config",
-    action="store_true",
-    help="Store the --from, --smtp, --tls, --starttls, --username and --password option values in a '.sendpy.ini' configuration file as defaults for future use. It will prompt for any values that are not provided.",
+	"--config",
+	action="store_true",
+	help="Store the --from, --smtp, --tls, --starttls, --username and --password option values in a '.sendpy.ini' configuration file as defaults for future use. It will prompt for any values that are not provided.",
 )
 parser.add_argument("--examples", action="store_true", help="Show example usages of this script and exit")
 parser.add_argument(
-    "--gateways",
-    action="store_true",
-    help="Show a list the of SMS and MMS Gateways for common mobile providers in the United States and Canada, then exit",
+	"--gateways",
+	action="store_true",
+	help="Show a list the of SMS and MMS Gateways for common mobile providers in the United States and Canada, then exit",
 )
 
 args = parser.parse_args()
@@ -147,234 +147,234 @@ NOW = datetime.now()
 
 escape_sequence_re = re.compile(r"\\U[0-9a-fA-F]{1,8}|\\u[0-9a-fA-F]{1,4}|\\x[0-9a-fA-F]{1,2}")
 ESCAPE_SEQUENCE_RE = re.compile(
-    r"""(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])"""
+	r"""(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])"""
 )
 
 
 def zero_pad(match):
-    """zero_pad escape characters (u and U and x) that are < 4, < 8, and < 2 numbers long respectively, since python doesn't support this on its own."""
-    amatch = match.group()
-    azero_pad = 8 if amatch[1] == "U" else 4 if amatch[1] == "u" else 2
-    # the unicode character + amount of zeros + the original unicode typed in
-    return amatch[:2] + ("0" * (azero_pad - (len(amatch) - 2))) + amatch[2:]
+	"""zero_pad escape characters (u and U and x) that are < 4, < 8, and < 2 numbers long respectively, since python doesn't support this on its own."""
+	amatch = match.group()
+	azero_pad = 8 if amatch[1] == "U" else 4 if amatch[1] == "u" else 2
+	# the unicode character + amount of zeros + the original unicode typed in
+	return amatch[:2] + ("0" * (azero_pad - (len(amatch) - 2))) + amatch[2:]
 
 
 def decode_match(match):
-    return codecs.decode(match.group(), "unicode-escape")
+	return codecs.decode(match.group(), "unicode-escape")
 
 
 def decode_escapes(s):
-    """ESCAPE_SEQUENCE_RE and decode_escapes."""
-    return ESCAPE_SEQUENCE_RE.sub(decode_match, escape_sequence_re.sub(zero_pad, s))
+	"""ESCAPE_SEQUENCE_RE and decode_escapes."""
+	return ESCAPE_SEQUENCE_RE.sub(decode_match, escape_sequence_re.sub(zero_pad, s))
 
 
 def configuration_assignment():
-    """If a user decides, they may work from a configuration if the user does not specify a necessary
-    flag (e.g., -u). If the config file is empty, an error will be thrown.
-    """
-    # make file with appropriate fields if file does not exist
-    if not args.smtp or not args.fromemail:
-        args.smtp, args.tls, args.starttls, args.fromemail, args.username, args.password = configuration.return_config(args)
+	"""If a user decides, they may work from a configuration if the user does not specify a necessary
+	flag (e.g., -u). If the config file is empty, an error will be thrown.
+	"""
+	# make file with appropriate fields if file does not exist
+	if not args.smtp or not args.fromemail:
+		args.smtp, args.tls, args.starttls, args.fromemail, args.username, args.password = configuration.return_config(args)
 
-    if args.tls and args.starttls:
-        parser.error("Cannot use both SSL/TLS and StartTLS.")
+	if args.tls and args.starttls:
+		parser.error("Cannot use both SSL/TLS and StartTLS.")
 
-    host = args.smtp
-    port = 0
-    res = host.rsplit(":", 1)
-    if len(res) == 2:
-        host, port = res
-        port = int(port)
+	host = args.smtp
+	port = 0
+	res = host.rsplit(":", 1)
+	if len(res) == 2:
+		host, port = res
+		port = int(port)
 
-    if not args.tls and (not port or port == 25):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.settimeout(5)
-            # testing connection as computer may not block port 25, but ISP/Cloud provider may.
-            if sock.connect_ex(("aspmx.l.google.com", 25)):
-                print(
-                    "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to specify a port for the SMTP server in order to send e-mails.\n"
-                )
+	if not args.tls and (not port or port == 25):
+		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+			sock.settimeout(5)
+			# testing connection as computer may not block port 25, but ISP/Cloud provider may.
+			if sock.connect_ex(("aspmx.l.google.com", 25)):
+				print(
+					"Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to specify a port for the SMTP server in order to send e-mails.\n"
+				)
 
-    return host, port
+	return host, port
 
 
 def parse_assign():
-    """Find the correct variable to assign the arg/opt to."""
-    if args.config:
-        configuration.config_email(args)
-        print("Configuration file successfully set\n")
-        sys.exit(0)
+	"""Find the correct variable to assign the arg/opt to."""
+	if args.config:
+		configuration.config_email(args)
+		print("Configuration file successfully set\n")
+		sys.exit(0)
 
-    if args.examples:
-        usage.examples(os.path.basename(sys.argv[0]))
-        sys.exit(0)
+	if args.examples:
+		usage.examples(os.path.basename(sys.argv[0]))
+		sys.exit(0)
 
-    if args.gateways:
-        usage.carriers()
-        sys.exit(0)
+	if args.gateways:
+		usage.carriers()
+		sys.exit(0)
 
-    if not args.subject:
-        parser.error("A subject is required.")
+	if not args.subject:
+		parser.error("A subject is required.")
 
-    if not args.toemails and not args.ccemails and not args.bccemails:
-        parser.error("One or more To, CC or BCC e-mail addresses are required")
+	if not args.toemails and not args.ccemails and not args.bccemails:
+		parser.error("One or more To, CC or BCC e-mail addresses are required")
 
-    if args.message:
-        args.message = decode_escapes(args.message)
+	if args.message:
+		args.message = decode_escapes(args.message)
 
-    if args.message_file:
-        expanded_file = os.path.expanduser(args.message_file)
-        if expanded_file == "-":
-            args.message += decode_escapes(sys.stdin.read())
-        elif os.path.exists(expanded_file):
-            with open(expanded_file, encoding="utf-8") as f:
-                args.message += decode_escapes(f.read())
-        else:
-            parser.error(f"{expanded_file!r} file does not exist.")
+	if args.message_file:
+		expanded_file = os.path.expanduser(args.message_file)
+		if expanded_file == "-":
+			args.message += decode_escapes(sys.stdin.read())
+		elif os.path.exists(expanded_file):
+			with open(expanded_file, encoding="utf-8") as f:
+				args.message += decode_escapes(f.read())
+		else:
+			parser.error(f"{expanded_file!r} file does not exist.")
 
-    if args.notify:
-        with subprocess.Popen(
-            args.notify, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True
-        ) as p:
-            stdout, _ = p.communicate()
-            args.message += f"\n**EXIT CODE**:\n{p.returncode}\n**OUTPUT**:\n{stdout}\n"
+	if args.notify:
+		with subprocess.Popen(
+			args.notify, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True
+		) as p:
+			stdout, _ = p.communicate()
+			args.message += f"\n**EXIT CODE**:\n{p.returncode}\n**OUTPUT**:\n{stdout}\n"
 
-    args.subject = decode_escapes(args.subject)
+	args.subject = decode_escapes(args.subject)
 
-    if args.zipfile and not args.zipfile.endswith(".zip"):
-        args.zipfile += ".zip"
+	if args.zipfile and not args.zipfile.endswith(".zip"):
+		args.zipfile += ".zip"
 
 
 suffix_power_char = ("", "K", "M", "G", "T", "P", "E", "Z", "Y", "R", "Q")
 
 
 def convert_bytes(number, scale=False):
-    """Calculates how large an attachment in two ways -- iB and B."""
-    scale_base = 1000 if scale else 1024
+	"""Calculates how large an attachment in two ways -- iB and B."""
+	scale_base = 1000 if scale else 1024
 
-    power = 0
-    while abs(number) >= scale_base:
-        power += 1
-        number /= scale_base
+	power = 0
+	while abs(number) >= scale_base:
+		power += 1
+		number /= scale_base
 
-    anumber = abs(number)
-    anumber += 0.0005 if anumber < 10 else 0.005 if anumber < 100 else 0.05 if anumber < 1000 else 0.5
+	anumber = abs(number)
+	anumber += 0.0005 if anumber < 10 else 0.005 if anumber < 100 else 0.05 if anumber < 1000 else 0.5
 
-    if number and anumber < 1000 and power > 0:
-        strm = f"{number:.{sys.float_info.dig}g}"
+	if number and anumber < 1000 and power > 0:
+		strm = f"{number:.{sys.float_info.dig}g}"
 
-        length = 5 + (number < 0)
-        if len(strm) > length:
-            prec = 3 if anumber < 10 else 2 if anumber < 100 else 1
-            strm = f"{number:.{prec}f}"
-    else:
-        strm = f"{number:.0f}"
+		length = 5 + (number < 0)
+		if len(strm) > length:
+			prec = 3 if anumber < 10 else 2 if anumber < 100 else 1
+			strm = f"{number:.{prec}f}"
+	else:
+		strm = f"{number:.0f}"
 
-    # "k" if power == 1 and scale else
-    strm += suffix_power_char[power] if power < len(suffix_power_char) else "(error)"
+	# "k" if power == 1 and scale else
+	strm += suffix_power_char[power] if power < len(suffix_power_char) else "(error)"
 
-    if not scale and power > 0:
-        strm += "i"
+	if not scale and power > 0:
+		strm += "i"
 
-    return strm
+	return strm
 
 
 def attachment_work():
-    """Zips files to send in msg if user specifies the '-z' flag. Will also calculate size of attachments
-    and warn user if size is large. Will also strip the path and just use the basename (filename).
-    """
-    if args.attachments:
-        total = 0
-        rows = []
+	"""Zips files to send in msg if user specifies the '-z' flag. Will also calculate size of attachments
+	and warn user if size is large. Will also strip the path and just use the basename (filename).
+	"""
+	if args.attachments:
+		total = 0
+		rows = []
 
-        for attachment in args.attachments:
-            if not attachment or not os.path.exists(attachment):
-                parser.error(f"Cannot read {attachment!r} file.")
+		for attachment in args.attachments:
+			if not attachment or not os.path.exists(attachment):
+				parser.error(f"Cannot read {attachment!r} file.")
 
-        if args.zipfile:
-            if os.path.exists(args.zipfile):
-                parser.error(f"File {args.zipfile!r} already exists.")
+		if args.zipfile:
+			if os.path.exists(args.zipfile):
+				parser.error(f"File {args.zipfile!r} already exists.")
 
-            atexit.register(os.remove, args.zipfile)
+			atexit.register(os.remove, args.zipfile)
 
-            with zipfile.ZipFile(args.zipfile, "w") as myzip:
-                for attachment in args.attachments:
-                    myzip.write(attachment, os.path.basename(attachment))
+			with zipfile.ZipFile(args.zipfile, "w") as myzip:
+				for attachment in args.attachments:
+					myzip.write(attachment, os.path.basename(attachment))
 
-            args.attachments = [args.zipfile]
+			args.attachments = [args.zipfile]
 
-        # printing in a nice row; checking if total attachment size is >= 25 MiB
-        print("Attachments:")
-        for attachment in args.attachments:
-            size = os.path.getsize(attachment)
-            total += size
-            rows.append((attachment, convert_bytes(size, False), f"({convert_bytes(size, True)})" if size >= 1000 else ""))
-        usage.format_attachment_output(rows)
+		# printing in a nice row; checking if total attachment size is >= 25 MiB
+		print("Attachments:")
+		for attachment in args.attachments:
+			size = os.path.getsize(attachment)
+			total += size
+			rows.append((attachment, convert_bytes(size, False), f"({convert_bytes(size, True)})" if size >= 1000 else ""))
+		usage.format_attachment_output(rows)
 
-        print(f"\nTotal Size:\t{convert_bytes(total, False)}\t{f'({convert_bytes(total, True)})' if total >= 1000 else ''}\n")
+		print(f"\nTotal Size:\t{convert_bytes(total, False)}\t{f'({convert_bytes(total, True)})' if total >= 1000 else ''}\n")
 
-        if total >= 25 * 1024 * 1024:
-            print(
-                "Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Send: https://send.vis.ee/ (formerly Firefox Send) or transfer.sh: https://transfer.sh\n"
-            )
+		if total >= 25 * 1024 * 1024:
+			print(
+				"Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Send: https://send.vis.ee/ (formerly Firefox Send) or transfer.sh: https://transfer.sh\n"
+			)
 
 
 def email_work():
-    """Check for valid email addresses."""
-    # Check if the email is valid.
-    for toemail in args.toemails:
-        # result = RE.match(toemail)
-        _, address = parseaddr(toemail)
-        temp = address or toemail
-        if not EMAIL_RE.match(temp):
-            parser.error(f"{temp!r} is not a valid e-mail address.")
+	"""Check for valid email addresses."""
+	# Check if the email is valid.
+	for toemail in args.toemails:
+		# result = RE.match(toemail)
+		_, address = parseaddr(toemail)
+		temp = address or toemail
+		if not EMAIL_RE.match(temp):
+			parser.error(f"{temp!r} is not a valid e-mail address.")
 
-    for ccemail in args.ccemails:
-        # result = RE.match(ccemail)
-        _, address = parseaddr(ccemail)
-        temp = address or ccemail
-        if not EMAIL_RE.match(temp):
-            parser.error(f"{temp!r} is not a valid e-mail address.")
+	for ccemail in args.ccemails:
+		# result = RE.match(ccemail)
+		_, address = parseaddr(ccemail)
+		temp = address or ccemail
+		if not EMAIL_RE.match(temp):
+			parser.error(f"{temp!r} is not a valid e-mail address.")
 
-    for bccemail in args.bccemails:
-        # result = RE.match(bccemail)
-        _, address = parseaddr(bccemail)
-        temp = address or bccemail
-        if not EMAIL_RE.match(temp):
-            parser.error(f"{temp!r} is not a valid e-mail address.")
+	for bccemail in args.bccemails:
+		# result = RE.match(bccemail)
+		_, address = parseaddr(bccemail)
+		temp = address or bccemail
+		if not EMAIL_RE.match(temp):
+			parser.error(f"{temp!r} is not a valid e-mail address.")
 
-    # result = RE.match(args.fromemail)
-    _, fromaddress = parseaddr(args.fromemail)
-    temp = fromaddress or args.fromemail
-    if not EMAIL_RE.match(temp):
-        parser.error(f"{temp!r} is not a valid e-mail address.")
+	# result = RE.match(args.fromemail)
+	_, fromaddress = parseaddr(args.fromemail)
+	temp = fromaddress or args.fromemail
+	if not EMAIL_RE.match(temp):
+		parser.error(f"{temp!r} is not a valid e-mail address.")
 
-    return fromaddress
+	return fromaddress
 
 
 def main():
-    # parsing/assignment
-    parse_assign()
-    # use default configuration if nothing was put on the CMDline
-    host, port = configuration_assignment()
+	# parsing/assignment
+	parse_assign()
+	# use default configuration if nothing was put on the CMDline
+	host, port = configuration_assignment()
 
-    # email/email checks
-    fromaddress = email_work()
-    attachment_work()
+	# email/email checks
+	fromaddress = email_work()
+	attachment_work()
 
-    # signing/signing checks
-    if args.cert:
-        smime.cert_checks(args, NOW)
+	# signing/signing checks
+	if args.cert:
+		smime.cert_checks(args, NOW)
 
-    if args.passphrase:
-        pgp.passphrase_checks(args, NOW, fromaddress)
+	if args.passphrase:
+		pgp.passphrase_checks(args, NOW, fromaddress)
 
-    if args.cert and args.passphrase:
-        print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
+	if args.cert and args.passphrase:
+		print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
 
-    # sending
-    sendEmail(args, fromaddress, host, port)
+	# sending
+	sendEmail(args, fromaddress, host, port)
 
 
 if __name__ == "__main__":
-    main()
+	main()

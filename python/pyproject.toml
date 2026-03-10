@@ -75,6 +75,6 @@ split-on-trailing-comma = false
 [tool.ruff.format]
 quote-style = "double"
 
-indent-style = "space" # "tab"
+indent-style = "tab"
 
 skip-magic-trailing-comma = true
