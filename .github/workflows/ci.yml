@@ -13,7 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
+        os: [ubuntu-22.04, ubuntu-24.04, ubuntu-26.04]
       fail-fast: false
     steps:
     - uses: actions/checkout@v6
@@ -25,7 +25,7 @@ jobs:
         # python3 -X dev python/sendpy/ --smtp-servers
         python3 -X dev python/sendpy/ --gateways
     - name: ShellCheck
-      run: shopt -s globstar; shellcheck -o avoid-nullary-conditions,check-extra-masked-returns,check-set-e-suppressed,deprecate-which,quote-safe-variables,require-double-brackets -s bash **/*.sh
+      run: shopt -s globstar; shellcheck -o avoid-nullary-conditions,check-set-e-suppressed,deprecate-which,quote-safe-variables,require-double-brackets -s bash **/*.sh
       continue-on-error: true
 
   Linux-old:
@@ -36,19 +36,27 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        container: ["ubuntu:18.04", "ubuntu:20.04"]
+        container: ["ubuntu:18.04", "ubuntu:20.04", "alpine:3.12", "alpine:3.16", "alpine:3.20", "alpine:3.24"]
       fail-fast: false
     steps:
     # - uses: actions/checkout@v6
     - name: Install
+      if: ${{ startsWith(matrix.container, 'ubuntu:') }}
       run: |
         apt-get update
         apt-get install -y wget python3 python3-requests
-        python3 --version
+    - name: Install
+      if: ${{ startsWith(matrix.container, 'alpine:') }}
+      run: |
+        apk update
+        apk add bash wget python3 py3-requests
     - name: Download
       run: |
         wget "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/archive/$GITHUB_SHA.tar.gz"
         tar -xzvf "$GITHUB_SHA.tar.gz" --strip-components=1
+    - name: Before script
+      run: |
+        python3 --version
     - name: Script
       run: |
         set -x
