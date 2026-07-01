@@ -1,6 +1,8 @@
 import ctypes
 import email
 import getpass
+import glob
+import logging
 import os
 import ssl
 import sys
@@ -8,6 +10,7 @@ from ctypes.util import find_library
 from datetime import datetime, timedelta
 from email.message import MIMEPart
 from email.policy import SMTP, default
+from itertools import chain
 
 import send
 
@@ -15,13 +18,27 @@ CLIENTCERT = "cert.pem"
 WARNDAYS = 3
 
 if sys.platform == "win32":
-	import glob
-
-	for file in glob.iglob(os.path.join(os.path.dirname(sys.executable), "DLLs", "libcrypto*.dll")):
+	for file in chain.from_iterable(
+		map(
+			glob.iglob,
+			(os.path.join(sys.base_exec_prefix, "libcrypto*.dll"), os.path.join(sys.base_exec_prefix, "DLLs", "libcrypto*.dll")),
+		)
+	):
 		libcrypto = file
 		break
 	else:
 		libcrypto = find_library("libcrypto") or find_library("libeay32")
+elif sys.platform == "darwin":
+	for file in chain.from_iterable(
+		map(
+			glob.iglob,
+			(os.path.join(sys.base_exec_prefix, "libcrypto*.dylib"), os.path.join(sys.base_exec_prefix, "lib", "libcrypto*.dylib")),
+		)
+	):
+		libcrypto = file
+		break
+	else:
+		libcrypto = find_library("crypto") or find_library("eay32")
 else:
 	libcrypto = find_library("crypto") or find_library("eay32")
 crypto = None
@@ -140,6 +157,12 @@ if libcrypto:
 	crypto.CMS_sign.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint)
 	crypto.CMS_sign.restype = ctypes.c_void_p
 
+	crypto.CMS_add1_signer.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint)
+	crypto.CMS_add1_signer.restype = ctypes.c_void_p
+
+	# crypto.EVP_sha256.argtypes = ()
+	crypto.EVP_sha256.restype = ctypes.c_void_p
+
 	crypto.SMIME_write_CMS.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int)
 	# crypto.SMIME_write_CMS.restype = ctypes.c_int
 
@@ -164,9 +187,9 @@ if libcrypto:
 		reason_str = crypto.ERR_reason_error_string(errcode)
 
 		if reason_str and lib_str:
-			msg = f"[{lib_str}: {reason_str}] {errstr}"
+			msg = "[{}: {}] {}".format(lib_str.decode(), reason_str.decode(), errstr)
 		elif lib_str:
-			msg = f"[{lib_str}] {errstr}"
+			msg = "[{}] {}".format(lib_str.decode(), errstr)
 		else:
 			msg = errstr
 
@@ -182,121 +205,131 @@ def cert_checks(args, now):
 		raise RuntimeError(msg)
 
 	if not os.path.exists(args.cert) and not os.path.exists(CLIENTCERT):
-		print(f"Error: {args.cert!r} certificate file does not exist.", file=sys.stderr)
-		sys.exit(1)
+		msg = "{!r} certificate file does not exist.".format(args.cert)
+		raise ValueError(msg)
 
 	if not (os.path.exists(CLIENTCERT) and os.path.getsize(CLIENTCERT)):
-		print(f"Saving the client certificate from {args.cert!r} to {CLIENTCERT!r}")
+		print("Saving the client certificate from {!r} to {!r}".format(args.cert, CLIENTCERT))
 		print("Please enter the password when prompted.\n")
 
-		# ["openssl", "pkcs12", "-in", args.cert, "-out", CLIENTCERT, "-clcerts", "-nodes"]
-		file = crypto.BIO_new_file(args.cert.encode(), b"r")
+		# ("openssl", "pkcs12", "-in", args.cert, "-out", CLIENTCERT, "-clcerts", "-nodes")
+		file = crypto.BIO_new_file(os.fsencode(args.cert), b"r")
 		if not file:
 			msg = "Failed to open file"
 			raise ssl_error(msg)
+
 		try:
 			p12 = crypto.d2i_PKCS12_bio(file, None)
 			if not p12:
 				msg = "Failed to read PKCS12 file"
 				raise ssl_error(msg)
+
+			try:
+				passphrase = getpass.getpass("Import Password: ", **({"echo_char": "*"} if sys.version_info >= (3, 14) else {}))
+				pkey = ctypes.c_void_p()
+				cert = ctypes.c_void_p()
+
+				if crypto.PKCS12_parse(p12, passphrase.encode(), ctypes.byref(pkey), ctypes.byref(cert), None) != 1:
+					msg = "Failed to parse PKCS12 file, likely bad Password"
+					raise ssl_error(msg)
+
+				try:
+					out = crypto.BIO_new_file(os.fsencode(CLIENTCERT), b"w")
+					if not out:
+						msg = "Failed to open file for writing"
+						raise ssl_error(msg)
+
+					try:
+						if crypto.PEM_write_bio_PrivateKey(out, pkey, None, None, 0, None, None) != 1:
+							msg = "Failed to write private key"
+							raise ssl_error(msg)
+
+						if crypto.PEM_write_bio_X509(out, cert) != 1:
+							msg = "Failed to write certificate"
+							raise ssl_error(msg)
+					finally:
+						crypto.BIO_free(out)
+				finally:
+					crypto.X509_free(cert)
+					crypto.EVP_PKEY_free(pkey)
+			finally:
+				crypto.PKCS12_free(p12)
 		finally:
 			crypto.BIO_free(file)
 
-		passphrase = getpass.getpass("Import Password: ")
-		pkey = ctypes.c_void_p()
-		cert = ctypes.c_void_p()
-
-		if crypto.PKCS12_parse(p12, passphrase.encode(), ctypes.byref(pkey), ctypes.byref(cert), None) != 1:
-			msg = "Failed to parse PKCS12 file, likely bad Password"
-			raise ssl_error(msg)
-
-		crypto.PKCS12_free(p12)
-
-		out = crypto.BIO_new_file(CLIENTCERT.encode(), b"w")
-		if not out:
-			msg = "Failed to open file for writing"
-			raise ssl_error(msg)
-		try:
-			if crypto.PEM_write_bio_PrivateKey(out, pkey, None, None, 0, None, None) != 1:
-				msg = "Failed to write private key"
-				raise ssl_error(msg)
-
-			if crypto.PEM_write_bio_X509(out, cert) != 1:
-				msg = "Failed to write certificate"
-				raise ssl_error(msg)
-		finally:
-			crypto.BIO_free(out)
-
-		crypto.X509_free(cert)
-		crypto.EVP_PKEY_free(pkey)
-
-	file = crypto.BIO_new_file(CLIENTCERT.encode(), b"r")
+	file = crypto.BIO_new_file(os.fsencode(CLIENTCERT), b"r")
 	if not file:
 		msg = "Failed to open file"
 		raise ssl_error(msg)
+
 	try:
 		cert = crypto.PEM_read_bio_X509(file, None, None, None)
 		if not cert:
 			msg = "Failed to load certificate"
 			raise ssl_error(msg)
+
+		try:
+			issuer = None
+			# ("openssl", "x509", "-in", CLIENTCERT, "-noout", "-issuer", "-nameopt", "multiline,-align,-esc_msb,utf8,-space_eq")
+			aissuer = crypto.X509_get_issuer_name(cert)
+
+			lastpos = crypto.X509_NAME_get_index_by_NID(aissuer, 17, -1)  # NID_organizationName
+			if lastpos == -1:
+				lastpos = crypto.X509_NAME_get_index_by_NID(aissuer, 13, -1)  # NID_commonName
+
+			if lastpos != -1:
+				entry = crypto.X509_NAME_get_entry(aissuer, lastpos)
+				value = crypto.X509_NAME_ENTRY_get_data(entry)
+				buffer = ctypes.c_char_p()
+				length = crypto.ASN1_STRING_to_UTF8(ctypes.byref(buffer), value)
+				if length < 0:
+					msg = "ASN1_STRING_to_UTF8 failed"
+					raise ssl_error(msg)
+
+				try:
+					issuer = ctypes.string_at(buffer, length).decode()
+				finally:
+					# crypto.OPENSSL_free(buffer)
+					crypto.CRYPTO_free(buffer, None, 0)
+
+			# ("openssl", "x509", "-in", CLIENTCERT, "-noout", "-enddate")
+			adate = X509_get0_notAfter(cert)
+
+			out = crypto.BIO_new(crypto.BIO_s_mem())
+			if not out:
+				msg = "Failed to create BIO"
+				raise ssl_error(msg)
+
+			try:
+				if crypto.ASN1_TIME_print(out, adate) != 1:
+					msg = "Failed to print end date"
+					raise ssl_error(msg)
+
+				buf = ctypes.create_string_buffer(32)
+				crypto.BIO_gets(out, buf, len(buf))
+				date = buf.value.decode()
+			finally:
+				crypto.BIO_free(out)
+		finally:
+			crypto.X509_free(cert)
 	finally:
 		crypto.BIO_free(file)
 
-	issuer = None
-	# ["openssl", "x509", "-in", CLIENTCERT, "-noout", "-issuer", "-nameopt", "multiline,-align,-esc_msb,utf8,-space_eq"]
-	aissuer = crypto.X509_get_issuer_name(cert)
-
-	lastpos = crypto.X509_NAME_get_index_by_NID(aissuer, 17, -1)  # NID_organizationName
-	if lastpos == -1:
-		lastpos = crypto.X509_NAME_get_index_by_NID(aissuer, 13, -1)  # NID_commonName
-
-	if lastpos != -1:
-		entry = crypto.X509_NAME_get_entry(aissuer, lastpos)
-		value = crypto.X509_NAME_ENTRY_get_data(entry)
-		buffer = ctypes.c_char_p()
-		length = crypto.ASN1_STRING_to_UTF8(ctypes.byref(buffer), value)
-		if length < 0:
-			msg = "ASN1_STRING_to_UTF8 failed"
-			raise ssl_error(msg)
-
-		try:
-			issuer = ctypes.string_at(buffer, length).decode()
-		finally:
-			# crypto.OPENSSL_free(buffer)
-			crypto.CRYPTO_free(buffer, None, 0)
-
-	# ["openssl", "x509", "-in", CLIENTCERT, "-noout", "-enddate"]
-	adate = X509_get0_notAfter(cert)
-
-	out = crypto.BIO_new(crypto.BIO_s_mem())
-	if not out:
-		msg = "Failed to create BIO"
-		raise ssl_error(msg)
-
-	if crypto.ASN1_TIME_print(out, adate) != 1:
-		msg = "Failed to print end date"
-		raise ssl_error(msg)
-
-	buf = ctypes.create_string_buffer(64)
-	crypto.BIO_gets(out, buf, len(buf))
-	date = buf.value.decode()
-
-	crypto.BIO_free(out)
-	crypto.X509_free(cert)
-
 	# datetime.strptime(date, "%b %d %H:%M:%S %Y %Z")
-	date = datetime.fromtimestamp(ssl.cert_time_to_seconds(date))
+	date = datetime.fromtimestamp(ssl.cert_time_to_seconds(date + " GMT" if not date.endswith(" GMT") else date))
 
 	if date > now:
 		delta = date - now
-		warn = timedelta(days=WARNDAYS)
-		if delta < warn:
-			print(
-				f"Warning: The S/MIME Certificate {f'from “{issuer}” ' if issuer else ''}expires in less than {WARNDAYS} days ({date:%c}).\n"
+		if delta < timedelta(days=WARNDAYS):
+			logging.warning(
+				"The S/MIME Certificate %sexpires in less than %s days (%s).",
+				"from {!r} ".format(issuer) if issuer else "",
+				WARNDAYS,
+				date.strftime("%c"),
 			)
 	else:
-		print(f"Error: The S/MIME Certificate {f'from “{issuer}” ' if issuer else ''}expired {date:%c}.", file=sys.stderr)
-		sys.exit(1)
+		msg = "The S/MIME Certificate {}expired {:%c}.".format("from {!r} ".format(issuer) if issuer else "", date)
+		raise ValueError(msg)
 
 
 def smime(args, lang):
@@ -310,61 +343,76 @@ def smime(args, lang):
 	if args.attachments:
 		send.attachments(msg, args.attachments)
 
-	# ["openssl", "cms", "-sign", "-signer", CLIENTCERT],
-	file = crypto.BIO_new_file(CLIENTCERT.encode(), b"r")
+	# ("openssl", "cms", "-sign", "-signer", CLIENTCERT)
+	file = crypto.BIO_new_file(os.fsencode(CLIENTCERT), b"r")
 	if not file:
 		msg = "Failed to open file"
 		raise ssl_error(msg)
+
 	try:
 		cert = crypto.PEM_read_bio_X509(file, None, None, None)
 		if not cert:
 			msg = "Failed to load certificate"
 			raise ssl_error(msg)
 
-		if crypto.BIO_ctrl(file, 1, 0, None):  # BIO_CTRL_RESET # BIO_reset(file)
-			raise ssl_error
+		try:
+			if crypto.BIO_ctrl(file, 1, 0, None):  # BIO_CTRL_RESET # BIO_reset(file)
+				raise ssl_error
 
-		skey = crypto.PEM_read_bio_PrivateKey(file, None, None, None)
-		if not skey:
-			msg = "Failed to load private key"
-			raise ssl_error(msg)
+			skey = crypto.PEM_read_bio_PrivateKey(file, None, None, None)
+			if not skey:
+				msg = "Failed to load private key"
+				raise ssl_error(msg)
+
+			try:
+				data = msg.as_bytes(policy=SMTP)
+				ain = crypto.BIO_new_mem_buf(data, len(data))
+				if not ain:
+					msg = "Failed to create BIO for data"
+					raise ssl_error(msg)
+
+				try:
+					flags = 0x40 | 0x1000 | 0x4000  # CMS_STREAM | CMS_DETACHED | CMS_PARTIAL
+					cms = crypto.CMS_sign(None, None, None, ain, flags)
+					if not cms:
+						msg = "Failed to sign data"
+						raise ssl_error(msg)
+
+					si = crypto.CMS_add1_signer(cms, cert, skey, crypto.EVP_sha256(), 0)
+					if not si:
+						msg = "CMS_add1_signer failed"
+						raise ssl_error(msg)
+
+					try:
+						out = crypto.BIO_new(crypto.BIO_s_mem())
+						if not out:
+							msg = "Failed to create BIO for output"
+							raise ssl_error(msg)
+
+						try:
+							if crypto.SMIME_write_CMS(out, cms, ain, flags) != 1:
+								msg = "Failed to output CMS data"
+								raise ssl_error(msg)
+
+							buffer = ctypes.c_char_p()
+							# length = crypto.BIO_get_mem_data(out, ctypes.byref(buffer))
+							length = crypto.BIO_ctrl(out, 3, 0, ctypes.byref(buffer))  # BIO_CTRL_INFO
+							if length < 0:
+								msg = "BIO_get_mem_data failed"
+								raise ssl_error(msg)
+							cert_sig = ctypes.string_at(buffer, length)
+						finally:
+							crypto.BIO_free(out)
+					finally:
+						crypto.CMS_ContentInfo_free(cms)
+				finally:
+					crypto.BIO_free(ain)
+			finally:
+				crypto.EVP_PKEY_free(skey)
+		finally:
+			crypto.X509_free(cert)
 	finally:
 		crypto.BIO_free(file)
-
-	data = msg.as_bytes(policy=SMTP)
-	ain = crypto.BIO_new_mem_buf(data, len(data))
-	if not ain:
-		msg = "Failed to create BIO for data"
-		raise ssl_error(msg)
-
-	flags = 0x40 | 0x1000  # CMS_STREAM | CMS_DETACHED
-	cms = crypto.CMS_sign(cert, skey, None, ain, flags)
-	if not cms:
-		msg = "Failed to sign data"
-		raise ssl_error(msg)
-
-	out = crypto.BIO_new(crypto.BIO_s_mem())
-	if not out:
-		msg = "Failed to create BIO for output"
-		raise ssl_error(msg)
-
-	if crypto.SMIME_write_CMS(out, cms, ain, flags) != 1:
-		msg = "Failed to output CMS data"
-		raise ssl_error(msg)
-
-	buffer = ctypes.c_char_p()
-	# length = crypto.BIO_get_mem_data(out, ctypes.byref(buffer))
-	length = crypto.BIO_ctrl(out, 3, 0, ctypes.byref(buffer))  # BIO_CTRL_INFO
-	if length < 0:
-		msg = "BIO_get_mem_data failed"
-		raise ssl_error(msg)
-	cert_sig = ctypes.string_at(buffer, length)
-
-	crypto.X509_free(cert)
-	crypto.EVP_PKEY_free(skey)
-	crypto.BIO_free(ain)
-	crypto.BIO_free(out)
-	crypto.CMS_ContentInfo_free(cms)
 
 	message = email.message_from_bytes(cert_sig, policy=default)
 

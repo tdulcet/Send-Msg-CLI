@@ -1,4 +1,5 @@
 import ctypes
+import logging
 import sys
 from ctypes.util import find_library
 from datetime import datetime, timedelta
@@ -119,6 +120,33 @@ if libgpgme:
 			("last_update", ctypes.c_ulong),
 		)
 
+	class gpgme_invalid_key_t(ctypes.Structure):
+		pass
+
+	gpgme_invalid_key_t._fields_ = (
+		("next", ctypes.POINTER(gpgme_invalid_key_t)),
+		("fpr", ctypes.c_char_p),
+		("reason", ctypes.c_uint),
+	)
+
+	class gpgme_new_signature_t(ctypes.Structure):
+		pass
+
+	gpgme_new_signature_t._fields_ = (
+		("next", ctypes.POINTER(gpgme_new_signature_t)),
+		("type", ctypes.c_uint),
+		("pubkey_algo", ctypes.c_uint),
+		("hash_algo", ctypes.c_uint),
+		("_obsolete_class", ctypes.c_ulong),
+		("timestamp", ctypes.c_long),
+		("fpr", ctypes.c_char_p),
+		("_obsolete_class_2", ctypes.c_uint),
+		("sig_class", ctypes.c_uint),
+	)
+
+	class gpgme_sign_result_t(ctypes.Structure):
+		_fields_ = (("invalid_signers", ctypes.POINTER(gpgme_invalid_key_t)), ("signatures", ctypes.POINTER(gpgme_new_signature_t)))
+
 	gpgme_passphrase_cb_t = ctypes.CFUNCTYPE(
 		ctypes.c_int, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_char_p, ctypes.c_int, ctypes.c_int
 	)
@@ -130,7 +158,7 @@ if libgpgme:
 			passphrase = hook
 			if passphrase.lower() == b"config":
 				if uid_hint:
-					print(f"User ID: {uid_hint.decode()}")
+					print("User ID: {}".format(uid_hint.decode()))
 				passphrase = configuration.config_pgp().encode()
 
 			buf = passphrase + b"\n"
@@ -162,13 +190,13 @@ if libgpgme:
 	gpgme.gpgme_op_keylist_start.argtypes = (ctypes.c_void_p, ctypes.c_char_p, ctypes.c_int)
 	gpgme.gpgme_op_keylist_start.restype = ctypes.c_uint
 
-	gpgme.gpgme_op_keylist_next.argtypes = (ctypes.c_void_p, ctypes.POINTER(gpgme_key_t))
+	gpgme.gpgme_op_keylist_next.argtypes = (ctypes.c_void_p, ctypes.POINTER(ctypes.POINTER(gpgme_key_t)))
 	gpgme.gpgme_op_keylist_next.restype = ctypes.c_uint
 
 	gpgme.gpgme_op_keylist_end.argtypes = (ctypes.c_void_p,)
 	gpgme.gpgme_op_keylist_end.restype = ctypes.c_uint
 
-	gpgme.gpgme_signers_add.argtypes = (ctypes.c_void_p, gpgme_key_t)
+	gpgme.gpgme_signers_add.argtypes = (ctypes.c_void_p, ctypes.POINTER(gpgme_key_t))
 	gpgme.gpgme_signers_add.restype = ctypes.c_uint
 
 	gpgme.gpgme_set_pinentry_mode.argtypes = (ctypes.c_void_p, ctypes.c_int)
@@ -189,10 +217,16 @@ if libgpgme:
 	gpgme.gpgme_op_sign.argtypes = (ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int)
 	gpgme.gpgme_op_sign.restype = ctypes.c_uint
 
+	gpgme.gpgme_op_sign_result.argtypes = (ctypes.c_void_p,)
+	gpgme.gpgme_op_sign_result.restype = ctypes.POINTER(gpgme_sign_result_t)
+
+	gpgme.gpgme_hash_algo_name.argtypes = (ctypes.c_uint,)
+	gpgme.gpgme_hash_algo_name.restype = ctypes.c_char_p
+
 	gpgme.gpgme_data_release.argtypes = (ctypes.c_void_p,)
 	# gpgme.gpgme_data_release.restype = None
 
-	gpgme.gpgme_key_unref.argtypes = (gpgme_key_t,)
+	gpgme.gpgme_key_unref.argtypes = (ctypes.POINTER(gpgme_key_t),)
 	# gpgme.gpgme_key_unref.restype = None
 
 	gpgme.gpgme_release.argtypes = (ctypes.c_void_p,)
@@ -231,88 +265,94 @@ def passphrase_checks(args, now, fromaddress):
 		msg = "Failed to create new context"
 		raise PGPError(msg)
 
-	if gpgme.gpgme_set_protocol(context, 0):  # GPGME_PROTOCOL_OpenPGP
-		msg = "Failed to set protocol to OpenPGP"
-		raise PGPError(msg)
+	try:
+		if gpgme.gpgme_set_protocol(context, 0):  # GPGME_PROTOCOL_OpenPGP
+			msg = "Failed to set protocol to OpenPGP"
+			raise PGPError(msg)
 
-	# check if GPG key exists
-	# ["gpg", "--pinentry-mode", "loopback", "--batch", "-o", os.devnull, "-ab", "-u", fromaddress, "--passphrase-fd", "0", f.name]
-	if gpgme.gpgme_op_keylist_start(context, fromaddress.encode(), 0):
-		msg = "Failed to start getting list of keys"
-		raise PGPError(msg)
+		# check if GPG key exists
+		# ("gpg", "--pinentry-mode", "loopback", "--batch", "-o", os.devnull, "-ab", "-u", fromaddress, "--passphrase-fd", "0", f.name)
+		if gpgme.gpgme_op_keylist_start(context, fromaddress.encode(), 0):
+			msg = "Failed to start getting list of keys"
+			raise PGPError(msg)
 
-	key = ctypes.POINTER(gpgme_key_t)()
+		key = ctypes.POINTER(gpgme_key_t)()
 
-	error = gpgme.gpgme_op_keylist_next(context, ctypes.byref(key))
-	if error:
-		if gpgme_err_code(error) == 16383:  # GPG_ERR_EOF
-			print(f"Error: A PGP key pair does not yet exist for {fromaddress!r}.", file=sys.stderr)
-			sys.exit(1)
-		msg = "Failed to get next key"
-		raise PGPError(msg)
+		error = gpgme.gpgme_op_keylist_next(context, ctypes.byref(key))
+		if error:
+			if gpgme_err_code(error) == 16383:  # GPG_ERR_EOF
+				msg = "A PGP key pair does not yet exist for {!r}.".format(fromaddress)
+				raise ValueError(msg)
+			msg = "Failed to get next key"
+			raise PGPError(msg)
 
-	if gpgme.gpgme_op_keylist_end(context):
-		msg = "Failed to stop getting list of keys"
-		raise PGPError(msg)
+		try:
+			if gpgme.gpgme_op_keylist_end(context):
+				msg = "Failed to stop getting list of keys"
+				raise PGPError(msg)
 
-	if gpgme.gpgme_signers_add(context, key):
-		msg = "Failed to add key to list of signers"
-		raise PGPError(msg)
+			if gpgme.gpgme_signers_add(context, key):
+				msg = "Failed to add key to list of signers"
+				raise PGPError(msg)
 
-	if gpgme.gpgme_set_pinentry_mode(context, 4):  # GPGME_PINENTRY_MODE_LOOPBACK
-		msg = "Failed to set pinentry mode"
-		raise PGPError(msg)
+			# check if GPG key will expire soon or has expired
+			# ("gpg", "-k", "--with-colons", fromaddress)
+			date = key.contents.subkeys.contents.expires
 
-	passphrase = args.passphrase.encode()
-	gpgme.gpgme_set_passphrase_cb(context, passphrase_callback, passphrase)
+			if date:
+				date = datetime.fromtimestamp(date)
+				# ("gpg", "--fingerprint", "--with-colons", fromaddress)
+				# keyid = key.contents.subkeys.contents.keyid.decode()
+				fingerprint = key.contents.subkeys.contents.fpr.decode()
 
-	gpgme.gpgme_set_armor(context, 1)
+				if date > now:
+					delta = date - now
+					if delta < timedelta(days=WARNDAYS):
+						logging.warning(
+							"The PGP key pair for %r with fingerprint %s expires in less than %s days %s.",
+							fromaddress,
+							fingerprint,
+							WARNDAYS,
+							date.strftime("%c"),
+						)
+				else:
+					msg = "The PGP key pair for {!r} with fingerprint {} expired {:%c}.".format(fromaddress, fingerprint, date)
+					raise ValueError(msg)
 
-	data = b"\n"
-	ain = ctypes.c_void_p()
-	if gpgme.gpgme_data_new_from_mem(ctypes.byref(ain), data, len(data), 0):
-		msg = "Failed to create data buffer"
-		raise PGPError(msg)
+			if gpgme.gpgme_set_pinentry_mode(context, 4):  # GPGME_PINENTRY_MODE_LOOPBACK
+				msg = "Failed to set pinentry mode"
+				raise PGPError(msg)
 
-	out = ctypes.c_void_p()
-	if gpgme.gpgme_data_new(ctypes.byref(out)):
-		msg = "Failed to create data buffer"
-		raise PGPError(msg)
+			passphrase = args.passphrase.encode()
+			gpgme.gpgme_set_passphrase_cb(context, passphrase_callback, passphrase)
 
-	error = gpgme.gpgme_op_sign(context, ain, out, 1)  # GPGME_SIG_MODE_DETACH
-	if error:
-		if gpgme_err_code(error) == 11:  # GPG_ERR_BAD_PASSPHRASE
-			print("Error: The passphrase was incorrect.", file=sys.stderr)
-			sys.exit(1)
-		msg = "Failed to sign message"
-		raise PGPError(msg)
+			gpgme.gpgme_set_armor(context, 1)
 
-	gpgme.gpgme_data_release(ain)
-	gpgme.gpgme_data_release(out)
+			data = b"\n"
+			ain = ctypes.c_void_p()
+			if gpgme.gpgme_data_new_from_mem(ctypes.byref(ain), data, len(data), 0):
+				msg = "Failed to create data buffer"
+				raise PGPError(msg)
 
-	# check if GPG key will expire soon or has expired
-	# ["gpg", "-k", "--with-colons", fromaddress]
-	date = key.contents.subkeys.contents.expires
+			out = ctypes.c_void_p()
+			if gpgme.gpgme_data_new(ctypes.byref(out)):
+				msg = "Failed to create data buffer"
+				raise PGPError(msg)
 
-	if date:
-		date = datetime.fromtimestamp(date)
-		# ["gpg", "--fingerprint", "--with-colons", fromaddress]
-		# keyid = key.contents.subkeys.contents.keyid.decode()
-		fingerprint = key.contents.subkeys.contents.fpr.decode()
+			error = gpgme.gpgme_op_sign(context, ain, out, 1)  # GPGME_SIG_MODE_DETACH
+			if error:
+				if gpgme_err_code(error) == 11:  # GPG_ERR_BAD_PASSPHRASE
+					msg = "The passphrase was incorrect."
+					raise ValueError(msg)
+				msg = "Failed to sign message"
+				raise PGPError(msg)
 
-		if date > now:
-			delta = date - now
-			warn = timedelta(days=WARNDAYS)
-			if delta < warn:
-				print(
-					f"Warning: The PGP key pair for {fromaddress!r} with fingerprint {fingerprint} expires in less than {WARNDAYS} days {date:%c}.\n"
-				)
-		else:
-			print(f"Error: The PGP key pair for {fromaddress!r} with fingerprint {fingerprint} expired {date:%c}.", file=sys.stderr)
-			sys.exit(1)
-
-	gpgme.gpgme_key_unref(key)
-	gpgme.gpgme_release(context)
+			gpgme.gpgme_data_release(ain)
+			gpgme.gpgme_data_release(out)
+		finally:
+			gpgme.gpgme_key_unref(key)
+	finally:
+		gpgme.gpgme_release(context)
 
 
 def pgp(args, fromaddress, lang):
@@ -331,75 +371,94 @@ def pgp(args, fromaddress, lang):
 		msg = "Failed to create new context"
 		raise PGPError(msg)
 
-	if gpgme.gpgme_set_protocol(context, 0):  # GPGME_PROTOCOL_OpenPGP
-		msg = "Failed to set protocol to OpenPGP"
-		raise PGPError(msg)
+	try:
+		if gpgme.gpgme_set_protocol(context, 0):  # GPGME_PROTOCOL_OpenPGP
+			msg = "Failed to set protocol to OpenPGP"
+			raise PGPError(msg)
 
-	# ["gpg", "--pinentry-mode", "loopback", "--batch", "-o", "-", "-ab", "-u", fromaddress, "--passphrase-fd", "0", f.name]
-	if gpgme.gpgme_op_keylist_start(context, fromaddress.encode(), 0):
-		msg = "Failed to start getting list of keys"
-		raise PGPError(msg)
+		# ("gpg", "--pinentry-mode", "loopback", "--batch", "-o", "-", "-ab", "-u", fromaddress, "--passphrase-fd", "0", f.name)
+		if gpgme.gpgme_op_keylist_start(context, fromaddress.encode(), 0):
+			msg = "Failed to start getting list of keys"
+			raise PGPError(msg)
 
-	key = ctypes.POINTER(gpgme_key_t)()
+		key = ctypes.POINTER(gpgme_key_t)()
 
-	if gpgme.gpgme_op_keylist_next(context, ctypes.byref(key)):
-		msg = "Failed to get next key"
-		raise PGPError(msg)
+		if gpgme.gpgme_op_keylist_next(context, ctypes.byref(key)):
+			msg = "Failed to get next key"
+			raise PGPError(msg)
 
-	if gpgme.gpgme_op_keylist_end(context):
-		msg = "Failed to stop getting list of keys"
-		raise PGPError(msg)
+		try:
+			if gpgme.gpgme_op_keylist_end(context):
+				msg = "Failed to stop getting list of keys"
+				raise PGPError(msg)
 
-	if gpgme.gpgme_signers_add(context, key):
-		msg = "Failed to add key to list of signers"
-		raise PGPError(msg)
+			if gpgme.gpgme_signers_add(context, key):
+				msg = "Failed to add key to list of signers"
+				raise PGPError(msg)
+		finally:
+			gpgme.gpgme_key_unref(key)
 
-	gpgme.gpgme_key_unref(key)
+		if gpgme.gpgme_set_pinentry_mode(context, 4):  # GPGME_PINENTRY_MODE_LOOPBACK
+			msg = "Failed to set pinentry mode"
+			raise PGPError(msg)
 
-	if gpgme.gpgme_set_pinentry_mode(context, 4):  # GPGME_PINENTRY_MODE_LOOPBACK
-		msg = "Failed to set pinentry mode"
-		raise PGPError(msg)
+		passphrase = args.passphrase.encode()
+		gpgme.gpgme_set_passphrase_cb(context, passphrase_callback, passphrase)
 
-	passphrase = args.passphrase.encode()
-	gpgme.gpgme_set_passphrase_cb(context, passphrase_callback, passphrase)
+		gpgme.gpgme_set_armor(context, 1)
 
-	gpgme.gpgme_set_armor(context, 1)
+		data = msg.as_bytes(policy=SMTP)
+		ain = ctypes.c_void_p()
+		if gpgme.gpgme_data_new_from_mem(ctypes.byref(ain), data, len(data), 0):
+			msg = "Failed to create data buffer"
+			raise PGPError(msg)
 
-	data = msg.as_bytes(policy=SMTP)
-	ain = ctypes.c_void_p()
-	if gpgme.gpgme_data_new_from_mem(ctypes.byref(ain), data, len(data), 0):
-		msg = "Failed to create data buffer"
-		raise PGPError(msg)
+		try:
+			out = ctypes.c_void_p()
+			if gpgme.gpgme_data_new(ctypes.byref(out)):
+				msg = "Failed to create data buffer"
+				raise PGPError(msg)
 
-	out = ctypes.c_void_p()
-	if gpgme.gpgme_data_new(ctypes.byref(out)):
-		msg = "Failed to create data buffer"
-		raise PGPError(msg)
+			try:
+				if gpgme.gpgme_op_sign(context, ain, out, 1):  # GPGME_SIG_MODE_DETACH
+					msg = "Failed to sign message"
+					raise PGPError(msg)
 
-	if gpgme.gpgme_op_sign(context, ain, out, 1):  # GPGME_SIG_MODE_DETACH
-		msg = "Failed to sign message"
-		raise PGPError(msg)
+				result = gpgme.gpgme_op_sign_result(context)
+				if not result:
+					msg = "gpgme_op_sign_result failed"
+					raise PGPError(msg)
 
-	if gpgme.gpgme_data_rewind(out):
-		raise PGPError
+				hash_name = gpgme.gpgme_hash_algo_name(result.contents.signatures.contents.hash_algo)
+				if not hash_name:
+					msg = "gpgme_hash_algo_name failed"
+					raise PGPError(msg)
 
-	buf = ctypes.create_string_buffer(1024)
-	pgp_sig = bytearray()
-	while True:
-		readbytes = gpgme.gpgme_data_read(out, buf, len(buf))
-		if readbytes <= 0:
-			break
-		pgp_sig.extend(buf[:readbytes])
+				if gpgme.gpgme_data_rewind(out):
+					raise PGPError
 
-	gpgme.gpgme_data_release(ain)
-	gpgme.gpgme_data_release(out)
-	gpgme.gpgme_release(context)
+				buf = ctypes.create_string_buffer(1024)
+				pgp_sig = bytearray()
+				with memoryview(buf) as view:
+					while True:
+						readbytes = gpgme.gpgme_data_read(out, buf, len(buf))
+						if readbytes <= 0:
+							break
+						pgp_sig.extend(view[:readbytes])
+			finally:
+				gpgme.gpgme_data_release(out)
+		finally:
+			gpgme.gpgme_data_release(ain)
+	finally:
+		gpgme.gpgme_release(context)
 
 	signmsg = EmailMessage()
 	signmsg.make_mixed()
 	signmsg.attach(msg)
 	signmsg.add_attachment(pgp_sig, maintype="application", subtype="pgp-signature", filename="signature.asc")
-	signmsg.replace_header("Content-Type", 'multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1')
+	signmsg.replace_header(
+		"Content-Type", 'multipart/signed; protocol="application/pgp-signature"; micalg=pgp-' + hash_name.lower().decode()
+	)
 
 	send.set_main_headers(args, signmsg)
 

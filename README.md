@@ -349,15 +349,16 @@ Bash:
 * Support inputting the message body from standard input (stdin)
 * Generate random boundary strings for multipart messages
 
-Python:
-* Do not create temporary files for performance and to reduce disk wear.
-
 Both:
 * Improve the performance
 * Support HTML formatted messages
 * Provide an option to automatically upload large files to an external storage service, such as [Send](https://send.vis.ee/) (provided by @timvisee, formerly Firefox Send) or [transfer.sh](https://transfer.sh)
 * Add tests
-* Support sending encrypted messages with S/MIME and PGP/MIME
-* Automatically renew the S/MIME certificate, as [certbot](https://certbot.eff.org/) does for [Let's Encrypt](https://letsencrypt.org/) certificates
+* Digitally sign all of the headers ([RFC 9788](https://datatracker.ietf.org/doc/html/rfc9788))
+* Support sending the [Autocrypt](https://en.wikipedia.org/wiki/Autocrypt) header
+* Support using [unobtrusive signatures](https://datatracker.ietf.org/doc/html/draft-ietf-mailmaint-unobtrusive-signatures)
+* Support digitally signing messages with S/MIME using GpgSM, in addition to OpenSSL
+* Support encrypting messages with S/MIME and PGP/MIME
+* Automatically renew the S/MIME certificate with the [Automatic Certificate Management Environment](https://en.wikipedia.org/wiki/Automatic_Certificate_Management_Environment) (ACME) protocol ([RFC 8823](https://datatracker.ietf.org/doc/html/rfc8823)), as [certbot](https://certbot.eff.org/) does for [Let's Encrypt](https://letsencrypt.org/) SSL/TLS certificates
 
 Thanks to [Daniel Connelly](https://github.com/Danc2050) for helping create the Feature comparison and test the Bash script!

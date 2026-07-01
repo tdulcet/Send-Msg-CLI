@@ -1,4 +1,5 @@
 import locale
+import logging
 import mimetypes
 import os
 import smtplib
@@ -20,6 +21,9 @@ import smime
 """
 
 context = ssl.create_default_context()
+context.options |= getattr(ssl, "OP_ENABLE_KTLS", 0x8)  # Python 3.12+
+
+TIMEOUT = 30
 
 
 def set_main_headers(args, message):
@@ -70,7 +74,7 @@ def send_normal(args, lang):
 
 def port465(args, message, host, port):
 	"""Log in to server using secure context from the onset and send email. This uses SSL/TLS."""
-	with smtplib.SMTP_SSL(host, port, context=context, timeout=30) as server:
+	with smtplib.SMTP_SSL(host, port, context=context, timeout=TIMEOUT) as server:
 		if args.verbose:
 			server.set_debuglevel(2)
 		if args.username:
@@ -82,7 +86,7 @@ def port465(args, message, host, port):
 
 def port25(args, message, host, port):
 	"""Create an unsecured connection, then secure it, and then send email. This uses startTLS."""
-	with smtplib.SMTP(host, port, timeout=30) as server:
+	with smtplib.SMTP(host, port, timeout=TIMEOUT) as server:
 		if args.verbose:
 			server.set_debuglevel(2)
 		if args.starttls:
@@ -123,21 +127,21 @@ def sendEmail(args, fromaddress, host, port):
 			port25(args, message, host, port)
 
 	except socket.timeout as e:
-		print(f"{type(e).__name__}: {e}")
-		print(
+		logging.error("%s: %s", type(e).__name__, e)
+		logging.error(
 			"Connection timed out when trying to connect. Please verify the server is up or you entered the correct port number for the SMTP server."
 		)
-		sys.exit(2)
+		raise
 	except smtplib.SMTPHeloError as e:
-		print(f"{type(e).__name__}: {e}")
-		print("Server did not reply. You may have Port 25 blocked on your host machine.")
-		sys.exit(2)
+		logging.error("%s: %s", type(e).__name__, e)
+		logging.error("Server did not reply. You may have Port 25 blocked on your host machine.")
+		raise
 	except smtplib.SMTPAuthenticationError as e:
-		print(f"{type(e).__name__}: {e}")
-		print(
+		logging.error("%s: %s", type(e).__name__, e)
+		logging.error(
 			"Incorrect username/password combination or, if you are using Gmail, you may need to lower the security settings or login from this computer (see the README.md for more information)."
 		)
-		sys.exit(2)
+		raise
 	except (OSError, ssl.CertificateError, smtplib.SMTPException) as e:
-		print(f"{type(e).__name__}: {e}")
-		sys.exit(2)
+		logging.error("%s: %s", type(e).__name__, e)
+		raise

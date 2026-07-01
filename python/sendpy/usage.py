@@ -1,3 +1,4 @@
+import sys
 from itertools import starmap
 
 """Copyright © Daniel Connelly and Teal Dulcet.
@@ -13,13 +14,14 @@ def format_attachment_output(rows):
 	Also used for printing out our help menus found in usage.py.
 	"""
 	lens = [max(map(len, col)) for col in zip(*rows)]
-	aformat = "  ".join(f"{{:<{alen}}}" for alen in lens)
+	aformat = "  ".join("{{:<{}}}".format(alen) for alen in lens)
 	print("\n".join(starmap(aformat.format, rows)))
 
 
 def examples(programname):
 	"""Print examples of how to use this program."""
-	print(f"""Sendpy Examples (assumes config file is used):
+	print(
+		"""Sendpy Examples (assumes configuration file is used):
     Send e-mail
     $ {programname} --subject "Example" --to "User <user@example.com>"
 
@@ -35,7 +37,7 @@ def examples(programname):
     Send e-mail to a CC address
     $ {programname} --subject "Example" --to "User 1 <user1@example.com>" --cc "User 2 <user2@example.com>"
 
-    Set config file with external SMTP server
+    Set configuration file with external SMTP server
     $ {programname} --from "Example <example@example.com>" --smtp "mail.example.com" --tls --username "example" --config
 
     Send high priority e-mail
@@ -46,7 +48,9 @@ def examples(programname):
 
     Send e-mail digitally signed with PGP/MIME
     $ {programname} --subject "Example" --passphrase "config" --to "User <user@example.com>"
-""")
+""".format(programname=programname),
+		file=sys.stderr,
+	)
 
 
 def carriers():

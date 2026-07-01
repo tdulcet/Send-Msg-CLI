@@ -445,8 +445,8 @@ if [[ -n $CERT ]]; then
 	fi
 
 	# if ! output=$(openssl verify -verify_email "$FROMADDRESS" "$CLIENTCERT" 2>/dev/null); then
-		# echo "Error verifying the S/MIME Certificate: $output" >&2
-		# exit 1
+	# 	echo "Error verifying the S/MIME Certificate: $output" >&2
+	# 	exit 1
 	# fi
 
 	if aissuer=$(openssl x509 -in "$CLIENTCERT" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq); then
@@ -575,15 +575,15 @@ ${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
 							echo -e -n "$2" | base64
 						fi
 					fi | if [[ -n $CERT ]]; then
-						openssl cms -sign -signer "$CLIENTCERT"
+						openssl cms -sign -signer "$CLIENTCERT" -md sha256
 					elif [[ -n $PASSPHRASE ]]; then
 						boundary="----MULTIPART-SIGNED-BOUNDARY"
 						echo "MIME-Version: 1.0
-Content-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"${boundary}\"
+Content-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha256; boundary=\"${boundary}\"
 
 --${boundary}"
 						tee >(
-							signature=$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(sed 's/$/\r/'))
+							signature=$(gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --digest-algo SHA256 --passphrase-fd 0 <(sed 's/$/\r/') <<<"$PASSPHRASE")
 							echo "
 --${boundary}
 Content-Type: application/pgp-signature; name=\"signature.asc\"

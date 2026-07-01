@@ -4,6 +4,7 @@ import argparse
 import atexit
 import codecs
 import locale
+import logging
 import os
 import re
 import socket
@@ -12,6 +13,7 @@ import sys
 import zipfile
 from datetime import datetime
 from email.utils import parseaddr
+from urllib.parse import urlparse
 
 if __name__ == "__main__":
 	# The script is being run directly, use absolute imports
@@ -143,8 +145,6 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-NOW = datetime.now()
-
 escape_sequence_re = re.compile(r"\\U[0-9a-fA-F]{1,8}|\\u[0-9a-fA-F]{1,4}|\\x[0-9a-fA-F]{1,2}")
 ESCAPE_SEQUENCE_RE = re.compile(
 	r"""(\\U[0-9a-fA-F]{8}|\\u[0-9a-fA-F]{4}|\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\N\{[^}]+\}|\\[\\'"abfnrtv])"""
@@ -174,25 +174,29 @@ def configuration_assignment():
 	"""
 	# make file with appropriate fields if file does not exist
 	if not args.smtp or not args.fromemail:
-		args.smtp, args.tls, args.starttls, args.fromemail, args.username, args.password = configuration.return_config(args)
+		config = configuration.return_config(args)
+		if not config:
+			print(
+				"The SMTP server and from e-mail address are not provided and not set in the configuration file. Please provide the --smtp and --from options or set the configuration file with the --config option.",
+				file=sys.stderr,
+			)
+			sys.exit(1)
+		args.smtp, args.tls, args.starttls, args.fromemail, args.username, args.password = config
 
 	if args.tls and args.starttls:
 		parser.error("Cannot use both SSL/TLS and StartTLS.")
 
-	host = args.smtp
-	port = 0
-	res = host.rsplit(":", 1)
-	if len(res) == 2:
-		host, port = res
-		port = int(port)
+	url = urlparse("")._replace(netloc=args.smtp)
+	host = url.hostname
+	port = url.port or 0
 
 	if not args.tls and (not port or port == 25):
 		with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
 			sock.settimeout(5)
 			# testing connection as computer may not block port 25, but ISP/Cloud provider may.
 			if sock.connect_ex(("aspmx.l.google.com", 25)):
-				print(
-					"Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to specify a port for the SMTP server in order to send e-mails.\n"
+				logging.warning(
+					"Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to specify a port for the SMTP server in order to send e-mails."
 				)
 
 	return host, port
@@ -206,7 +210,7 @@ def parse_assign():
 		sys.exit(0)
 
 	if args.examples:
-		usage.examples(os.path.basename(sys.argv[0]))
+		usage.examples(sys.argv[0])
 		sys.exit(0)
 
 	if args.gateways:
@@ -230,14 +234,14 @@ def parse_assign():
 			with open(expanded_file, encoding="utf-8") as f:
 				args.message += decode_escapes(f.read())
 		else:
-			parser.error(f"{expanded_file!r} file does not exist.")
+			parser.error("{!r} file does not exist.".format(expanded_file))
 
 	if args.notify:
 		with subprocess.Popen(
 			args.notify, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True
 		) as p:
 			stdout, _ = p.communicate()
-			args.message += f"\n**EXIT CODE**:\n{p.returncode}\n**OUTPUT**:\n{stdout}\n"
+			args.message += "\n**EXIT CODE**:\n{}\n**OUTPUT**:\n{}\n".format(p.returncode, stdout)
 
 	args.subject = decode_escapes(args.subject)
 
@@ -261,14 +265,14 @@ def convert_bytes(number, scale=False):
 	anumber += 0.0005 if anumber < 10 else 0.005 if anumber < 100 else 0.05 if anumber < 1000 else 0.5
 
 	if number and anumber < 1000 and power > 0:
-		strm = f"{number:.{sys.float_info.dig}g}"
+		strm = "{:.{prec}g}".format(number, prec=sys.float_info.dig)
 
 		length = 5 + (number < 0)
 		if len(strm) > length:
 			prec = 3 if anumber < 10 else 2 if anumber < 100 else 1
-			strm = f"{number:.{prec}f}"
+			strm = "{:.{prec}f}".format(number, prec=prec)
 	else:
-		strm = f"{number:.0f}"
+		strm = "{:.0f}".format(number)
 
 	# "k" if power == 1 and scale else
 	strm += suffix_power_char[power] if power < len(suffix_power_char) else "(error)"
@@ -289,11 +293,11 @@ def attachment_work():
 
 		for attachment in args.attachments:
 			if not attachment or not os.path.exists(attachment):
-				parser.error(f"Cannot read {attachment!r} file.")
+				parser.error("Cannot read {!r} file.".format(attachment))
 
 		if args.zipfile:
 			if os.path.exists(args.zipfile):
-				parser.error(f"File {args.zipfile!r} already exists.")
+				parser.error("File {!r} already exists.".format(args.zipfile))
 
 			atexit.register(os.remove, args.zipfile)
 
@@ -308,14 +312,18 @@ def attachment_work():
 		for attachment in args.attachments:
 			size = os.path.getsize(attachment)
 			total += size
-			rows.append((attachment, convert_bytes(size, False), f"({convert_bytes(size, True)})" if size >= 1000 else ""))
+			rows.append((attachment, convert_bytes(size, False), "({})".format(convert_bytes(size, True)) if size >= 1000 else ""))
 		usage.format_attachment_output(rows)
 
-		print(f"\nTotal Size:\t{convert_bytes(total, False)}\t{f'({convert_bytes(total, True)})' if total >= 1000 else ''}\n")
+		print(
+			"\nTotal Size:\t{}\t{}\n".format(
+				convert_bytes(total, False), "({})".format(convert_bytes(total, True)) if total >= 1000 else ""
+			)
+		)
 
 		if total >= 25 * 1024 * 1024:
-			print(
-				"Warning: The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Send: https://send.vis.ee/ (formerly Firefox Send) or transfer.sh: https://transfer.sh\n"
+			logging.warning(
+				"The total size of all attachments is greater than 25 MiB. The message may be rejected by your or the recipient's mail server. You may want to upload large files to an external storage service, such as Send: https://send.vis.ee/ (formerly Firefox Send) or transfer.sh: https://transfer.sh"
 			)
 
 
@@ -327,32 +335,34 @@ def email_work():
 		_, address = parseaddr(toemail)
 		temp = address or toemail
 		if not EMAIL_RE.match(temp):
-			parser.error(f"{temp!r} is not a valid e-mail address.")
+			parser.error("{!r} is not a valid e-mail address.".format(temp))
 
 	for ccemail in args.ccemails:
 		# result = RE.match(ccemail)
 		_, address = parseaddr(ccemail)
 		temp = address or ccemail
 		if not EMAIL_RE.match(temp):
-			parser.error(f"{temp!r} is not a valid e-mail address.")
+			parser.error("{!r} is not a valid e-mail address.".format(temp))
 
 	for bccemail in args.bccemails:
 		# result = RE.match(bccemail)
 		_, address = parseaddr(bccemail)
 		temp = address or bccemail
 		if not EMAIL_RE.match(temp):
-			parser.error(f"{temp!r} is not a valid e-mail address.")
+			parser.error("{!r} is not a valid e-mail address.".format(temp))
 
 	# result = RE.match(args.fromemail)
 	_, fromaddress = parseaddr(args.fromemail)
 	temp = fromaddress or args.fromemail
 	if not EMAIL_RE.match(temp):
-		parser.error(f"{temp!r} is not a valid e-mail address.")
+		parser.error("{!r} is not a valid e-mail address.".format(temp))
 
 	return fromaddress
 
 
 def main():
+	now = datetime.now()
+
 	# parsing/assignment
 	parse_assign()
 	# use default configuration if nothing was put on the CMDline
@@ -364,13 +374,13 @@ def main():
 
 	# signing/signing checks
 	if args.cert:
-		smime.cert_checks(args, NOW)
+		smime.cert_checks(args, now)
 
 	if args.passphrase:
-		pgp.passphrase_checks(args, NOW, fromaddress)
+		pgp.passphrase_checks(args, now, fromaddress)
 
 	if args.cert and args.passphrase:
-		print("Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n")
+		logging.warning("You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.")
 
 	# sending
 	sendEmail(args, fromaddress, host, port)
